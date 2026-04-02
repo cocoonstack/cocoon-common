@@ -47,13 +47,13 @@ func TestStatusMergePatch(t *testing.T) {
 	}
 }
 
-func TestMetadataAnnotationsMergePatch(t *testing.T) {
-	data, err := MetadataAnnotationsMergePatch(map[string]any{
+func TestAnnotationsMergePatch(t *testing.T) {
+	data, err := AnnotationsMergePatch(map[string]any{
 		"cocoon.cis/hibernate": nil,
 		"cocoon.cis/vm-name":   "vk-demo-0",
 	})
 	if err != nil {
-		t.Fatalf("MetadataAnnotationsMergePatch returned error: %v", err)
+		t.Fatalf("AnnotationsMergePatch returned error: %v", err)
 	}
 
 	var patch struct {

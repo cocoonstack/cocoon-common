@@ -48,7 +48,7 @@ func HasCocoonToleration(tolerations []corev1.Toleration) bool {
 	return false
 }
 
-func DeploymentNameFromOwnerRefs(ownerRefs []metav1.OwnerReference) string {
+func OwnerDeploymentName(ownerRefs []metav1.OwnerReference) string {
 	for _, ref := range ownerRefs {
 		if ref.Kind != "ReplicaSet" {
 			continue

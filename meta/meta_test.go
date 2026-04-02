@@ -55,11 +55,11 @@ func TestConnectionType(t *testing.T) {
 	}
 }
 
-func TestDeploymentNameFromOwnerRefs(t *testing.T) {
+func TestOwnerDeploymentName(t *testing.T) {
 	ownerRefs := []metav1.OwnerReference{
 		{Kind: "ReplicaSet", Name: "demo-7b7c9d9d5f"},
 	}
-	if got := DeploymentNameFromOwnerRefs(ownerRefs); got != "demo" {
+	if got := OwnerDeploymentName(ownerRefs); got != "demo" {
 		t.Fatalf("deployment name mismatch: got %q", got)
 	}
 }
