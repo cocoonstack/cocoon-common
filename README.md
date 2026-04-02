@@ -66,7 +66,6 @@ make help           # show all targets
 | [cocoon-operator](https://github.com/cocoonstack/cocoon-operator) | CocoonSet and Hibernation controllers |
 | [cocoon-webhook](https://github.com/cocoonstack/cocoon-webhook) | Admission webhook for sticky scheduling |
 | [epoch](https://github.com/cocoonstack/epoch) | Snapshot registry and storage backend |
-| [glance](https://github.com/cocoonstack/glance) | Browser dashboard for Cocoon VMs |
 | [vk-cocoon](https://github.com/cocoonstack/vk-cocoon) | Virtual kubelet provider |
 
 ## License
