@@ -8,7 +8,23 @@ Shared Go packages for [cocoonstack](https://github.com/cocoonstack) services.
 - `k8s` -- Kubernetes client config bootstrap with the standard kubeconfig fallback chain
 - `log` -- common log setup for cocoonstack binaries using `projecteru2/core/log`
 
-This repository exists to keep cross-project contracts in one place instead of re-exporting them from `cocoon-operator`. `cocoon-webhook`, `glance`, `vk-cocoon`, and `cocoon-operator` all consume the same package set directly.
+This repository keeps cross-project contracts in one place instead of re-exporting them from `cocoon-operator`. `cocoon-operator`, `cocoon-webhook`, `glance`, and `vk-cocoon` all consume the same package set directly.
+
+## Installation
+
+### Add dependency
+
+```bash
+go get github.com/cocoonstack/cocoon-common@latest
+```
+
+### Build from source
+
+```bash
+git clone https://github.com/cocoonstack/cocoon-common.git
+cd cocoon-common
+make build
+```
 
 ## Packages
 
@@ -36,11 +52,11 @@ Use `log.Setup(ctx, envVar)` to initialize the shared logger from an environment
 ## Development
 
 ```bash
-make build
-make test
-make lint
-make fmt
-make help
+make build          # build all packages
+make test           # run tests with coverage
+make lint           # run golangci-lint
+make fmt            # format code
+make help           # show all targets
 ```
 
 ## Related Projects
@@ -49,10 +65,10 @@ make help
 |---|---|
 | [cocoon-operator](https://github.com/cocoonstack/cocoon-operator) | CocoonSet and Hibernation controllers |
 | [cocoon-webhook](https://github.com/cocoonstack/cocoon-webhook) | Admission webhook for sticky scheduling |
+| [epoch](https://github.com/cocoonstack/epoch) | Snapshot registry and storage backend |
 | [glance](https://github.com/cocoonstack/glance) | Browser dashboard for Cocoon VMs |
 | [vk-cocoon](https://github.com/cocoonstack/vk-cocoon) | Virtual kubelet provider |
 
 ## License
 
 [MIT](LICENSE)
-
