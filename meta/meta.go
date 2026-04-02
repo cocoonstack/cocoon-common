@@ -39,6 +39,7 @@ const (
 	RoleToolbox  = "toolbox"
 )
 
+// HasCocoonToleration reports whether any toleration matches the virtual-kubelet provider key.
 func HasCocoonToleration(tolerations []corev1.Toleration) bool {
 	for _, tol := range tolerations {
 		if tol.Key == TolerationKey {
@@ -48,6 +49,7 @@ func HasCocoonToleration(tolerations []corev1.Toleration) bool {
 	return false
 }
 
+// OwnerDeploymentName extracts the deployment name from a ReplicaSet owner reference.
 func OwnerDeploymentName(ownerRefs []metav1.OwnerReference) string {
 	for _, ref := range ownerRefs {
 		if ref.Kind != "ReplicaSet" {
@@ -61,14 +63,17 @@ func OwnerDeploymentName(ownerRefs []metav1.OwnerReference) string {
 	return ""
 }
 
+// VMNameForDeployment builds a deterministic VM name for a deployment slot.
 func VMNameForDeployment(namespace, deployment string, slot int) string {
 	return fmt.Sprintf("vk-%s-%s-%d", namespace, deployment, slot)
 }
 
+// VMNameForPod builds a deterministic VM name for a standalone pod.
 func VMNameForPod(namespace, podName string) string {
 	return fmt.Sprintf("vk-%s-%s", namespace, podName)
 }
 
+// ExtractSlotFromVMName parses the trailing slot index from a VM name, returning -1 if absent.
 func ExtractSlotFromVMName(vmName string) int {
 	idx := strings.LastIndex(vmName, "-")
 	if idx < 0 {
@@ -81,6 +86,7 @@ func ExtractSlotFromVMName(vmName string) int {
 	return n
 }
 
+// MainAgentVMName replaces the slot suffix with 0 to derive the main agent name.
 func MainAgentVMName(vmName string) string {
 	idx := strings.LastIndex(vmName, "-")
 	if idx < 0 {
@@ -89,6 +95,7 @@ func MainAgentVMName(vmName string) string {
 	return vmName[:idx] + "-0"
 }
 
+// InferRoleFromVMName determines the role (main or sub-agent) based on the VM name slot.
 func InferRoleFromVMName(vmName string) string {
 	if ExtractSlotFromVMName(vmName) == 0 {
 		return RoleMain
@@ -96,6 +103,7 @@ func InferRoleFromVMName(vmName string) string {
 	return RoleSubAgent
 }
 
+// ConnectionType returns the preferred connection protocol for the given OS and VNC availability.
 func ConnectionType(osType string, hasVNCPort bool) string {
 	switch {
 	case hasVNCPort:

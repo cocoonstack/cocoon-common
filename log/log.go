@@ -17,6 +17,6 @@ func Setup(ctx context.Context, envVar string) {
 		level = "info"
 	}
 	if err := corelog.SetupLog(ctx, &types.ServerLogConfig{Level: level}, ""); err != nil {
-		corelog.WithFunc("cocooncommon.log.Setup").Fatalf(ctx, err, "setup log: %v", err)
+		corelog.WithFunc("cocooncommon.log.Setup").Fatalf(ctx, err, "setup log")
 	}
 }

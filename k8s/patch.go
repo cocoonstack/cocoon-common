@@ -2,10 +2,6 @@ package k8s
 
 import "encoding/json"
 
-func marshalMergePatch(payload any) ([]byte, error) {
-	return json.Marshal(payload)
-}
-
 // StatusMergePatch builds a merge patch for a status subresource update.
 func StatusMergePatch(status any) ([]byte, error) {
 	return marshalMergePatch(map[string]any{"status": status})
@@ -18,4 +14,8 @@ func AnnotationsMergePatch(annotations map[string]any) ([]byte, error) {
 			"annotations": annotations,
 		},
 	})
+}
+
+func marshalMergePatch(payload any) ([]byte, error) {
+	return json.Marshal(payload)
 }
