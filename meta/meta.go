@@ -11,7 +11,6 @@
 package meta
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -47,6 +46,14 @@ const (
 	RoleMain     = "main"
 	RoleSubAgent = "sub-agent"
 	RoleToolbox  = "toolbox"
+
+	// Connection protocol identifiers returned by ConnectionType.
+	// Sharing them as constants keeps callers (operator status,
+	// glance, vk-cocoon) and the function in lock-step.
+	ConnTypeVNC = "vnc"
+	ConnTypeADB = "adb"
+	ConnTypeRDP = "rdp"
+	ConnTypeSSH = "ssh"
 )
 
 // HasCocoonToleration reports whether any toleration matches the virtual-kubelet provider key.
@@ -76,12 +83,13 @@ func OwnerDeploymentName(ownerRefs []metav1.OwnerReference) string {
 
 // VMNameForDeployment builds a deterministic VM name for a deployment slot.
 func VMNameForDeployment(namespace, deployment string, slot int) string {
-	return fmt.Sprintf("vk-%s-%s-%d", namespace, deployment, slot)
+	// Concat is two allocations cheaper than fmt.Sprintf on this hot path.
+	return "vk-" + namespace + "-" + deployment + "-" + strconv.Itoa(slot)
 }
 
 // VMNameForPod builds a deterministic VM name for a standalone pod.
 func VMNameForPod(namespace, podName string) string {
-	return fmt.Sprintf("vk-%s-%s", namespace, podName)
+	return "vk-" + namespace + "-" + podName
 }
 
 // ExtractSlotFromVMName parses the trailing slot index from a VM name, returning -1 if absent.
@@ -114,16 +122,17 @@ func InferRoleFromVMName(vmName string) string {
 	return RoleSubAgent
 }
 
-// ConnectionType returns the preferred connection protocol for the given OS and VNC availability.
+// ConnectionType returns the preferred connection protocol for the
+// given OS and VNC availability.
 func ConnectionType(osType string, hasVNCPort bool) string {
 	switch {
 	case hasVNCPort:
-		return "vnc"
+		return ConnTypeVNC
 	case osType == "android":
-		return "adb"
+		return ConnTypeADB
 	case osType == "windows":
-		return "rdp"
+		return ConnTypeRDP
 	default:
-		return "ssh"
+		return ConnTypeSSH
 	}
 }

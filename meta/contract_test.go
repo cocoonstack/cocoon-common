@@ -65,6 +65,22 @@ func TestParseVMSpecNilPod(t *testing.T) {
 	}
 }
 
+func TestParseVMRuntimeNilPod(t *testing.T) {
+	if got := ParseVMRuntime(nil); got != (VMRuntime{}) {
+		t.Errorf("ParseVMRuntime(nil) = %+v, want zero", got)
+	}
+}
+
+func TestVMSpecApplyManagedFalseDoesNotClobber(t *testing.T) {
+	pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{
+		AnnotationManaged: annotationTrue,
+	}}}
+	VMSpec{VMName: "vk-x-0", Managed: false}.Apply(pod)
+	if got := pod.Annotations[AnnotationManaged]; got != annotationTrue {
+		t.Errorf("Managed=false must not clear an existing managed annotation, got %q", got)
+	}
+}
+
 func TestVMRuntimeApplyAndParse(t *testing.T) {
 	pod := &corev1.Pod{}
 	r := VMRuntime{VMID: "qemu-1234", IP: "10.88.100.7", VNCPort: 5901}
@@ -98,9 +114,22 @@ func TestVMRuntimeApplyNilPod(t *testing.T) {
 func TestHibernateStateApplyTrue(t *testing.T) {
 	pod := &corev1.Pod{}
 	HibernateState(true).Apply(pod)
-	if pod.Annotations[AnnotationHibernate] != "true" {
-		t.Errorf("HibernateState(true) should set %s=true", AnnotationHibernate)
+	if pod.Annotations[AnnotationHibernate] != annotationTrue {
+		t.Errorf("HibernateState(true) should set %s=%s", AnnotationHibernate, annotationTrue)
 	}
+}
+
+func TestHibernateStateApplyFalseOnNilAnnotations(t *testing.T) {
+	pod := &corev1.Pod{} // pod.Annotations is nil
+	// delete on a nil map must not panic.
+	HibernateState(false).Apply(pod)
+	if got, ok := pod.Annotations[AnnotationHibernate]; ok {
+		t.Errorf("HibernateState(false) on nil annotations should remain absent, got %q", got)
+	}
+}
+
+func TestHibernateStateApplyFalseNilPod(t *testing.T) {
+	HibernateState(false).Apply(nil) // must not panic
 }
 
 func TestHibernateStateApplyFalseRemoves(t *testing.T) {

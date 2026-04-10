@@ -32,9 +32,15 @@ type VMSpec struct {
 	Managed        bool
 }
 
-// Apply writes the VMSpec into a pod's annotation map. If the map is
-// nil it allocates one. Empty fields are skipped so callers can layer
-// partial updates without clobbering existing values.
+// Apply writes the VMSpec into a pod's annotation map. If the map
+// is nil it allocates one. Empty fields are skipped so callers can
+// layer partial updates without clobbering existing values.
+//
+// Limitation: because empty values are skipped, Apply cannot
+// *clear* a previously set field. To remove an annotation use
+// delete(pod.Annotations, meta.Annotation*) directly. The Managed
+// flag follows the same rule — Managed=false on a pod that already
+// has the managed annotation will not remove it.
 func (s VMSpec) Apply(pod *corev1.Pod) {
 	if pod == nil {
 		return

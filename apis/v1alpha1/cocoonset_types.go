@@ -157,58 +157,32 @@ type CocoonSetStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
 }
 
-// AgentStatus is the per-agent runtime state.
+// AgentStatus is the per-agent runtime state. Slot 0 is always the
+// main agent; ForkedFrom is set only for sub-agents and points at
+// the main VM they cloned from.
 type AgentStatus struct {
-	// Slot is the agent index. Slot 0 is always the main agent.
-	Slot int32 `json:"slot"`
-
-	// Role is "main" or "sub-agent".
-	Role string `json:"role"`
-
-	// PodName is the backing pod's name.
-	PodName string `json:"podName,omitempty"`
-
-	// VMName is the deterministic VM name vk-cocoon uses.
-	VMName string `json:"vmName,omitempty"`
-
-	// VMID is the runtime VM identifier reported by vk-cocoon.
-	VMID string `json:"vmID,omitempty"`
-
-	// IP is the VM's primary IP address.
-	IP string `json:"ip,omitempty"`
-
-	// Phase mirrors the backing pod's phase.
-	Phase string `json:"phase,omitempty"`
-
-	// ForkedFrom is the parent main VM name (sub-agents only).
+	Slot       int32  `json:"slot"`
+	Role       string `json:"role"`
+	PodName    string `json:"podName,omitempty"`
+	VMName     string `json:"vmName,omitempty"`
+	VMID       string `json:"vmID,omitempty"`
+	IP         string `json:"ip,omitempty"`
+	Phase      string `json:"phase,omitempty"`
 	ForkedFrom string `json:"forkedFrom,omitempty"`
 }
 
-// ToolboxStatus is the per-toolbox runtime state.
+// ToolboxStatus is the per-toolbox runtime state. ConnType is the
+// preferred kubectl-style connection protocol picked by
+// meta.ConnectionType (ssh / rdp / adb / vnc).
 type ToolboxStatus struct {
-	// Name matches the spec entry.
-	Name string `json:"name"`
-
-	// PodName is the backing pod's name.
-	PodName string `json:"podName,omitempty"`
-
-	// VMName is the deterministic VM name vk-cocoon uses.
-	VMName string `json:"vmName,omitempty"`
-
-	// VMID is the runtime VM identifier reported by vk-cocoon.
-	VMID string `json:"vmID,omitempty"`
-
-	// IP is the toolbox VM's primary IP address.
-	IP string `json:"ip,omitempty"`
-
-	// Phase mirrors the backing pod's phase.
-	Phase string `json:"phase,omitempty"`
-
-	// ConnType is the preferred connection protocol (ssh / rdp / adb / vnc).
+	Name     string `json:"name"`
+	PodName  string `json:"podName,omitempty"`
+	VMName   string `json:"vmName,omitempty"`
+	VMID     string `json:"vmID,omitempty"`
+	IP       string `json:"ip,omitempty"`
+	Phase    string `json:"phase,omitempty"`
 	ConnType string `json:"connType,omitempty"`
-
-	// VNCPort mirrors the spec when VNC access is configured.
-	VNCPort int32 `json:"vncPort,omitempty"`
+	VNCPort  int32  `json:"vncPort,omitempty"`
 }
 
 // +kubebuilder:object:root=true
