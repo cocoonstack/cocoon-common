@@ -3,4 +3,7 @@ dist/
 *.out
 *.test
 coverage.out
-
+coverage.html
+test-output/
+.idea/
+.vscode/
