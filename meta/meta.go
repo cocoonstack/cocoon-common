@@ -33,6 +33,10 @@ const (
 	// vk-cocoon to know which node the binary is registering as.
 	LabelNodePool = "cocoonstack.io/pool"
 
+	// DefaultNodePool is the cocoon-pool name used when a CocoonSet
+	// (or pod) does not specify one explicitly.
+	DefaultNodePool = "default"
+
 	// LabelManagedBy is the standard k8s "app.kubernetes.io/managed-by"
 	// key the cocoonstack components stamp on resources they own
 	// (per-pool affinity ConfigMaps, etc.) so cleanup tooling can

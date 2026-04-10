@@ -17,6 +17,16 @@ func (m AgentMode) IsValid() bool {
 	return m == AgentModeClone || m == AgentModeRun
 }
 
+// Default returns m when set, otherwise the canonical default
+// (AgentModeClone). Centralizing the fallback here keeps the
+// webhook, operator and vk-cocoon in lock-step.
+func (m AgentMode) Default() AgentMode {
+	if m == "" {
+		return AgentModeClone
+	}
+	return m
+}
+
 // ToolboxMode controls how a toolbox VM is brought up.
 //
 // +kubebuilder:validation:Enum=run;clone;static
@@ -37,6 +47,14 @@ func (m ToolboxMode) IsValid() bool {
 	return m == ToolboxModeRun || m == ToolboxModeClone || m == ToolboxModeStatic
 }
 
+// Default returns m when set, otherwise ToolboxModeRun.
+func (m ToolboxMode) Default() ToolboxMode {
+	if m == "" {
+		return ToolboxModeRun
+	}
+	return m
+}
+
 // OSType is the guest operating system family.
 //
 // +kubebuilder:validation:Enum=linux;windows;android
@@ -51,6 +69,14 @@ const (
 // IsValid reports whether o is one of the recognized OSType values.
 func (o OSType) IsValid() bool {
 	return o == OSLinux || o == OSWindows || o == OSAndroid
+}
+
+// Default returns o when set, otherwise OSLinux.
+func (o OSType) Default() OSType {
+	if o == "" {
+		return OSLinux
+	}
+	return o
 }
 
 // SnapshotPolicy controls when vk-cocoon takes snapshots.
@@ -70,6 +96,14 @@ const (
 // IsValid reports whether p is one of the recognized SnapshotPolicy values.
 func (p SnapshotPolicy) IsValid() bool {
 	return p == SnapshotPolicyAlways || p == SnapshotPolicyMainOnly || p == SnapshotPolicyNever
+}
+
+// Default returns p when set, otherwise SnapshotPolicyAlways.
+func (p SnapshotPolicy) Default() SnapshotPolicy {
+	if p == "" {
+		return SnapshotPolicyAlways
+	}
+	return p
 }
 
 // CocoonSetPhase is the high-level lifecycle phase reported in status.
