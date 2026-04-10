@@ -66,6 +66,11 @@ linters:
           - unparam
           - goconst
           - gocyclo
+      # The apis/v1alpha1 package follows the kubebuilder convention of
+      # registering types via init() into a SchemeBuilder.
+      - path: apis/v1alpha1/.*\.go
+        linters:
+          - gochecknoinits
 
 formatters:
   enable:

@@ -1,7 +1,11 @@
-.PHONY: all build test lint vet fmt fmt-check deps clean coverage cloc help
+.PHONY: all build test lint vet fmt fmt-check deps generate manifests clean coverage cloc help
 
 REPO_PATH := github.com/cocoonstack/cocoon-common
 GOIMPORTS_LOCAL_PREFIXES := $(REPO_PATH)
+
+## controller-gen is pinned in hack/tools.go via the build tag pattern,
+## so it is reproducible from go.sum without a separate binary download.
+CONTROLLER_GEN := go run sigs.k8s.io/controller-tools/cmd/controller-gen
 
 ## Target OSes for vet / lint
 GOOSES ?= linux darwin
@@ -35,10 +39,16 @@ goimports: $(GOIMPORTS)
 $(GOIMPORTS): | $(LOCALBIN)
 	GOBIN=$(LOCALBIN) go install golang.org/x/tools/cmd/goimports@latest
 
-all: deps fmt lint test build ## Full pipeline: deps, fmt, lint, test, build
+all: deps generate manifests fmt lint test build ## Full pipeline: deps, generate, manifests, fmt, lint, test, build
 
 deps: ## Tidy Go modules
 	go mod tidy
+
+generate: ## Generate deepcopy methods for api types
+	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./apis/..."
+
+manifests: ## Generate CRD YAML manifests for api types
+	$(CONTROLLER_GEN) crd paths="./apis/..." output:crd:dir=./apis/v1alpha1/crds
 
 build: ## Build all packages
 	go build ./...
