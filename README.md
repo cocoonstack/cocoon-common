@@ -4,7 +4,7 @@ Shared Go packages for [cocoonstack](https://github.com/cocoonstack) services.
 
 ## Overview
 
-- `apis/v1alpha1` -- typed CocoonSet and CocoonHibernation CRD Go types and generated CRD YAML manifests
+- `apis/v1` -- typed CocoonSet and CocoonHibernation CRD Go types and generated CRD YAML manifests
 - `meta` -- shared CRD identifiers, annotation/label/toleration keys, VM naming helpers, and the typed `VMSpec` / `VMRuntime` / `HibernateState` annotation contract
 - `k8s` -- Kubernetes client config bootstrap with the standard kubeconfig fallback chain plus merge-patch helpers
 - `log` -- common log setup for cocoonstack binaries using `projecteru2/core/log`
@@ -29,11 +29,11 @@ make build
 
 ## Packages
 
-### `apis/v1alpha1`
+### `apis/v1`
 
-Typed Go definitions for the `cocoonset.cocoonstack.io/v1alpha1` API
+Typed Go definitions for the `cocoonset.cocoonstack.io/v1` API
 group, plus the generated CRD YAML manifests under
-`apis/v1alpha1/crds/`. The package ships:
+`apis/v1/crds/`. The package ships:
 
 - `CocoonSet` -- declarative spec for an agent cluster (main + sub-agents + toolboxes)
 - `CocoonHibernation` -- per-pod hibernate / wake request
@@ -58,7 +58,7 @@ All identifiers live under two cocoonstack.io subdomains:
 
 | Prefix | Used for | Examples |
 |---|---|---|
-| `cocoonset.cocoonstack.io/` | CocoonSet CRD group, Pod selector labels, and declarative fields mirrored from a CocoonSet spec onto a managed Pod | `cocoonset.cocoonstack.io/v1alpha1`, `name`, `role`, `slot`, `mode`, `image`, `os`, `storage`, `snapshot-policy`, `network`, `managed` |
+| `cocoonset.cocoonstack.io/` | CocoonSet CRD group, Pod selector labels, and declarative fields mirrored from a CocoonSet spec onto a managed Pod | `cocoonset.cocoonstack.io/v1`, `name`, `role`, `slot`, `mode`, `image`, `os`, `storage`, `snapshot-policy`, `network`, `managed` |
 | `vm.cocoonstack.io/` | Runtime state observed about the VM backing a Pod | `id`, `name`, `ip`, `vnc-port`, `hibernate`, `fork-from` |
 
 For typed annotation access, prefer the `meta.VMSpec` / `meta.VMRuntime` / `meta.HibernateState` wrappers over raw map manipulation:
@@ -68,9 +68,9 @@ For typed annotation access, prefer the `meta.VMSpec` / `meta.VMRuntime` / `meta
 spec := meta.VMSpec{
     VMName:         "vk-prod-demo-0",
     Image:          "ghcr.io/cocoonstack/cocoon/ubuntu:24.04",
-    Mode:           string(v1alpha1.AgentModeClone),
-    OS:             string(v1alpha1.OSLinux),
-    SnapshotPolicy: string(v1alpha1.SnapshotPolicyAlways),
+    Mode:           string(v1.AgentModeClone),
+    OS:             string(v1.OSLinux),
+    SnapshotPolicy: string(v1.SnapshotPolicyAlways),
     Managed:        true,
 }
 spec.Apply(pod)
@@ -112,7 +112,7 @@ make all            # full pipeline: deps + generate + manifests + fmt + lint + 
 make help           # show all targets
 ```
 
-After any change to `apis/v1alpha1/*_types.go`, run `make generate manifests` and commit the regenerated `zz_generated.deepcopy.go` and `apis/v1alpha1/crds/*.yaml`. CI rejects PRs that forget this step.
+After any change to `apis/v1/*_types.go`, run `make generate manifests` and commit the regenerated `zz_generated.deepcopy.go` and `apis/v1/crds/*.yaml`. CI rejects PRs that forget this step.
 
 ## Related Projects
 

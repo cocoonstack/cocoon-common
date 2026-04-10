@@ -1,4 +1,4 @@
-package v1alpha1
+package v1
 
 // AgentMode controls how an agent VM is brought up.
 //

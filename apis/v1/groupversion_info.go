@@ -1,4 +1,4 @@
-package v1alpha1
+package v1
 
 import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -6,7 +6,7 @@ import (
 )
 
 // GroupVersion is the API Group Version used to register the objects.
-var GroupVersion = schema.GroupVersion{Group: "cocoonset.cocoonstack.io", Version: "v1alpha1"}
+var GroupVersion = schema.GroupVersion{Group: "cocoonset.cocoonstack.io", Version: "v1"}
 
 // SchemeBuilder collects type registrations for this group; consumers
 // call AddToScheme to install them on a runtime.Scheme.

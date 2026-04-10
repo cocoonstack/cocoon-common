@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	APIVersion    = "cocoonset.cocoonstack.io/v1alpha1"
+	APIVersion    = "cocoonset.cocoonstack.io/v1"
 	KindCocoonSet = "CocoonSet"
 
 	TolerationKey = "virtual-kubelet.io/provider"

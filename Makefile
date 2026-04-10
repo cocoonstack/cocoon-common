@@ -48,7 +48,7 @@ generate: ## Generate deepcopy methods for api types
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./apis/..."
 
 manifests: ## Generate CRD YAML manifests for api types
-	$(CONTROLLER_GEN) crd paths="./apis/..." output:crd:dir=./apis/v1alpha1/crds
+	$(CONTROLLER_GEN) crd paths="./apis/..." output:crd:dir=./apis/v1/crds
 
 build: ## Build all packages
 	go build ./...
