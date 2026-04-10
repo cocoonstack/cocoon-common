@@ -11,6 +11,7 @@
 package meta
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 
@@ -73,12 +74,9 @@ const (
 
 // HasCocoonToleration reports whether any toleration matches the virtual-kubelet provider key.
 func HasCocoonToleration(tolerations []corev1.Toleration) bool {
-	for _, tol := range tolerations {
-		if tol.Key == TolerationKey {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(tolerations, func(t corev1.Toleration) bool {
+		return t.Key == TolerationKey
+	})
 }
 
 // IsOwnedByCocoonSet reports whether any of the supplied owner
@@ -86,12 +84,9 @@ func HasCocoonToleration(tolerations []corev1.Toleration) bool {
 // all need this so it lives next to the rest of the meta helpers
 // rather than each one re-implementing the loop.
 func IsOwnedByCocoonSet(ownerRefs []metav1.OwnerReference) bool {
-	for _, ref := range ownerRefs {
-		if ref.Kind == KindCocoonSet {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(ownerRefs, func(ref metav1.OwnerReference) bool {
+		return ref.Kind == KindCocoonSet
+	})
 }
 
 // OwnerDeploymentName extracts the deployment name from a ReplicaSet owner reference.
@@ -134,11 +129,14 @@ func ExtractSlotFromVMName(vmName string) int {
 }
 
 // MainAgentVMName replaces the slot suffix with 0 to derive the main agent name.
+// Names with no parseable slot suffix (e.g. pod-style names produced by
+// VMNameForPod) are returned unchanged so a stray dash inside the name
+// can never be mistaken for a slot separator.
 func MainAgentVMName(vmName string) string {
-	idx := strings.LastIndex(vmName, "-")
-	if idx < 0 {
+	if ExtractSlotFromVMName(vmName) < 0 {
 		return vmName
 	}
+	idx := strings.LastIndex(vmName, "-")
 	return vmName[:idx] + "-0"
 }
 

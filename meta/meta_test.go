@@ -23,6 +23,11 @@ func TestVMNamingHelpers(t *testing.T) {
 	if got := MainAgentVMName("vk-prod-demo-2"); got != "vk-prod-demo-0" {
 		t.Fatalf("main agent name mismatch: got %q", got)
 	}
+	// A pod-style name (no slot suffix) must be returned unchanged —
+	// the trailing dash inside the name is not a slot separator.
+	if got := MainAgentVMName("vk-prod-toolbox"); got != "vk-prod-toolbox" {
+		t.Fatalf("MainAgentVMName must not coerce non-slot names, got %q", got)
+	}
 }
 
 func TestInferRoleFromVMName(t *testing.T) {

@@ -22,6 +22,25 @@ func TestVMSpecApplyAndParse(t *testing.T) {
 	}
 	spec.Apply(pod)
 
+	// Anchor the annotation key contract — a roundtrip-only assertion
+	// would silently pass if Apply and Parse both used the wrong key.
+	wantKeys := map[string]string{
+		AnnotationVMName:         spec.VMName,
+		AnnotationImage:          spec.Image,
+		AnnotationMode:           spec.Mode,
+		AnnotationOS:             spec.OS,
+		AnnotationStorage:        spec.Storage,
+		AnnotationNetwork:        spec.Network,
+		AnnotationSnapshotPolicy: spec.SnapshotPolicy,
+		AnnotationForkFrom:       spec.ForkFrom,
+		AnnotationManaged:        annotationTrue,
+	}
+	for key, want := range wantKeys {
+		if got := pod.Annotations[key]; got != want {
+			t.Errorf("annotation %q = %q, want %q", key, got, want)
+		}
+	}
+
 	got := ParseVMSpec(pod)
 	if got != spec {
 		t.Fatalf("roundtrip mismatch:\n got %+v\nwant %+v", got, spec)

@@ -42,22 +42,20 @@ type VMSpec struct {
 // flag follows the same rule — Managed=false on a pod that already
 // has the managed annotation will not remove it.
 func (s VMSpec) Apply(pod *corev1.Pod) {
-	if pod == nil {
+	a := ensurePodAnnotations(pod)
+	if a == nil {
 		return
 	}
-	if pod.Annotations == nil {
-		pod.Annotations = map[string]string{}
-	}
-	setIfNotEmpty(pod.Annotations, AnnotationVMName, s.VMName)
-	setIfNotEmpty(pod.Annotations, AnnotationImage, s.Image)
-	setIfNotEmpty(pod.Annotations, AnnotationMode, s.Mode)
-	setIfNotEmpty(pod.Annotations, AnnotationOS, s.OS)
-	setIfNotEmpty(pod.Annotations, AnnotationStorage, s.Storage)
-	setIfNotEmpty(pod.Annotations, AnnotationNetwork, s.Network)
-	setIfNotEmpty(pod.Annotations, AnnotationSnapshotPolicy, s.SnapshotPolicy)
-	setIfNotEmpty(pod.Annotations, AnnotationForkFrom, s.ForkFrom)
+	setIfNotEmpty(a, AnnotationVMName, s.VMName)
+	setIfNotEmpty(a, AnnotationImage, s.Image)
+	setIfNotEmpty(a, AnnotationMode, s.Mode)
+	setIfNotEmpty(a, AnnotationOS, s.OS)
+	setIfNotEmpty(a, AnnotationStorage, s.Storage)
+	setIfNotEmpty(a, AnnotationNetwork, s.Network)
+	setIfNotEmpty(a, AnnotationSnapshotPolicy, s.SnapshotPolicy)
+	setIfNotEmpty(a, AnnotationForkFrom, s.ForkFrom)
 	if s.Managed {
-		pod.Annotations[AnnotationManaged] = annotationTrue
+		a[AnnotationManaged] = annotationTrue
 	}
 }
 
@@ -93,16 +91,14 @@ type VMRuntime struct {
 // is nil it allocates one. Zero VNCPort is treated as "not set" and is
 // not emitted; pass an explicit value to overwrite.
 func (r VMRuntime) Apply(pod *corev1.Pod) {
-	if pod == nil {
+	a := ensurePodAnnotations(pod)
+	if a == nil {
 		return
 	}
-	if pod.Annotations == nil {
-		pod.Annotations = map[string]string{}
-	}
-	setIfNotEmpty(pod.Annotations, AnnotationVMID, r.VMID)
-	setIfNotEmpty(pod.Annotations, AnnotationIP, r.IP)
+	setIfNotEmpty(a, AnnotationVMID, r.VMID)
+	setIfNotEmpty(a, AnnotationIP, r.IP)
 	if r.VNCPort > 0 {
-		pod.Annotations[AnnotationVNCPort] = strconv.FormatInt(int64(r.VNCPort), 10)
+		a[AnnotationVNCPort] = strconv.FormatInt(int64(r.VNCPort), 10)
 	}
 }
 
@@ -137,14 +133,12 @@ func (s HibernateState) Apply(pod *corev1.Pod) {
 	if pod == nil {
 		return
 	}
-	if bool(s) {
-		if pod.Annotations == nil {
-			pod.Annotations = map[string]string{}
-		}
-		pod.Annotations[AnnotationHibernate] = annotationTrue
+	if !bool(s) {
+		delete(pod.Annotations, AnnotationHibernate)
 		return
 	}
-	delete(pod.Annotations, AnnotationHibernate)
+	a := ensurePodAnnotations(pod)
+	a[AnnotationHibernate] = annotationTrue
 }
 
 // ReadHibernateState extracts the HibernateState from a pod's
@@ -155,6 +149,19 @@ func ReadHibernateState(pod *corev1.Pod) HibernateState {
 		return false
 	}
 	return HibernateState(pod.Annotations[AnnotationHibernate] == annotationTrue)
+}
+
+// ensurePodAnnotations returns the pod's annotation map, allocating it
+// if needed. Returns nil if pod itself is nil so callers can use the
+// nil return as a single combined "no pod" guard.
+func ensurePodAnnotations(pod *corev1.Pod) map[string]string {
+	if pod == nil {
+		return nil
+	}
+	if pod.Annotations == nil {
+		pod.Annotations = map[string]string{}
+	}
+	return pod.Annotations
 }
 
 func setIfNotEmpty(m map[string]string, key, value string) {
