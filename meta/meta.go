@@ -28,6 +28,17 @@ const (
 	LabelRole      = "cocoonset.cocoonstack.io/role"
 	LabelSlot      = "cocoonset.cocoonstack.io/slot"
 
+	// Cluster-wide selector for the cocoon node pool a workload
+	// targets. Used by the webhook for affinity scoping and by
+	// vk-cocoon to know which node the binary is registering as.
+	LabelNodePool = "cocoonstack.io/pool"
+
+	// LabelManagedBy is the standard k8s "app.kubernetes.io/managed-by"
+	// key the cocoonstack components stamp on resources they own
+	// (per-pool affinity ConfigMaps, etc.) so cleanup tooling can
+	// recognize them.
+	LabelManagedBy = "app.kubernetes.io/managed-by"
+
 	AnnotationMode           = "cocoonset.cocoonstack.io/mode"
 	AnnotationImage          = "cocoonset.cocoonstack.io/image"
 	AnnotationStorage        = "cocoonset.cocoonstack.io/storage"
@@ -60,6 +71,19 @@ const (
 func HasCocoonToleration(tolerations []corev1.Toleration) bool {
 	for _, tol := range tolerations {
 		if tol.Key == TolerationKey {
+			return true
+		}
+	}
+	return false
+}
+
+// IsOwnedByCocoonSet reports whether any of the supplied owner
+// references points at a CocoonSet. Webhook + operator + vk-cocoon
+// all need this so it lives next to the rest of the meta helpers
+// rather than each one re-implementing the loop.
+func IsOwnedByCocoonSet(ownerRefs []metav1.OwnerReference) bool {
+	for _, ref := range ownerRefs {
+		if ref.Kind == KindCocoonSet {
 			return true
 		}
 	}

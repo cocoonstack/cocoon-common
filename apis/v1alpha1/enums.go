@@ -12,6 +12,11 @@ const (
 	AgentModeRun AgentMode = "run"
 )
 
+// IsValid reports whether m is one of the recognized AgentMode values.
+func (m AgentMode) IsValid() bool {
+	return m == AgentModeClone || m == AgentModeRun
+}
+
 // ToolboxMode controls how a toolbox VM is brought up.
 //
 // +kubebuilder:validation:Enum=run;clone;static
@@ -27,6 +32,11 @@ const (
 	ToolboxModeStatic ToolboxMode = "static"
 )
 
+// IsValid reports whether m is one of the recognized ToolboxMode values.
+func (m ToolboxMode) IsValid() bool {
+	return m == ToolboxModeRun || m == ToolboxModeClone || m == ToolboxModeStatic
+}
+
 // OSType is the guest operating system family.
 //
 // +kubebuilder:validation:Enum=linux;windows;android
@@ -37,6 +47,11 @@ const (
 	OSWindows OSType = "windows"
 	OSAndroid OSType = "android"
 )
+
+// IsValid reports whether o is one of the recognized OSType values.
+func (o OSType) IsValid() bool {
+	return o == OSLinux || o == OSWindows || o == OSAndroid
+}
 
 // SnapshotPolicy controls when vk-cocoon takes snapshots.
 //
@@ -51,6 +66,11 @@ const (
 	// SnapshotPolicyNever skips snapshots entirely.
 	SnapshotPolicyNever SnapshotPolicy = "never"
 )
+
+// IsValid reports whether p is one of the recognized SnapshotPolicy values.
+func (p SnapshotPolicy) IsValid() bool {
+	return p == SnapshotPolicyAlways || p == SnapshotPolicyMainOnly || p == SnapshotPolicyNever
+}
 
 // CocoonSetPhase is the high-level lifecycle phase reported in status.
 //
