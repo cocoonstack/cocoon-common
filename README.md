@@ -4,11 +4,11 @@ Shared Go packages for [cocoonstack](https://github.com/cocoonstack) services.
 
 ## Overview
 
-- `meta` -- shared annotation keys, label keys, toleration keys, and VM naming rules
+- `meta` -- shared CRD identifiers, annotation/label/toleration keys, and VM naming rules
 - `k8s` -- Kubernetes client config bootstrap with the standard kubeconfig fallback chain
 - `log` -- common log setup for cocoonstack binaries using `projecteru2/core/log`
 
-This repository keeps cross-project contracts in one place instead of re-exporting them from `cocoon-operator`. `cocoon-operator`, `cocoon-webhook`, `glance`, and `vk-cocoon` all consume the same package set directly.
+This repository keeps cross-project contracts in one place instead of re-exporting them from `cocoon-operator`. `cocoon-operator`, `cocoon-webhook`, and `vk-cocoon` all consume the same package set directly.
 
 ## Installation
 
@@ -32,30 +32,21 @@ make build
 
 Use `meta` for:
 
-- Cocoon annotation and label constants
+- Cocoon annotation, label, and CRD identifier constants
 - stable VM naming helpers
 - slot extraction and role inference
 - toolbox connection type detection
 
-#### Annotation namespace
+#### Identifier namespaces
 
-Annotation keys live under two cocoonstack.io subdomains, split by what they describe:
+All identifiers live under two cocoonstack.io subdomains:
 
-| Prefix | Meaning | Examples |
+| Prefix | Used for | Examples |
 |---|---|---|
-| `cocoonset.cocoonstack.io/` | Declarative fields mirrored from a CocoonSet spec onto a managed Pod | `mode`, `image`, `os`, `storage`, `snapshot-policy`, `network`, `managed` |
+| `cocoonset.cocoonstack.io/` | CocoonSet CRD group, Pod selector labels, and declarative fields mirrored from a CocoonSet spec onto a managed Pod | `cocoonset.cocoonstack.io/v1alpha1`, `name`, `role`, `slot`, `mode`, `image`, `os`, `storage`, `snapshot-policy`, `network`, `managed` |
 | `vm.cocoonstack.io/` | Runtime state observed about the VM backing a Pod | `id`, `name`, `ip`, `vnc-port`, `hibernate`, `fork-from` |
 
-The legacy `cocoon.cis/*` prefix is being phased out. During the migration window writers dual-emit both the canonical and the legacy key on every reconcile, and readers fall through to the legacy key automatically. Use the helpers below rather than touching the maps directly:
-
-| Helper | Use |
-|---|---|
-| `meta.ReadAnnotation(annotations, meta.AnnotationFoo)` | Read; checks the canonical key first, falls back to `cocoon.cis/foo` |
-| `meta.WriteAnnotation(m, meta.AnnotationFoo, value)` | Write a single annotation to both the canonical and legacy keys |
-| `meta.AddLegacyAnnotations(m)` | Walk a freshly built map literal and mirror every canonical key to its legacy equivalent in one shot |
-| `meta.LegacyAnnotationKey(meta.AnnotationFoo)` | Look up the legacy key for a single canonical key — useful when building merge patches that need both keys in the same PATCH |
-
-The CRD API group (`cocoon.cis/v1alpha1`) and Pod selector labels (`cocoon.cis/cocoonset` etc.) are **not** renamed in this round. Renaming the API group requires migrating every existing CocoonSet CR; renaming the selector labels requires a coordinated cutover so in-flight Pods are not orphaned. Both will move under cocoonstack.io in dedicated follow-ups.
+Annotation reads and writes go through plain map access (`pod.Annotations[meta.AnnotationFoo]`); the package does not ship annotation compatibility shims.
 
 ### `k8s`
 

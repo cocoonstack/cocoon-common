@@ -3,6 +3,9 @@
 REPO_PATH := github.com/cocoonstack/cocoon-common
 GOIMPORTS_LOCAL_PREFIXES := $(REPO_PATH)
 
+## Target OSes for vet / lint
+GOOSES ?= linux darwin
+
 ## Location to install dependencies to
 LOCALBIN ?= $(shell pwd)/bin
 $(LOCALBIN):
@@ -48,11 +51,17 @@ coverage: test ## Generate and display coverage report
 	@echo ""
 	@echo "To view HTML coverage report: go tool cover -html=coverage.out"
 
-vet: ## Run go vet
-	go vet ./...
+vet: ## Run go vet on every target OS
+	@for goos in $(GOOSES); do \
+		echo "==> go vet GOOS=$$goos"; \
+		GOOS=$$goos go vet ./... || exit 1; \
+	done
 
-lint: golangci-lint ## Run golangci-lint
-	$(GOLANGCILINT) run ./...
+lint: golangci-lint ## Run golangci-lint on every target OS
+	@for goos in $(GOOSES); do \
+		echo "==> golangci-lint GOOS=$$goos"; \
+		GOOS=$$goos $(GOLANGCILINT) run ./... || exit 1; \
+	done
 
 fmt: gofumpt goimports ## Format code with gofumpt and goimports
 	$(GOFMT) -l -w .

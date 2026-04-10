@@ -49,8 +49,8 @@ func TestStatusMergePatch(t *testing.T) {
 
 func TestAnnotationsMergePatch(t *testing.T) {
 	data, err := AnnotationsMergePatch(map[string]any{
-		"cocoon.cis/hibernate": nil,
-		"cocoon.cis/vm-name":   "vk-demo-0",
+		"vm.cocoonstack.io/hibernate": nil,
+		"vm.cocoonstack.io/name":      "vk-demo-0",
 	})
 	if err != nil {
 		t.Fatalf("AnnotationsMergePatch returned error: %v", err)
@@ -64,10 +64,10 @@ func TestAnnotationsMergePatch(t *testing.T) {
 	if err := json.Unmarshal(data, &patch); err != nil {
 		t.Fatalf("unmarshal patch: %v", err)
 	}
-	if got := patch.Metadata.Annotations["cocoon.cis/vm-name"]; got != "vk-demo-0" {
-		t.Fatalf("vm-name mismatch: got %#v", got)
+	if got := patch.Metadata.Annotations["vm.cocoonstack.io/name"]; got != "vk-demo-0" {
+		t.Fatalf("name mismatch: got %#v", got)
 	}
-	if got := patch.Metadata.Annotations["cocoon.cis/hibernate"]; got != nil {
+	if got := patch.Metadata.Annotations["vm.cocoonstack.io/hibernate"]; got != nil {
 		t.Fatalf("expected nil patch value, got %#v", got)
 	}
 }
