@@ -5,8 +5,9 @@ Shared Go packages for [cocoonstack](https://github.com/cocoonstack) services.
 ## Overview
 
 - `apis/v1` -- typed CocoonSet and CocoonHibernation CRD Go types and generated CRD YAML manifests
-- `meta` -- shared CRD identifiers, annotation/label/toleration keys, VM naming helpers, and the typed `VMSpec` / `VMRuntime` / `HibernateState` annotation contract
-- `k8s` -- Kubernetes client config bootstrap with the standard kubeconfig fallback chain plus merge-patch helpers
+- `meta` -- shared CRD identifiers, annotation/label/toleration keys, VM naming helpers, the typed `VMSpec` / `VMRuntime` / `HibernateState` annotation contract, and pod-state helpers (`IsPodReady`, `IsPodTerminal`, `IsContainerRunning`, `IsWindowsPod`, `PodKey`, `PodNodePool`) every cocoon component shares
+- `k8s` -- Kubernetes client config bootstrap with the standard kubeconfig fallback chain, merge-patch helpers, env/duration/sleep helpers (`EnvOrDefault`, `EnvDuration`, `EnvBool`, `SleepCtx`), unstructured decoder, and TLS helpers (`LoadOrGenerateCert`, `GenerateSelfSignedCert`, `DetectNodeIP`)
+- `k8s/admission` -- shared admission-webhook scaffolding (`Allow` / `Deny` responses, `Decode` / `Serve` request loop, RFC 6902 `JSONPatchOp` + `EscapeJSONPointer` helpers) used by `cocoon-webhook` and reusable by any future cocoonstack admission handler
 - `log` -- common log setup for cocoonstack binaries using `projecteru2/core/log`
 
 This repository keeps cross-project contracts in one place instead of re-exporting them from `cocoon-operator`. `cocoon-operator`, `cocoon-webhook`, and `vk-cocoon` all consume the same package set directly.
@@ -94,6 +95,34 @@ Use `k8s.LoadConfig()` to resolve cluster configuration from:
 1. `KUBECONFIG`
 2. `~/.kube/config`
 3. in-cluster config
+
+Other helpers in this package:
+
+- `k8s.EnvOrDefault`, `k8s.EnvDuration`, `k8s.EnvBool` -- lenient env-var parsing that falls back to the supplied default on unset / malformed values.
+- `k8s.SleepCtx(ctx, d)` -- context-aware sleep; returns `false` when the context fires first so callers can exit retry loops without a second `select`.
+- `k8s.LoadOrGenerateCert` / `k8s.GenerateSelfSignedCert` / `k8s.DetectNodeIP` -- TLS bring-up helpers used by `vk-cocoon` and reusable by any cocoonstack HTTP server that needs a dev-time self-signed fallback.
+- `k8s.StatusMergePatch` / `k8s.AnnotationsMergePatch` -- merge-patch builders used by reconcilers that prefer the JSON merge-patch encoding over `client.MergeFrom`.
+- `k8s.PatchStatus[T]` -- generic `client.MergeFrom` patch for the `/status` subresource; captures the pre-mutation snapshot via the kubebuilder-generated typed `DeepCopy()` so callers skip the boilerplate.
+- `k8s.PatchHibernateState` -- pod-level hibernate annotation patch that short-circuits when the pod already carries the desired state, safe to call unconditionally in a reconcile loop.
+- `k8s.NewReadyCondition` / `k8s.ConditionTypeReady` -- canonical `Ready` condition constructor shared across every cocoon CRD status block, leaving `LastTransitionTime` zero so `apimeta.SetStatusCondition` preserves the existing timestamp on no-op updates.
+- `k8s.DecodeUnstructured[T]` -- generic unstructured-to-typed converter.
+
+### `k8s/admission`
+
+Shared admission-webhook scaffolding. Example:
+
+```go
+import commonadmission "github.com/cocoonstack/cocoon-common/k8s/admission"
+
+mux.HandleFunc("/mutate", func(w http.ResponseWriter, r *http.Request) {
+    commonadmission.Serve(w, r, 0 /* default max body */, func(ctx context.Context, rev *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
+        // ... your handler logic ...
+        return commonadmission.Allow()
+    })
+})
+```
+
+`commonadmission.JSONPatchOp`, `commonadmission.MarshalPatch`, and `commonadmission.EscapeJSONPointer` cover the RFC 6902 patch flow for mutating webhooks.
 
 ### `log`
 
