@@ -4,6 +4,8 @@ import (
 	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
+
+	cocoonv1 "github.com/cocoonstack/cocoon-common/apis/v1"
 )
 
 const (
@@ -11,6 +13,13 @@ const (
 	// hibernation snapshot to epoch and the operator probes when
 	// checking whether a hibernation has completed.
 	HibernateSnapshotTag = "hibernate"
+
+	// DefaultSnapshotTag is the OCI tag vk-cocoon publishes routine
+	// (non-hibernate) VM snapshots under, and the tag cocoon-operator
+	// garbage-collects during CocoonSet deletion. Keeping producer
+	// and GC side on one constant makes the cross-component contract
+	// impossible to drift.
+	DefaultSnapshotTag = "latest"
 
 	// annotationTrue is the canonical truthy annotation value.
 	annotationTrue = "true"
@@ -79,8 +88,47 @@ func ParseVMSpec(pod *corev1.Pod) VMSpec {
 	}
 }
 
+// ShouldSnapshotVM reports whether the VM described by spec should
+// be snapshotted to epoch at pod-delete time, and (by symmetry) whether
+// its snapshot manifest should be garbage-collected when the owning
+// CocoonSet is deleted. Centralizing the decoder here keeps vk-cocoon's
+// producer side and cocoon-operator's GC side from drifting: if
+// vk-cocoon skips the push under "main-only" for sub-agents, the
+// operator must also skip the delete, otherwise the registry logs
+// spurious 404s.
+//
+// Policies:
+//
+//   - never:     no VM is snapshotted or GC'd
+//   - main-only: only slot-0 (the main agent) is snapshotted and GC'd
+//   - always:    every VM is snapshotted and GC'd (empty defaults here)
+//
+// Any VMName whose slot index cannot be parsed (e.g. a toolbox VM,
+// which uses VMNameForPod rather than the trailing-slot form) is
+// treated as "not the main agent" and therefore excluded under the
+// main-only policy.
+func ShouldSnapshotVM(spec VMSpec) bool {
+	switch cocoonv1.SnapshotPolicy(spec.SnapshotPolicy).Default() {
+	case cocoonv1.SnapshotPolicyNever:
+		return false
+	case cocoonv1.SnapshotPolicyMainOnly:
+		return ExtractSlotFromVMName(spec.VMName) == 0
+	default:
+		return true
+	}
+}
+
 // VMRuntime is the typed contract that vk-cocoon writes back onto a
 // managed pod after VM creation or discovery.
+//
+// VNCPort is intentionally asymmetric: cocoon-operator pre-writes it
+// from ToolboxSpec.VNCPort for static toolboxes (typically Windows
+// VMs running on an external QEMU host with a VNC server), and
+// vk-cocoon leaves it at zero for every VM it brings up itself
+// because cloud-hypervisor does not expose a VNC server. A
+// dynamically-created toolbox whose OS needs graphical access falls
+// back to RDP/SSH via meta.ConnectionType, which is the
+// deliberate behavior — not a gap in vk-cocoon's writeback.
 type VMRuntime struct {
 	VMID    string
 	IP      string

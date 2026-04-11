@@ -5,6 +5,8 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	cocoonv1 "github.com/cocoonstack/cocoon-common/apis/v1"
 )
 
 func TestVMSpecApplyAndParse(t *testing.T) {
@@ -191,5 +193,45 @@ func TestReadHibernateStateNilPod(t *testing.T) {
 func TestHibernateSnapshotTagConstant(t *testing.T) {
 	if HibernateSnapshotTag != "hibernate" {
 		t.Errorf("HibernateSnapshotTag = %q, want %q", HibernateSnapshotTag, "hibernate")
+	}
+}
+
+func TestDefaultSnapshotTagConstant(t *testing.T) {
+	if DefaultSnapshotTag != "latest" {
+		t.Errorf("DefaultSnapshotTag = %q, want %q", DefaultSnapshotTag, "latest")
+	}
+	if DefaultSnapshotTag == HibernateSnapshotTag {
+		t.Errorf("DefaultSnapshotTag must differ from HibernateSnapshotTag")
+	}
+}
+
+func TestShouldSnapshotVM(t *testing.T) {
+	cases := []struct {
+		name   string
+		policy cocoonv1.SnapshotPolicy
+		vmName string
+		want   bool
+	}{
+		{"always/slot0", cocoonv1.SnapshotPolicyAlways, "vk-prod-demo-0", true},
+		{"always/slot3", cocoonv1.SnapshotPolicyAlways, "vk-prod-demo-3", true},
+		{"always/toolbox", cocoonv1.SnapshotPolicyAlways, "vk-prod-my-tb", true},
+		{"empty-defaults-to-always", "", "vk-prod-demo-0", true},
+		{"empty-defaults-to-always/sub", "", "vk-prod-demo-2", true},
+
+		{"never/slot0", cocoonv1.SnapshotPolicyNever, "vk-prod-demo-0", false},
+		{"never/slot3", cocoonv1.SnapshotPolicyNever, "vk-prod-demo-3", false},
+		{"never/toolbox", cocoonv1.SnapshotPolicyNever, "vk-prod-my-tb", false},
+
+		{"main-only/slot0", cocoonv1.SnapshotPolicyMainOnly, "vk-prod-demo-0", true},
+		{"main-only/slot3", cocoonv1.SnapshotPolicyMainOnly, "vk-prod-demo-3", false},
+		{"main-only/toolbox", cocoonv1.SnapshotPolicyMainOnly, "vk-prod-my-tb", false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			spec := VMSpec{VMName: c.vmName, SnapshotPolicy: string(c.policy)}
+			if got := ShouldSnapshotVM(spec); got != c.want {
+				t.Errorf("ShouldSnapshotVM(%s, %q) = %v, want %v", c.policy, c.vmName, got, c.want)
+			}
+		})
 	}
 }
