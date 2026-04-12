@@ -1,7 +1,7 @@
 .PHONY: all build test lint vet fmt fmt-check deps generate manifests clean coverage cloc help
 
 REPO_PATH := github.com/cocoonstack/cocoon-common
-GOIMPORTS_LOCAL_PREFIXES := $(REPO_PATH)
+GOIMPORTS_LOCAL_PREFIXES := github.com/cocoonstack/
 
 ## controller-gen is pinned in hack/tools.go via the build tag pattern,
 ## so it is reproducible from go.sum without a separate binary download.
@@ -41,8 +41,12 @@ $(GOIMPORTS): | $(LOCALBIN)
 
 all: deps generate manifests fmt lint test build ## Full pipeline: deps, generate, manifests, fmt, lint, test, build
 
-deps: ## Tidy Go modules
-	go mod tidy
+deps: ## Tidy Go modules (no-op when running inside a Go workspace)
+	@if [ -z "$$(go env GOWORK)" ] || [ "$$(go env GOWORK)" = "off" ]; then \
+		go mod tidy; \
+	else \
+		echo "==> workspace mode active ($$(go env GOWORK)); skipping go mod tidy"; \
+	fi
 
 generate: ## Generate deepcopy methods for api types
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./apis/..."
