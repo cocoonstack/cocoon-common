@@ -7,10 +7,7 @@ import (
 	"time"
 )
 
-// EnvOrDefault returns the value of key from the environment, or
-// fallback when key is unset or empty. Empty is intentional — a
-// deployment that exports VAR="" is usually a misconfiguration and
-// we prefer the documented default to a silent empty value.
+// EnvOrDefault returns os.Getenv(key), falling back to fallback when unset or empty.
 func EnvOrDefault(key, fallback string) string {
 	if v := os.Getenv(key); v != "" {
 		return v
@@ -18,9 +15,7 @@ func EnvOrDefault(key, fallback string) string {
 	return fallback
 }
 
-// EnvDuration parses a duration env var. An unset or unparseable
-// value falls back to the supplied default so a binary stays
-// bootable when an operator typoes the override.
+// EnvDuration parses a duration env var, falling back to fallback when unset or invalid.
 func EnvDuration(key string, fallback time.Duration) time.Duration {
 	v := os.Getenv(key)
 	if v == "" {
@@ -33,10 +28,7 @@ func EnvDuration(key string, fallback time.Duration) time.Duration {
 	return d
 }
 
-// EnvBool parses a boolean env var. Anything strconv.ParseBool
-// rejects (including an empty string) falls back to the supplied
-// default so a binary stays bootable when an operator typoes the
-// override.
+// EnvBool parses a boolean env var, falling back to fallback when unset or invalid.
 func EnvBool(key string, fallback bool) bool {
 	v := os.Getenv(key)
 	if v == "" {
@@ -49,10 +41,7 @@ func EnvBool(key string, fallback bool) bool {
 	return b
 }
 
-// SleepCtx blocks for d or until ctx is canceled, returning false
-// when the context fires first so callers can exit their retry loop
-// without a second select. Zero or negative d returns immediately
-// with true (no wait requested).
+// SleepCtx blocks for d or until ctx is canceled. Returns false if ctx fired first.
 func SleepCtx(ctx context.Context, d time.Duration) bool {
 	if d <= 0 {
 		return true

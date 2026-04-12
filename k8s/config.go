@@ -8,13 +8,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-// LoadConfig returns a Kubernetes client config picked from the first
-// matching source — there is no fallback if a chosen source errors:
-//
-//  1. $KUBECONFIG, if set (returns whatever BuildConfigFromFlags reports,
-//     including errors when the path is missing or malformed).
-//  2. ~/.kube/config, if it exists.
-//  3. in-cluster service account config.
+// LoadConfig returns a client config from $KUBECONFIG, ~/.kube/config, or in-cluster (first match wins).
 func LoadConfig() (*rest.Config, error) {
 	if kubeconfig := os.Getenv("KUBECONFIG"); kubeconfig != "" {
 		return clientcmd.BuildConfigFromFlags("", kubeconfig)

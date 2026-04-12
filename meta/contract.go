@@ -9,26 +9,12 @@ import (
 )
 
 const (
-	// HibernateSnapshotTag is the OCI tag vk-cocoon uses when pushing a
-	// hibernation snapshot to epoch and the operator probes when
-	// checking whether a hibernation has completed.
 	HibernateSnapshotTag = "hibernate"
-
-	// DefaultSnapshotTag is the OCI tag vk-cocoon publishes routine
-	// (non-hibernate) VM snapshots under, and the tag cocoon-operator
-	// garbage-collects during CocoonSet deletion. Keeping producer
-	// and GC side on one constant makes the cross-component contract
-	// impossible to drift.
-	DefaultSnapshotTag = "latest"
-
-	// annotationTrue is the canonical truthy annotation value.
-	annotationTrue = "true"
+	DefaultSnapshotTag   = "latest"
+	annotationTrue       = "true"
 )
 
-// VMSpec is the typed contract that the operator (and webhook) writes
-// onto a managed pod for vk-cocoon to consume. Wrapping the loose
-// annotation map in a struct lets every consumer share one source of
-// truth and gives the compiler a chance to catch field renames.
+// VMSpec is the typed annotation contract the operator writes for vk-cocoon to consume.
 type VMSpec struct {
 	VMName         string
 	Image          string
@@ -41,15 +27,7 @@ type VMSpec struct {
 	Managed        bool
 }
 
-// Apply writes the VMSpec into a pod's annotation map. If the map
-// is nil it allocates one. Empty fields are skipped so callers can
-// layer partial updates without clobbering existing values.
-//
-// Limitation: because empty values are skipped, Apply cannot
-// *clear* a previously set field. To remove an annotation use
-// delete(pod.Annotations, meta.Annotation*) directly. The Managed
-// flag follows the same rule — Managed=false on a pod that already
-// has the managed annotation will not remove it.
+// Apply writes VMSpec into pod annotations. Empty fields are skipped (cannot clear existing values).
 func (s VMSpec) Apply(pod *corev1.Pod) {
 	a := ensurePodAnnotations(pod)
 	if a == nil {
@@ -68,8 +46,7 @@ func (s VMSpec) Apply(pod *corev1.Pod) {
 	}
 }
 
-// ParseVMSpec extracts a VMSpec from a pod's annotations. Missing
-// fields come back as the zero value; nil pods are tolerated.
+// ParseVMSpec extracts a VMSpec from pod annotations. Nil pods are tolerated.
 func ParseVMSpec(pod *corev1.Pod) VMSpec {
 	if pod == nil {
 		return VMSpec{}
@@ -88,25 +65,7 @@ func ParseVMSpec(pod *corev1.Pod) VMSpec {
 	}
 }
 
-// ShouldSnapshotVM reports whether the VM described by spec should
-// be snapshotted to epoch at pod-delete time, and (by symmetry) whether
-// its snapshot manifest should be garbage-collected when the owning
-// CocoonSet is deleted. Centralizing the decoder here keeps vk-cocoon's
-// producer side and cocoon-operator's GC side from drifting: if
-// vk-cocoon skips the push under "main-only" for sub-agents, the
-// operator must also skip the delete, otherwise the registry logs
-// spurious 404s.
-//
-// Policies:
-//
-//   - never:     no VM is snapshotted or GC'd
-//   - main-only: only slot-0 (the main agent) is snapshotted and GC'd
-//   - always:    every VM is snapshotted and GC'd (empty defaults here)
-//
-// Any VMName whose slot index cannot be parsed (e.g. a toolbox VM,
-// which uses VMNameForPod rather than the trailing-slot form) is
-// treated as "not the main agent" and therefore excluded under the
-// main-only policy.
+// ShouldSnapshotVM reports whether the VM should be snapshotted based on its SnapshotPolicy.
 func ShouldSnapshotVM(spec VMSpec) bool {
 	switch cocoonv1.SnapshotPolicy(spec.SnapshotPolicy).Default() {
 	case cocoonv1.SnapshotPolicyNever:
@@ -118,26 +77,14 @@ func ShouldSnapshotVM(spec VMSpec) bool {
 	}
 }
 
-// VMRuntime is the typed contract that vk-cocoon writes back onto a
-// managed pod after VM creation or discovery.
-//
-// VNCPort is intentionally asymmetric: cocoon-operator pre-writes it
-// from ToolboxSpec.VNCPort for static toolboxes (typically Windows
-// VMs running on an external QEMU host with a VNC server), and
-// vk-cocoon leaves it at zero for every VM it brings up itself
-// because cloud-hypervisor does not expose a VNC server. A
-// dynamically-created toolbox whose OS needs graphical access falls
-// back to RDP/SSH via meta.ConnectionType, which is the
-// deliberate behavior — not a gap in vk-cocoon's writeback.
+// VMRuntime is the typed annotation contract vk-cocoon writes back after VM creation.
 type VMRuntime struct {
 	VMID    string
 	IP      string
 	VNCPort int32
 }
 
-// Apply writes the VMRuntime into a pod's annotation map. If the map
-// is nil it allocates one. Zero VNCPort is treated as "not set" and is
-// not emitted; pass an explicit value to overwrite.
+// Apply writes VMRuntime into pod annotations. Zero VNCPort is not emitted.
 func (r VMRuntime) Apply(pod *corev1.Pod) {
 	a := ensurePodAnnotations(pod)
 	if a == nil {
@@ -150,8 +97,7 @@ func (r VMRuntime) Apply(pod *corev1.Pod) {
 	}
 }
 
-// ParseVMRuntime extracts a VMRuntime from a pod's annotations.
-// Missing or malformed VNCPort comes back as 0; nil pods are tolerated.
+// ParseVMRuntime extracts a VMRuntime from pod annotations. Nil pods are tolerated.
 func ParseVMRuntime(pod *corev1.Pod) VMRuntime {
 	if pod == nil {
 		return VMRuntime{}
@@ -170,13 +116,9 @@ func ParseVMRuntime(pod *corev1.Pod) VMRuntime {
 }
 
 // HibernateState is the typed contract for the hibernate annotation.
-// Truthy means the operator wants vk-cocoon to snapshot and tear down
-// the VM while keeping the backing pod alive.
 type HibernateState bool
 
-// Apply writes the HibernateState into a pod's annotation map. False
-// removes the annotation entirely (rather than writing "false") to
-// keep the absence-as-default semantics that vk-cocoon expects.
+// Apply writes HibernateState into pod annotations. False removes the annotation entirely.
 func (s HibernateState) Apply(pod *corev1.Pod) {
 	if pod == nil {
 		return
@@ -189,9 +131,6 @@ func (s HibernateState) Apply(pod *corev1.Pod) {
 	a[AnnotationHibernate] = annotationTrue
 }
 
-// ReadHibernateState extracts the HibernateState from a pod's
-// annotations. Anything other than the literal string annotationTrue reads as
-// false.
 func ReadHibernateState(pod *corev1.Pod) HibernateState {
 	if pod == nil {
 		return false
@@ -199,9 +138,6 @@ func ReadHibernateState(pod *corev1.Pod) HibernateState {
 	return HibernateState(pod.Annotations[AnnotationHibernate] == annotationTrue)
 }
 
-// ensurePodAnnotations returns the pod's annotation map, allocating it
-// if needed. Returns nil if pod itself is nil so callers can use the
-// nil return as a single combined "no pod" guard.
 func ensurePodAnnotations(pod *corev1.Pod) map[string]string {
 	if pod == nil {
 		return nil

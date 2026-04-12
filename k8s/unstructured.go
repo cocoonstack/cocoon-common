@@ -7,7 +7,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-// DecodeUnstructured converts an unstructured Kubernetes object into a typed value.
 func DecodeUnstructured[T any](u *unstructured.Unstructured) (*T, error) {
 	var out T
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, &out); err != nil {

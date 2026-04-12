@@ -15,12 +15,8 @@ import (
 	"time"
 )
 
-// LoadOrGenerateCert tries to load a TLS keypair from disk first; if
-// either file is missing it falls back to an in-memory self-signed
-// certificate valid for hostname / ip. The self-signed path is meant
-// for dev and bring-up — production installs should mount real certs
-// at the supplied paths. The second return is a human-readable source
-// label ("disk <path>" or "self-signed") useful for startup logs.
+// LoadOrGenerateCert loads a TLS keypair from disk, falling back to a self-signed cert.
+// Returns a source label for logging ("disk <path>" or "self-signed").
 func LoadOrGenerateCert(certPath, keyPath, hostname, ip string) (tls.Certificate, string, error) {
 	if certPath != "" && keyPath != "" {
 		if _, err := os.Stat(certPath); err == nil {
@@ -38,9 +34,7 @@ func LoadOrGenerateCert(certPath, keyPath, hostname, ip string) (tls.Certificate
 	return cert, "self-signed", nil
 }
 
-// GenerateSelfSignedCert creates an in-memory ECDSA P-256 keypair
-// and returns it as a tls.Certificate. The certificate is valid for
-// ten years (long enough for dev) against hostname and ip.
+// GenerateSelfSignedCert creates an in-memory ECDSA P-256 self-signed cert for hostname and ip.
 func GenerateSelfSignedCert(hostname, ip string) (tls.Certificate, error) {
 	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
@@ -69,10 +63,7 @@ func GenerateSelfSignedCert(hostname, ip string) (tls.Certificate, error) {
 	return tls.X509KeyPair(certPEM, keyPEM)
 }
 
-// DetectNodeIP walks the host's network interfaces and returns the
-// first non-loopback IPv4 address. Used as the fallback when a
-// component cannot discover its node IP from the configuration.
-// Returns "127.0.0.1" when no interface has a usable IPv4 address.
+// DetectNodeIP returns the first non-loopback IPv4 address, or "127.0.0.1" if none found.
 func DetectNodeIP() string {
 	addrs, err := net.InterfaceAddrs()
 	if err != nil {

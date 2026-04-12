@@ -1,4 +1,4 @@
-// Package log provides a shared log initialization function for cocoonstack projects.
+// Package log provides shared log initialization for cocoonstack projects.
 package log
 
 import (
@@ -9,8 +9,7 @@ import (
 	"github.com/projecteru2/core/types"
 )
 
-// Setup initializes the core logger with the level from the named
-// environment variable, defaulting to "info". Fatals on failure.
+// Setup initializes the core logger from envVar (default "info"). Fatals on failure.
 func Setup(ctx context.Context, envVar string) {
 	level := os.Getenv(envVar)
 	if level == "" {
