@@ -5,8 +5,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// HibernationDesire defines the desired hibernation state.
 // +kubebuilder:validation:Enum=Hibernate;Wake
-
 type HibernationDesire string
 
 const (
@@ -14,8 +14,8 @@ const (
 	HibernationDesireWake      HibernationDesire = "Wake"
 )
 
+// CocoonHibernationPhase represents the lifecycle phase of a CocoonHibernation.
 // +kubebuilder:validation:Enum=Pending;Hibernating;Hibernated;Waking;Active;Failed
-
 type CocoonHibernationPhase string
 
 const (
@@ -27,6 +27,7 @@ const (
 	CocoonHibernationPhaseFailed      CocoonHibernationPhase = "Failed"
 )
 
+// CocoonHibernationSpec defines the desired state of a CocoonHibernation.
 type CocoonHibernationSpec struct {
 	// +kubebuilder:validation:Required
 	PodRef corev1.LocalObjectReference `json:"podRef"`
@@ -35,6 +36,7 @@ type CocoonHibernationSpec struct {
 	Desire HibernationDesire `json:"desire"`
 }
 
+// CocoonHibernationStatus represents the observed state of a CocoonHibernation.
 type CocoonHibernationStatus struct {
 	// +optional
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
@@ -61,6 +63,7 @@ type CocoonHibernationStatus struct {
 // +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.status.phase`
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 
+// CocoonHibernation is the Schema for the cocoonhibernations API.
 type CocoonHibernation struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -71,6 +74,7 @@ type CocoonHibernation struct {
 
 // +kubebuilder:object:root=true
 
+// CocoonHibernationList contains a list of CocoonHibernation resources.
 type CocoonHibernationList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

@@ -5,8 +5,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/scheme"
 )
 
-var GroupVersion = schema.GroupVersion{Group: "cocoonset.cocoonstack.io", Version: "v1"}
+var (
+	// GroupVersion is the API group and version for cocoonset resources.
+	GroupVersion = schema.GroupVersion{Group: "cocoonset.cocoonstack.io", Version: "v1"}
 
-var SchemeBuilder = &scheme.Builder{GroupVersion: GroupVersion}
+	// SchemeBuilder registers cocoonset types with a runtime scheme.
+	SchemeBuilder = &scheme.Builder{GroupVersion: GroupVersion}
 
-var AddToScheme = SchemeBuilder.AddToScheme
+	// AddToScheme adds cocoonset types to the given scheme.
+	AddToScheme = SchemeBuilder.AddToScheme
+)

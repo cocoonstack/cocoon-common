@@ -49,18 +49,21 @@ const (
 	ConnTypeSSH = "ssh"
 )
 
+// HasCocoonToleration reports whether the toleration list includes the virtual-kubelet provider key.
 func HasCocoonToleration(tolerations []corev1.Toleration) bool {
 	return slices.ContainsFunc(tolerations, func(t corev1.Toleration) bool {
 		return t.Key == TolerationKey
 	})
 }
 
+// IsOwnedByCocoonSet reports whether any owner reference is a CocoonSet.
 func IsOwnedByCocoonSet(ownerRefs []metav1.OwnerReference) bool {
 	return slices.ContainsFunc(ownerRefs, func(ref metav1.OwnerReference) bool {
 		return ref.Kind == KindCocoonSet
 	})
 }
 
+// OwnerDeploymentName extracts the deployment name from a ReplicaSet owner reference.
 func OwnerDeploymentName(ownerRefs []metav1.OwnerReference) string {
 	for _, ref := range ownerRefs {
 		if ref.Kind != "ReplicaSet" {
@@ -73,14 +76,17 @@ func OwnerDeploymentName(ownerRefs []metav1.OwnerReference) string {
 	return ""
 }
 
+// VMNameForDeployment builds a deterministic VM name from a deployment and slot index.
 func VMNameForDeployment(namespace, deployment string, slot int) string {
 	return "vk-" + namespace + "-" + deployment + "-" + strconv.Itoa(slot)
 }
 
+// VMNameForPod builds a deterministic VM name from a pod name.
 func VMNameForPod(namespace, podName string) string {
 	return "vk-" + namespace + "-" + podName
 }
 
+// ExtractSlotFromVMName parses the trailing slot index from a VM name, or -1 if absent.
 func ExtractSlotFromVMName(vmName string) int {
 	idx := strings.LastIndex(vmName, "-")
 	if idx < 0 {
@@ -102,6 +108,7 @@ func MainAgentVMName(vmName string) string {
 	return vmName[:idx] + "-0"
 }
 
+// InferRoleFromVMName returns RoleMain for slot 0, RoleSubAgent otherwise.
 func InferRoleFromVMName(vmName string) string {
 	if ExtractSlotFromVMName(vmName) == 0 {
 		return RoleMain
@@ -109,6 +116,7 @@ func InferRoleFromVMName(vmName string) string {
 	return RoleSubAgent
 }
 
+// ConnectionType returns the connection protocol based on OS type and VNC availability.
 func ConnectionType(osType string, hasVNCPort bool) string {
 	switch {
 	case hasVNCPort:

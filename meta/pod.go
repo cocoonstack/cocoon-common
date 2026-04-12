@@ -35,10 +35,12 @@ func IsContainerRunning(pod *corev1.Pod) bool {
 	})
 }
 
+// PodKey returns a namespace/name string for use as a map key.
 func PodKey(namespace, name string) string {
 	return namespace + "/" + name
 }
 
+// IsWindowsPod reports whether the pod's OS annotation is "windows".
 func IsWindowsPod(pod *corev1.Pod) bool {
 	if pod == nil {
 		return false

@@ -20,6 +20,7 @@ const DefaultMaxBody int64 = 10 << 20
 // Handler is the admission callback. A nil return is treated as Allow().
 type Handler func(ctx context.Context, review *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse
 
+// Allow returns an AdmissionResponse that permits the request.
 func Allow() *admissionv1.AdmissionResponse {
 	return &admissionv1.AdmissionResponse{Allowed: true}
 }
@@ -73,6 +74,7 @@ func Serve(w http.ResponseWriter, r *http.Request, maxBytes int64, handler Handl
 	_, _ = w.Write(out) //nolint:gosec // marshaled JSON API response, not rendered as HTML
 }
 
+// JSONPatchOp represents a single RFC 6902 JSON Patch operation.
 type JSONPatchOp struct {
 	Op    string `json:"op"`
 	Path  string `json:"path"`

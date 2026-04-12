@@ -7,6 +7,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
+// DecodeUnstructured converts an Unstructured object into a typed struct.
 func DecodeUnstructured[T any](u *unstructured.Unstructured) (*T, error) {
 	var out T
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, &out); err != nil {

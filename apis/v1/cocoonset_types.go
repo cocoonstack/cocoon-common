@@ -6,6 +6,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// CocoonSetSpec defines the desired state of a CocoonSet.
 type CocoonSetSpec struct {
 	// +optional
 	Suspend bool `json:"suspend,omitempty"`
@@ -25,6 +26,7 @@ type CocoonSetSpec struct {
 	Toolboxes []ToolboxSpec `json:"toolboxes,omitempty"`
 }
 
+// AgentSpec defines the configuration for agent VMs in a CocoonSet.
 type AgentSpec struct {
 	// Replicas is the number of sub-agents; the main agent is always created in addition.
 	// +optional
@@ -60,6 +62,7 @@ type AgentSpec struct {
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 }
 
+// ToolboxSpec defines the configuration for a toolbox VM in a CocoonSet.
 type ToolboxSpec struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
@@ -95,6 +98,7 @@ type ToolboxSpec struct {
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
+// CocoonSetStatus represents the observed state of a CocoonSet.
 type CocoonSetStatus struct {
 	// +optional
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
@@ -122,6 +126,7 @@ type CocoonSetStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
 }
 
+// AgentStatus represents the observed state of a single agent VM.
 type AgentStatus struct {
 	Slot       int32  `json:"slot"`
 	Role       string `json:"role"`
@@ -133,6 +138,7 @@ type AgentStatus struct {
 	ForkedFrom string `json:"forkedFrom,omitempty"`
 }
 
+// ToolboxStatus represents the observed state of a single toolbox VM.
 type ToolboxStatus struct {
 	Name     string `json:"name"`
 	PodName  string `json:"podName,omitempty"`
@@ -152,6 +158,7 @@ type ToolboxStatus struct {
 // +kubebuilder:printcolumn:name="Desired",type=integer,JSONPath=`.status.desiredAgents`
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 
+// CocoonSet is the Schema for the cocoonsets API.
 type CocoonSet struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -162,6 +169,7 @@ type CocoonSet struct {
 
 // +kubebuilder:object:root=true
 
+// CocoonSetList contains a list of CocoonSet resources.
 type CocoonSetList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

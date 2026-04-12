@@ -15,13 +15,6 @@ type DeepCopyObject[T any] interface {
 	DeepCopy() T
 }
 
-// patchMerge applies mutate under a MergeFrom patch on the primary resource.
-func patchMerge[T DeepCopyObject[T]](ctx context.Context, cli client.Client, obj T, mutate func(T)) error {
-	patch := client.MergeFrom(obj.DeepCopy())
-	mutate(obj)
-	return cli.Patch(ctx, obj, patch)
-}
-
 // PatchStatus applies mutate under a MergeFrom patch on the /status subresource.
 func PatchStatus[T DeepCopyObject[T]](ctx context.Context, cli client.Client, obj T, mutate func(T)) error {
 	patch := client.MergeFrom(obj.DeepCopy())
@@ -37,4 +30,11 @@ func PatchHibernateState(ctx context.Context, cli client.Client, pod *corev1.Pod
 	return patchMerge(ctx, cli, pod, func(p *corev1.Pod) {
 		meta.HibernateState(state).Apply(p)
 	})
+}
+
+// patchMerge applies mutate under a MergeFrom patch on the primary resource.
+func patchMerge[T DeepCopyObject[T]](ctx context.Context, cli client.Client, obj T, mutate func(T)) error {
+	patch := client.MergeFrom(obj.DeepCopy())
+	mutate(obj)
+	return cli.Patch(ctx, obj, patch)
 }

@@ -4,6 +4,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// ConditionTypeReady is the condition type for overall readiness.
 const ConditionTypeReady = "Ready"
 
 // NewReadyCondition builds a Ready condition. LastTransitionTime is left zero

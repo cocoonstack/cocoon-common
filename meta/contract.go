@@ -131,6 +131,7 @@ func (s HibernateState) Apply(pod *corev1.Pod) {
 	a[AnnotationHibernate] = annotationTrue
 }
 
+// ReadHibernateState reads the hibernate annotation from a pod.
 func ReadHibernateState(pod *corev1.Pod) HibernateState {
 	if pod == nil {
 		return false
