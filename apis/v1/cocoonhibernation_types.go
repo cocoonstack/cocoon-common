@@ -11,7 +11,7 @@ type HibernationDesire string
 
 const (
 	HibernationDesireHibernate HibernationDesire = "Hibernate"
-	HibernationDesireWake     HibernationDesire = "Wake"
+	HibernationDesireWake      HibernationDesire = "Wake"
 )
 
 // +kubebuilder:validation:Enum=Pending;Hibernating;Hibernated;Waking;Active;Failed
