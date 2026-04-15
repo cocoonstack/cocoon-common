@@ -55,6 +55,10 @@ type AgentSpec struct {
 	// +optional
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 
+	// ForcePull bypasses the image cache, forcing a fresh download from upstream.
+	// +optional
+	ForcePull bool `json:"forcePull,omitempty"`
+
 	// +optional
 	EnvFrom []corev1.EnvFromSource `json:"envFrom,omitempty"`
 

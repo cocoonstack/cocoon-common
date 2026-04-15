@@ -31,6 +31,7 @@ const (
 	AnnotationOS             = "cocoonset.cocoonstack.io/os"
 	AnnotationSnapshotPolicy = "cocoonset.cocoonstack.io/snapshot-policy"
 	AnnotationNetwork        = "cocoonset.cocoonstack.io/network"
+	AnnotationForcePull      = "cocoonset.cocoonstack.io/force-pull"
 
 	AnnotationVMID      = "vm.cocoonstack.io/id"
 	AnnotationVMName    = "vm.cocoonstack.io/name"

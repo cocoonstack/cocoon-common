@@ -25,6 +25,7 @@ type VMSpec struct {
 	SnapshotPolicy string
 	ForkFrom       string
 	Managed        bool
+	ForcePull      bool
 }
 
 // Apply writes VMSpec into pod annotations. Empty fields are skipped (cannot clear existing values).
@@ -44,6 +45,9 @@ func (s VMSpec) Apply(pod *corev1.Pod) {
 	if s.Managed {
 		a[AnnotationManaged] = annotationTrue
 	}
+	if s.ForcePull {
+		a[AnnotationForcePull] = annotationTrue
+	}
 }
 
 // ParseVMSpec extracts a VMSpec from pod annotations. Nil pods are tolerated.
@@ -62,6 +66,7 @@ func ParseVMSpec(pod *corev1.Pod) VMSpec {
 		SnapshotPolicy: a[AnnotationSnapshotPolicy],
 		ForkFrom:       a[AnnotationForkFrom],
 		Managed:        a[AnnotationManaged] == annotationTrue,
+		ForcePull:      a[AnnotationForcePull] == annotationTrue,
 	}
 }
 
