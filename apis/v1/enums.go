@@ -21,15 +21,12 @@ type SnapshotPolicy string
 type CocoonSetPhase string
 
 // ConnType is the connection protocol advertised for a VM.
-// Unlike the other enums in this file, ConnType has no Default method:
-// an empty value is the documented signal to fall back to OS-based
-// inference via meta.ConnectionType, so there is no single static default.
+// Empty falls back to OS-based inference (Linux→ssh, Windows→rdp, Android→adb).
 // +kubebuilder:validation:Enum=ssh;rdp;vnc;adb
 type ConnType string
 
 // Backend selects the hypervisor backend used to run a VM.
-// Firecracker is Linux-only and rejects OCI VM images and Windows guests;
-// the webhook and vk-cocoon enforce these constraints at admission and run time.
+// Firecracker is Linux-only and rejects OCI VM images and Windows guests.
 // +kubebuilder:validation:Enum=cloud-hypervisor;firecracker
 type Backend string
 
