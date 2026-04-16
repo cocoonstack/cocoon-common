@@ -59,13 +59,13 @@ func TestVMSpecApplyAndParse(t *testing.T) {
 func TestFromAgentSpec(t *testing.T) {
 	storage := resource.MustParse("100G")
 	in := cocoonv1.AgentSpec{
-		Image:   "ghcr.io/cocoonstack/cocoon/ubuntu:24.04",
-		Mode:    cocoonv1.AgentModeRun,
-		Network: "default",
+		Image: "ghcr.io/cocoonstack/cocoon/ubuntu:24.04",
+		Mode:  cocoonv1.AgentModeRun,
 		VMOptions: cocoonv1.VMOptions{
 			OS:        cocoonv1.OSWindows,
 			Backend:   cocoonv1.BackendFirecracker,
 			ConnType:  cocoonv1.ConnTypeRDP,
+			Network:   "default",
 			ForcePull: true,
 			Storage:   &storage,
 		},
@@ -114,6 +114,7 @@ func TestFromToolboxSpec(t *testing.T) {
 		VMOptions: cocoonv1.VMOptions{
 			Backend:  cocoonv1.BackendCloudHypervisor,
 			ConnType: cocoonv1.ConnTypeSSH,
+			Network:  "default",
 		},
 	}
 	got := FromToolboxSpec(in, "vk-prod-demo-shell", "main-only")
@@ -122,6 +123,7 @@ func TestFromToolboxSpec(t *testing.T) {
 		Image:          in.Image,
 		Mode:           "clone",
 		OS:             "linux",
+		Network:        "default",
 		SnapshotPolicy: "main-only",
 		Managed:        true,
 		ConnType:       "ssh",

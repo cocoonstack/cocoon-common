@@ -40,6 +40,10 @@ type VMOptions struct {
 	// +optional
 	ConnType ConnType `json:"connType,omitempty"`
 
+	// Network selects the cluster network to attach the VM to.
+	// +optional
+	Network string `json:"network,omitempty"`
+
 	// ForcePull bypasses the image cache and re-pulls from upstream.
 	// +optional
 	ForcePull bool `json:"forcePull,omitempty"`
@@ -67,9 +71,6 @@ type AgentSpec struct {
 	// +optional
 	// +kubebuilder:default=clone
 	Mode AgentMode `json:"mode,omitempty"`
-
-	// +optional
-	Network string `json:"network,omitempty"`
 
 	VMOptions `json:",inline"`
 

@@ -103,6 +103,7 @@ func FromToolboxSpec(spec cocoonv1.ToolboxSpec, vmName, snapshotPolicy string) V
 		Mode:           string(spec.Mode.Default()),
 		OS:             string(spec.OS.Default()),
 		Storage:        QuantityString(spec.Storage),
+		Network:        spec.Network,
 		SnapshotPolicy: snapshotPolicy,
 		Managed:        spec.Mode != cocoonv1.ToolboxModeStatic,
 		ForcePull:      spec.ForcePull,
