@@ -88,7 +88,7 @@ func FromAgentSpec(spec cocoonv1.AgentSpec, vmName, snapshotPolicy, forkFrom str
 		Image:          spec.Image,
 		Mode:           string(spec.Mode.Default()),
 		OS:             string(spec.OS.Default()),
-		Storage:        quantityString(spec.Storage),
+		Storage:        QuantityString(spec.Storage),
 		Network:        spec.Network,
 		SnapshotPolicy: snapshotPolicy,
 		ForkFrom:       forkFrom,
@@ -107,7 +107,7 @@ func FromToolboxSpec(spec cocoonv1.ToolboxSpec, vmName, snapshotPolicy string) V
 		Image:          spec.Image,
 		Mode:           string(spec.Mode.Default()),
 		OS:             string(spec.OS.Default()),
-		Storage:        quantityString(spec.Storage),
+		Storage:        QuantityString(spec.Storage),
 		SnapshotPolicy: snapshotPolicy,
 		Managed:        spec.Mode != cocoonv1.ToolboxModeStatic,
 		ForcePull:      spec.ForcePull,
@@ -190,7 +190,8 @@ func ReadHibernateState(pod *corev1.Pod) HibernateState {
 	return HibernateState(pod.Annotations[AnnotationHibernate] == annotationTrue)
 }
 
-func quantityString(q *resource.Quantity) string {
+// QuantityString returns q.String() or "" when q is nil.
+func QuantityString(q *resource.Quantity) string {
 	if q == nil {
 		return ""
 	}
