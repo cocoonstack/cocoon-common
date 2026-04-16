@@ -55,9 +55,14 @@ type AgentSpec struct {
 	// +optional
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 
-	// ForcePull bypasses the image cache, forcing a fresh download from upstream.
+	// ForcePull bypasses the image cache and re-pulls from upstream.
 	// +optional
 	ForcePull bool `json:"forcePull,omitempty"`
+
+	// ConnType overrides the OS-based connection protocol inference
+	// (e.g. a Linux image running xrdp should advertise rdp).
+	// +optional
+	ConnType ConnType `json:"connType,omitempty"`
 
 	// +optional
 	EnvFrom []corev1.EnvFromSource `json:"envFrom,omitempty"`
@@ -97,6 +102,11 @@ type ToolboxSpec struct {
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:Maximum=65535
 	VNCPort int32 `json:"vncPort,omitempty"`
+
+	// ConnType overrides the OS-based connection protocol inference
+	// (e.g. a Linux image running xrdp should advertise rdp).
+	// +optional
+	ConnType ConnType `json:"connType,omitempty"`
 
 	// +optional
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
@@ -144,14 +154,14 @@ type AgentStatus struct {
 
 // ToolboxStatus represents the observed state of a single toolbox VM.
 type ToolboxStatus struct {
-	Name     string `json:"name"`
-	PodName  string `json:"podName,omitempty"`
-	VMName   string `json:"vmName,omitempty"`
-	VMID     string `json:"vmID,omitempty"`
-	IP       string `json:"ip,omitempty"`
-	Phase    string `json:"phase,omitempty"`
-	ConnType string `json:"connType,omitempty"`
-	VNCPort  int32  `json:"vncPort,omitempty"`
+	Name     string   `json:"name"`
+	PodName  string   `json:"podName,omitempty"`
+	VMName   string   `json:"vmName,omitempty"`
+	VMID     string   `json:"vmID,omitempty"`
+	IP       string   `json:"ip,omitempty"`
+	Phase    string   `json:"phase,omitempty"`
+	ConnType ConnType `json:"connType,omitempty"`
+	VNCPort  int32    `json:"vncPort,omitempty"`
 }
 
 // +kubebuilder:object:root=true

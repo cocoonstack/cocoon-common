@@ -26,6 +26,7 @@ type VMSpec struct {
 	ForkFrom       string
 	Managed        bool
 	ForcePull      bool
+	ConnType       string
 }
 
 // Apply writes VMSpec into pod annotations. Empty fields are skipped (cannot clear existing values).
@@ -42,6 +43,7 @@ func (s VMSpec) Apply(pod *corev1.Pod) {
 	setIfNotEmpty(a, AnnotationNetwork, s.Network)
 	setIfNotEmpty(a, AnnotationSnapshotPolicy, s.SnapshotPolicy)
 	setIfNotEmpty(a, AnnotationForkFrom, s.ForkFrom)
+	setIfNotEmpty(a, AnnotationConnType, s.ConnType)
 	if s.Managed {
 		a[AnnotationManaged] = annotationTrue
 	}
@@ -67,6 +69,7 @@ func ParseVMSpec(pod *corev1.Pod) VMSpec {
 		ForkFrom:       a[AnnotationForkFrom],
 		Managed:        a[AnnotationManaged] == annotationTrue,
 		ForcePull:      a[AnnotationForcePull] == annotationTrue,
+		ConnType:       a[AnnotationConnType],
 	}
 }
 

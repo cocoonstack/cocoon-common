@@ -20,6 +20,10 @@ type SnapshotPolicy string
 // +kubebuilder:validation:Enum=Pending;Running;Scaling;Suspended;Failed
 type CocoonSetPhase string
 
+// ConnType is the connection protocol advertised for a VM.
+// +kubebuilder:validation:Enum=ssh;rdp;vnc;adb
+type ConnType string
+
 const (
 	AgentModeClone AgentMode = "clone"
 	AgentModeRun   AgentMode = "run"
@@ -41,6 +45,11 @@ const (
 	CocoonSetPhaseScaling   CocoonSetPhase = "Scaling"
 	CocoonSetPhaseSuspended CocoonSetPhase = "Suspended"
 	CocoonSetPhaseFailed    CocoonSetPhase = "Failed"
+
+	ConnTypeSSH ConnType = "ssh"
+	ConnTypeRDP ConnType = "rdp"
+	ConnTypeVNC ConnType = "vnc"
+	ConnTypeADB ConnType = "adb"
 )
 
 // IsValid reports whether m is a recognized AgentMode value.
@@ -93,4 +102,9 @@ func (p SnapshotPolicy) Default() SnapshotPolicy {
 		return SnapshotPolicyAlways
 	}
 	return p
+}
+
+// IsValid reports whether c is a recognized ConnType value.
+func (c ConnType) IsValid() bool {
+	return c == ConnTypeSSH || c == ConnTypeRDP || c == ConnTypeVNC || c == ConnTypeADB
 }

@@ -61,6 +61,17 @@ spec:
                 description: AgentSpec defines the configuration for agent VMs in
                   a CocoonSet.
                 properties:
+                  connType:
+                    description: |-
+                      ConnType overrides the auto-inferred connection protocol.
+                      Leave empty to use the default inference based on the OS field.
+                      Useful for Linux images that expose RDP (e.g. xrdp).
+                    enum:
+                    - ssh
+                    - rdp
+                    - vnc
+                    - adb
+                    type: string
                   envFrom:
                     items:
                       description: EnvFromSource represents the source of a set of
@@ -227,6 +238,17 @@ spec:
                   description: ToolboxSpec defines the configuration for a toolbox
                     VM in a CocoonSet.
                   properties:
+                    connType:
+                      description: |-
+                        ConnType overrides the auto-inferred connection protocol.
+                        Leave empty to use the default inference based on the OS field.
+                        Useful for Linux images that expose RDP (e.g. xrdp).
+                      enum:
+                      - ssh
+                      - rdp
+                      - vnc
+                      - adb
+                      type: string
                     image:
                       type: string
                     mode:
@@ -444,6 +466,13 @@ spec:
                     toolbox VM.
                   properties:
                     connType:
+                      description: ConnType is the connection protocol advertised
+                        for a VM.
+                      enum:
+                      - ssh
+                      - rdp
+                      - vnc
+                      - adb
                       type: string
                     ip:
                       type: string

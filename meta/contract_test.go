@@ -21,6 +21,8 @@ func TestVMSpecApplyAndParse(t *testing.T) {
 		SnapshotPolicy: "always",
 		ForkFrom:       "vk-prod-demo-main-0",
 		Managed:        true,
+		ForcePull:      true,
+		ConnType:       "rdp",
 	}
 	spec.Apply(pod)
 
@@ -36,6 +38,8 @@ func TestVMSpecApplyAndParse(t *testing.T) {
 		AnnotationSnapshotPolicy: spec.SnapshotPolicy,
 		AnnotationForkFrom:       spec.ForkFrom,
 		AnnotationManaged:        annotationTrue,
+		AnnotationForcePull:      annotationTrue,
+		AnnotationConnType:       spec.ConnType,
 	}
 	for key, want := range wantKeys {
 		if got := pod.Annotations[key]; got != want {

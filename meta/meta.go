@@ -39,6 +39,7 @@ const (
 	AnnotationVNCPort   = "vm.cocoonstack.io/vnc-port"
 	AnnotationHibernate = "vm.cocoonstack.io/hibernate"
 	AnnotationForkFrom  = "vm.cocoonstack.io/fork-from"
+	AnnotationConnType  = "vm.cocoonstack.io/conn-type"
 
 	RoleMain     = "main"
 	RoleSubAgent = "sub-agent"
@@ -117,8 +118,13 @@ func InferRoleFromVMName(vmName string) string {
 	return RoleSubAgent
 }
 
-// ConnectionType returns the connection protocol based on OS type and VNC availability.
-func ConnectionType(osType string, hasVNCPort bool) string {
+// ConnectionType returns the connection protocol. A non-empty override
+// (typically AnnotationConnType) wins over OS-based inference, so a Linux
+// image running xrdp can advertise rdp without faking its OS field.
+func ConnectionType(osType string, hasVNCPort bool, override string) string {
+	if override != "" {
+		return override
+	}
 	switch {
 	case hasVNCPort:
 		return ConnTypeVNC
