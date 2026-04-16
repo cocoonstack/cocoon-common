@@ -77,11 +77,7 @@ func ParseVMSpec(pod *corev1.Pod) VMSpec {
 	}
 }
 
-// FromAgentSpec builds a VMSpec from an AgentSpec, applying enum
-// defaults so any field added to VMOptions later is guaranteed to flow
-// through to the annotation. The per-VM context (vmName, snapshotPolicy,
-// forkFrom) is supplied separately because it is not in the spec.
-// Agent VMs are always managed by vk-cocoon.
+// FromAgentSpec builds a VMSpec from an AgentSpec. Agent VMs are always managed.
 func FromAgentSpec(spec cocoonv1.AgentSpec, vmName, snapshotPolicy, forkFrom string) VMSpec {
 	return VMSpec{
 		VMName:         vmName,
@@ -99,8 +95,7 @@ func FromAgentSpec(spec cocoonv1.AgentSpec, vmName, snapshotPolicy, forkFrom str
 	}
 }
 
-// FromToolboxSpec builds a VMSpec from a ToolboxSpec. Toolboxes have no
-// Network or ForkFrom; static-mode toolboxes are not managed by vk-cocoon.
+// FromToolboxSpec builds a VMSpec from a ToolboxSpec. Static-mode toolboxes are unmanaged.
 func FromToolboxSpec(spec cocoonv1.ToolboxSpec, vmName, snapshotPolicy string) VMSpec {
 	return VMSpec{
 		VMName:         vmName,

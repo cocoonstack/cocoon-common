@@ -132,11 +132,22 @@ func TestFromToolboxSpec(t *testing.T) {
 	}
 }
 
-func TestFromToolboxSpecStaticIsUnmanaged(t *testing.T) {
-	in := cocoonv1.ToolboxSpec{Name: "static-tb", Mode: cocoonv1.ToolboxModeStatic}
-	got := FromToolboxSpec(in, "vk-x-static-tb", "")
-	if got.Managed {
-		t.Errorf("static-mode toolboxes must not be managed by vk-cocoon")
+func TestFromToolboxSpecManagedByMode(t *testing.T) {
+	cases := []struct {
+		mode        cocoonv1.ToolboxMode
+		wantManaged bool
+	}{
+		{cocoonv1.ToolboxModeRun, true},
+		{cocoonv1.ToolboxModeClone, true},
+		{cocoonv1.ToolboxModeStatic, false},
+	}
+	for _, c := range cases {
+		t.Run(string(c.mode), func(t *testing.T) {
+			got := FromToolboxSpec(cocoonv1.ToolboxSpec{Name: "tb", Mode: c.mode}, "vm", "")
+			if got.Managed != c.wantManaged {
+				t.Errorf("Managed = %v, want %v", got.Managed, c.wantManaged)
+			}
+		})
 	}
 }
 

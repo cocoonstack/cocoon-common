@@ -44,6 +44,7 @@ type VMOptions struct {
 	// +optional
 	ForcePull bool `json:"forcePull,omitempty"`
 
+	// Storage sizes the VM root volume.
 	// +optional
 	Storage *resource.Quantity `json:"storage,omitempty"`
 
