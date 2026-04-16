@@ -21,6 +21,9 @@ type SnapshotPolicy string
 type CocoonSetPhase string
 
 // ConnType is the connection protocol advertised for a VM.
+// Unlike the other enums in this file, ConnType has no Default method:
+// an empty value is the documented signal to fall back to OS-based
+// inference via meta.ConnectionType, so there is no single static default.
 // +kubebuilder:validation:Enum=ssh;rdp;vnc;adb
 type ConnType string
 
