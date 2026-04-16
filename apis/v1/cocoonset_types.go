@@ -27,14 +27,28 @@ type CocoonSetSpec struct {
 }
 
 // VMOptions are VM-level knobs shared by AgentSpec and ToolboxSpec.
-// Field semantics live on the type godocs (see ConnType, Backend).
+// Field semantics live on the type godocs (see OSType, ConnType, Backend).
 type VMOptions struct {
 	// +optional
-	ConnType ConnType `json:"connType,omitempty"`
+	// +kubebuilder:default=linux
+	OS OSType `json:"os,omitempty"`
 
 	// +optional
 	// +kubebuilder:default=cloud-hypervisor
 	Backend Backend `json:"backend,omitempty"`
+
+	// +optional
+	ConnType ConnType `json:"connType,omitempty"`
+
+	// ForcePull bypasses the image cache and re-pulls from upstream.
+	// +optional
+	ForcePull bool `json:"forcePull,omitempty"`
+
+	// +optional
+	Storage *resource.Quantity `json:"storage,omitempty"`
+
+	// +optional
+	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
 // AgentSpec defines the configuration for agent VMs in a CocoonSet.
@@ -54,21 +68,7 @@ type AgentSpec struct {
 	Mode AgentMode `json:"mode,omitempty"`
 
 	// +optional
-	// +kubebuilder:default=linux
-	OS OSType `json:"os,omitempty"`
-
-	// +optional
 	Network string `json:"network,omitempty"`
-
-	// +optional
-	Storage *resource.Quantity `json:"storage,omitempty"`
-
-	// +optional
-	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
-
-	// ForcePull bypasses the image cache and re-pulls from upstream.
-	// +optional
-	ForcePull bool `json:"forcePull,omitempty"`
 
 	VMOptions `json:",inline"`
 
@@ -87,18 +87,11 @@ type ToolboxSpec struct {
 	Name string `json:"name"`
 
 	// +optional
-	// +kubebuilder:default=linux
-	OS OSType `json:"os,omitempty"`
-
-	// +optional
 	Image string `json:"image,omitempty"`
 
 	// +optional
 	// +kubebuilder:default=run
 	Mode ToolboxMode `json:"mode,omitempty"`
-
-	// +optional
-	Storage *resource.Quantity `json:"storage,omitempty"`
 
 	// +optional
 	StaticIP string `json:"staticIP,omitempty"`
@@ -112,9 +105,6 @@ type ToolboxSpec struct {
 	VNCPort int32 `json:"vncPort,omitempty"`
 
 	VMOptions `json:",inline"`
-
-	// +optional
-	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
 // CocoonSetStatus represents the observed state of a CocoonSet.

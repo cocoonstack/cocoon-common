@@ -267,6 +267,10 @@ spec:
                       - vnc
                       - adb
                       type: string
+                    forcePull:
+                      description: ForcePull bypasses the image cache and re-pulls
+                        from upstream.
+                      type: boolean
                     image:
                       type: string
                     mode:
