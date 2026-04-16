@@ -26,6 +26,19 @@ type CocoonSetSpec struct {
 	Toolboxes []ToolboxSpec `json:"toolboxes,omitempty"`
 }
 
+// VMOptions are VM-level knobs shared by AgentSpec and ToolboxSpec.
+type VMOptions struct {
+	// ConnType overrides the OS-based connection protocol inference
+	// (e.g. a Linux image running xrdp should advertise rdp).
+	// +optional
+	ConnType ConnType `json:"connType,omitempty"`
+
+	// Backend selects the hypervisor (cloud-hypervisor or firecracker).
+	// +optional
+	// +kubebuilder:default=cloud-hypervisor
+	Backend Backend `json:"backend,omitempty"`
+}
+
 // AgentSpec defines the configuration for agent VMs in a CocoonSet.
 type AgentSpec struct {
 	// Replicas is the number of sub-agents; the main agent is always created in addition.
@@ -59,17 +72,7 @@ type AgentSpec struct {
 	// +optional
 	ForcePull bool `json:"forcePull,omitempty"`
 
-	// ConnType overrides the OS-based connection protocol inference
-	// (e.g. a Linux image running xrdp should advertise rdp).
-	// +optional
-	ConnType ConnType `json:"connType,omitempty"`
-
-	// Backend selects the hypervisor (cloud-hypervisor or firecracker).
-	// Defaults to cloud-hypervisor. Firecracker is Linux-only and does not
-	// support OCI VM images or Windows guests.
-	// +optional
-	// +kubebuilder:default=cloud-hypervisor
-	Backend Backend `json:"backend,omitempty"`
+	VMOptions `json:",inline"`
 
 	// +optional
 	EnvFrom []corev1.EnvFromSource `json:"envFrom,omitempty"`
@@ -110,17 +113,7 @@ type ToolboxSpec struct {
 	// +kubebuilder:validation:Maximum=65535
 	VNCPort int32 `json:"vncPort,omitempty"`
 
-	// ConnType overrides the OS-based connection protocol inference
-	// (e.g. a Linux image running xrdp should advertise rdp).
-	// +optional
-	ConnType ConnType `json:"connType,omitempty"`
-
-	// Backend selects the hypervisor (cloud-hypervisor or firecracker).
-	// Defaults to cloud-hypervisor. Firecracker is Linux-only and does not
-	// support OCI VM images or Windows guests.
-	// +optional
-	// +kubebuilder:default=cloud-hypervisor
-	Backend Backend `json:"backend,omitempty"`
+	VMOptions `json:",inline"`
 
 	// +optional
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`

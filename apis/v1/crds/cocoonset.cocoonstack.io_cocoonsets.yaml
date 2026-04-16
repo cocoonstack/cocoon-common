@@ -63,10 +63,8 @@ spec:
                 properties:
                   backend:
                     default: cloud-hypervisor
-                    description: |-
-                      Backend selects the hypervisor (cloud-hypervisor or firecracker).
-                      Defaults to cloud-hypervisor. Firecracker is Linux-only and does not
-                      support OCI VM images or Windows guests.
+                    description: Backend selects the hypervisor (cloud-hypervisor
+                      or firecracker).
                     enum:
                     - cloud-hypervisor
                     - firecracker
@@ -249,10 +247,8 @@ spec:
                   properties:
                     backend:
                       default: cloud-hypervisor
-                      description: |-
-                        Backend selects the hypervisor (cloud-hypervisor or firecracker).
-                        Defaults to cloud-hypervisor. Firecracker is Linux-only and does not
-                        support OCI VM images or Windows guests.
+                      description: Backend selects the hypervisor (cloud-hypervisor
+                        or firecracker).
                       enum:
                       - cloud-hypervisor
                       - firecracker
@@ -484,8 +480,9 @@ spec:
                     toolbox VM.
                   properties:
                     connType:
-                      description: ConnType is the connection protocol advertised
-                        for a VM.
+                      description: |-
+                        ConnType is the connection protocol advertised for a VM.
+                        Empty falls back to OS-based inference (Linux→ssh, Windows→rdp, Android→adb).
                       enum:
                       - ssh
                       - rdp
