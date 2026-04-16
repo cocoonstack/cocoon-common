@@ -70,7 +70,7 @@ func TestFromAgentSpec(t *testing.T) {
 			Storage:   &storage,
 		},
 	}
-	got := FromAgentSpec(in, "vk-prod-demo-0", "always", "vk-prod-demo-main-0")
+	got := FromAgentSpec(in, "vk-prod-demo-0", cocoonv1.SnapshotPolicyAlways, "vk-prod-demo-main-0")
 	want := VMSpec{
 		VMName:         "vk-prod-demo-0",
 		Image:          in.Image,
@@ -101,6 +101,9 @@ func TestFromAgentSpecAppliesEnumDefaults(t *testing.T) {
 	if got.Backend != string(cocoonv1.BackendCloudHypervisor) {
 		t.Errorf("Backend default not applied, got %q", got.Backend)
 	}
+	if got.SnapshotPolicy != string(cocoonv1.SnapshotPolicyAlways) {
+		t.Errorf("SnapshotPolicy default not applied, got %q", got.SnapshotPolicy)
+	}
 	if !got.Managed {
 		t.Errorf("agent VMs must be managed")
 	}
@@ -117,7 +120,7 @@ func TestFromToolboxSpec(t *testing.T) {
 			Network:  "default",
 		},
 	}
-	got := FromToolboxSpec(in, "vk-prod-demo-shell", "main-only")
+	got := FromToolboxSpec(in, "vk-prod-demo-shell", cocoonv1.SnapshotPolicyMainOnly)
 	want := VMSpec{
 		VMName:         "vk-prod-demo-shell",
 		Image:          in.Image,
@@ -145,7 +148,7 @@ func TestFromToolboxSpecManagedByMode(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(string(c.mode), func(t *testing.T) {
-			got := FromToolboxSpec(cocoonv1.ToolboxSpec{Name: "tb", Mode: c.mode}, "vm", "")
+			got := FromToolboxSpec(cocoonv1.ToolboxSpec{Name: "tb", Mode: c.mode}, "vm", cocoonv1.SnapshotPolicyAlways)
 			if got.Managed != c.wantManaged {
 				t.Errorf("Managed = %v, want %v", got.Managed, c.wantManaged)
 			}

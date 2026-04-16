@@ -78,7 +78,7 @@ func ParseVMSpec(pod *corev1.Pod) VMSpec {
 }
 
 // FromAgentSpec builds a VMSpec from an AgentSpec. Agent VMs are always managed.
-func FromAgentSpec(spec cocoonv1.AgentSpec, vmName, snapshotPolicy, forkFrom string) VMSpec {
+func FromAgentSpec(spec cocoonv1.AgentSpec, vmName string, snapshotPolicy cocoonv1.SnapshotPolicy, forkFrom string) VMSpec {
 	return VMSpec{
 		VMName:         vmName,
 		Image:          spec.Image,
@@ -86,7 +86,7 @@ func FromAgentSpec(spec cocoonv1.AgentSpec, vmName, snapshotPolicy, forkFrom str
 		OS:             string(spec.OS.Default()),
 		Storage:        QuantityString(spec.Storage),
 		Network:        spec.Network,
-		SnapshotPolicy: snapshotPolicy,
+		SnapshotPolicy: string(snapshotPolicy.Default()),
 		ForkFrom:       forkFrom,
 		Managed:        true,
 		ForcePull:      spec.ForcePull,
@@ -96,7 +96,7 @@ func FromAgentSpec(spec cocoonv1.AgentSpec, vmName, snapshotPolicy, forkFrom str
 }
 
 // FromToolboxSpec builds a VMSpec from a ToolboxSpec. Static-mode toolboxes are unmanaged.
-func FromToolboxSpec(spec cocoonv1.ToolboxSpec, vmName, snapshotPolicy string) VMSpec {
+func FromToolboxSpec(spec cocoonv1.ToolboxSpec, vmName string, snapshotPolicy cocoonv1.SnapshotPolicy) VMSpec {
 	return VMSpec{
 		VMName:         vmName,
 		Image:          spec.Image,
@@ -104,7 +104,7 @@ func FromToolboxSpec(spec cocoonv1.ToolboxSpec, vmName, snapshotPolicy string) V
 		OS:             string(spec.OS.Default()),
 		Storage:        QuantityString(spec.Storage),
 		Network:        spec.Network,
-		SnapshotPolicy: snapshotPolicy,
+		SnapshotPolicy: string(snapshotPolicy.Default()),
 		Managed:        spec.Mode != cocoonv1.ToolboxModeStatic,
 		ForcePull:      spec.ForcePull,
 		ConnType:       string(spec.ConnType),
