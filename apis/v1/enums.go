@@ -27,7 +27,9 @@ type CocoonSetPhase string
 type ConnType string
 
 // Backend selects the hypervisor backend used to run a VM.
-// Firecracker is Linux-only and rejects OCI VM images and Windows guests.
+// Firecracker uses direct kernel boot and only supports OCI VM images
+// (cloudimg URLs and Windows are rejected); the webhook and vk-cocoon
+// enforce these constraints at admission and run time.
 // +kubebuilder:validation:Enum=cloud-hypervisor;firecracker
 type Backend string
 
