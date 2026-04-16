@@ -70,6 +70,11 @@ func TestVMSpecApplySkipsEmptyFields(t *testing.T) {
 	if pod.Annotations[AnnotationVMName] != "vk-x-0" {
 		t.Errorf("Apply must write non-empty fields")
 	}
+	for _, key := range []string{AnnotationBackend, AnnotationConnType, AnnotationForkFrom} {
+		if _, ok := pod.Annotations[key]; ok {
+			t.Errorf("Apply must skip empty %s, got %q", key, pod.Annotations[key])
+		}
+	}
 }
 
 func TestVMSpecApplyManagedFlag(t *testing.T) {
