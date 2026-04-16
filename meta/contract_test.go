@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	cocoonv1 "github.com/cocoonstack/cocoon-common/apis/v1"
@@ -52,6 +53,90 @@ func TestVMSpecApplyAndParse(t *testing.T) {
 	got := ParseVMSpec(pod)
 	if got != spec {
 		t.Fatalf("roundtrip mismatch:\n got %+v\nwant %+v", got, spec)
+	}
+}
+
+func TestFromAgentSpec(t *testing.T) {
+	storage := resource.MustParse("100G")
+	in := cocoonv1.AgentSpec{
+		Image:   "ghcr.io/cocoonstack/cocoon/ubuntu:24.04",
+		Mode:    cocoonv1.AgentModeRun,
+		Network: "default",
+		VMOptions: cocoonv1.VMOptions{
+			OS:        cocoonv1.OSWindows,
+			Backend:   cocoonv1.BackendFirecracker,
+			ConnType:  cocoonv1.ConnTypeRDP,
+			ForcePull: true,
+			Storage:   &storage,
+		},
+	}
+	got := FromAgentSpec(in, "vk-prod-demo-0", "always", "vk-prod-demo-main-0")
+	want := VMSpec{
+		VMName:         "vk-prod-demo-0",
+		Image:          in.Image,
+		Mode:           "run",
+		OS:             "windows",
+		Storage:        "100G",
+		Network:        "default",
+		SnapshotPolicy: "always",
+		ForkFrom:       "vk-prod-demo-main-0",
+		Managed:        true,
+		ForcePull:      true,
+		ConnType:       "rdp",
+		Backend:        "firecracker",
+	}
+	if got != want {
+		t.Fatalf("FromAgentSpec mismatch:\n got %+v\nwant %+v", got, want)
+	}
+}
+
+func TestFromAgentSpecAppliesEnumDefaults(t *testing.T) {
+	got := FromAgentSpec(cocoonv1.AgentSpec{Image: "img"}, "vm-0", "", "")
+	if got.Mode != string(cocoonv1.AgentModeClone) {
+		t.Errorf("Mode default not applied, got %q", got.Mode)
+	}
+	if got.OS != string(cocoonv1.OSLinux) {
+		t.Errorf("OS default not applied, got %q", got.OS)
+	}
+	if got.Backend != string(cocoonv1.BackendCloudHypervisor) {
+		t.Errorf("Backend default not applied, got %q", got.Backend)
+	}
+	if !got.Managed {
+		t.Errorf("agent VMs must be managed")
+	}
+}
+
+func TestFromToolboxSpec(t *testing.T) {
+	in := cocoonv1.ToolboxSpec{
+		Name:  "shell",
+		Image: "ghcr.io/cocoonstack/cocoon/toolbox:latest",
+		Mode:  cocoonv1.ToolboxModeClone,
+		VMOptions: cocoonv1.VMOptions{
+			Backend:  cocoonv1.BackendCloudHypervisor,
+			ConnType: cocoonv1.ConnTypeSSH,
+		},
+	}
+	got := FromToolboxSpec(in, "vk-prod-demo-shell", "main-only")
+	want := VMSpec{
+		VMName:         "vk-prod-demo-shell",
+		Image:          in.Image,
+		Mode:           "clone",
+		OS:             "linux",
+		SnapshotPolicy: "main-only",
+		Managed:        true,
+		ConnType:       "ssh",
+		Backend:        "cloud-hypervisor",
+	}
+	if got != want {
+		t.Fatalf("FromToolboxSpec mismatch:\n got %+v\nwant %+v", got, want)
+	}
+}
+
+func TestFromToolboxSpecStaticIsUnmanaged(t *testing.T) {
+	in := cocoonv1.ToolboxSpec{Name: "static-tb", Mode: cocoonv1.ToolboxModeStatic}
+	got := FromToolboxSpec(in, "vk-x-static-tb", "")
+	if got.Managed {
+		t.Errorf("static-mode toolboxes must not be managed by vk-cocoon")
 	}
 }
 

@@ -4,6 +4,7 @@ import (
 	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	cocoonv1 "github.com/cocoonstack/cocoon-common/apis/v1"
 )
@@ -73,6 +74,45 @@ func ParseVMSpec(pod *corev1.Pod) VMSpec {
 		ForcePull:      a[AnnotationForcePull] == annotationTrue,
 		ConnType:       a[AnnotationConnType],
 		Backend:        a[AnnotationBackend],
+	}
+}
+
+// FromAgentSpec builds a VMSpec from an AgentSpec, applying enum
+// defaults so any field added to VMOptions later is guaranteed to flow
+// through to the annotation. The per-VM context (vmName, snapshotPolicy,
+// forkFrom) is supplied separately because it is not in the spec.
+// Agent VMs are always managed by vk-cocoon.
+func FromAgentSpec(spec cocoonv1.AgentSpec, vmName, snapshotPolicy, forkFrom string) VMSpec {
+	return VMSpec{
+		VMName:         vmName,
+		Image:          spec.Image,
+		Mode:           string(spec.Mode.Default()),
+		OS:             string(spec.OS.Default()),
+		Storage:        quantityString(spec.Storage),
+		Network:        spec.Network,
+		SnapshotPolicy: snapshotPolicy,
+		ForkFrom:       forkFrom,
+		Managed:        true,
+		ForcePull:      spec.ForcePull,
+		ConnType:       string(spec.ConnType),
+		Backend:        string(spec.Backend.Default()),
+	}
+}
+
+// FromToolboxSpec builds a VMSpec from a ToolboxSpec. Toolboxes have no
+// Network or ForkFrom; static-mode toolboxes are not managed by vk-cocoon.
+func FromToolboxSpec(spec cocoonv1.ToolboxSpec, vmName, snapshotPolicy string) VMSpec {
+	return VMSpec{
+		VMName:         vmName,
+		Image:          spec.Image,
+		Mode:           string(spec.Mode.Default()),
+		OS:             string(spec.OS.Default()),
+		Storage:        quantityString(spec.Storage),
+		SnapshotPolicy: snapshotPolicy,
+		Managed:        spec.Mode != cocoonv1.ToolboxModeStatic,
+		ForcePull:      spec.ForcePull,
+		ConnType:       string(spec.ConnType),
+		Backend:        string(spec.Backend.Default()),
 	}
 }
 
@@ -148,6 +188,13 @@ func ReadHibernateState(pod *corev1.Pod) HibernateState {
 		return false
 	}
 	return HibernateState(pod.Annotations[AnnotationHibernate] == annotationTrue)
+}
+
+func quantityString(q *resource.Quantity) string {
+	if q == nil {
+		return ""
+	}
+	return q.String()
 }
 
 func ensurePodAnnotations(pod *corev1.Pod) map[string]string {
