@@ -19,15 +19,6 @@ func TestAgentModeIsValid(t *testing.T) {
 	}
 }
 
-func TestAgentModeDefault(t *testing.T) {
-	if got := AgentMode("").Default(); got != AgentModeClone {
-		t.Errorf("empty default = %q, want %q", got, AgentModeClone)
-	}
-	if got := AgentModeRun.Default(); got != AgentModeRun {
-		t.Errorf("set value should pass through, got %q", got)
-	}
-}
-
 func TestToolboxModeIsValid(t *testing.T) {
 	cases := []struct {
 		in   ToolboxMode
@@ -43,15 +34,6 @@ func TestToolboxModeIsValid(t *testing.T) {
 		if got := c.in.IsValid(); got != c.want {
 			t.Errorf("ToolboxMode(%q).IsValid() = %v, want %v", c.in, got, c.want)
 		}
-	}
-}
-
-func TestToolboxModeDefault(t *testing.T) {
-	if got := ToolboxMode("").Default(); got != ToolboxModeRun {
-		t.Errorf("empty default = %q, want %q", got, ToolboxModeRun)
-	}
-	if got := ToolboxModeStatic.Default(); got != ToolboxModeStatic {
-		t.Errorf("set value should pass through, got %q", got)
 	}
 }
 
@@ -73,15 +55,6 @@ func TestOSTypeIsValid(t *testing.T) {
 	}
 }
 
-func TestOSTypeDefault(t *testing.T) {
-	if got := OSType("").Default(); got != OSLinux {
-		t.Errorf("empty default = %q, want %q", got, OSLinux)
-	}
-	if got := OSWindows.Default(); got != OSWindows {
-		t.Errorf("set value should pass through, got %q", got)
-	}
-}
-
 func TestSnapshotPolicyIsValid(t *testing.T) {
 	cases := []struct {
 		in   SnapshotPolicy
@@ -97,15 +70,6 @@ func TestSnapshotPolicyIsValid(t *testing.T) {
 		if got := c.in.IsValid(); got != c.want {
 			t.Errorf("SnapshotPolicy(%q).IsValid() = %v, want %v", c.in, got, c.want)
 		}
-	}
-}
-
-func TestSnapshotPolicyDefault(t *testing.T) {
-	if got := SnapshotPolicy("").Default(); got != SnapshotPolicyAlways {
-		t.Errorf("empty default = %q, want %q", got, SnapshotPolicyAlways)
-	}
-	if got := SnapshotPolicyNever.Default(); got != SnapshotPolicyNever {
-		t.Errorf("set value should pass through, got %q", got)
 	}
 }
 
@@ -145,11 +109,45 @@ func TestBackendIsValid(t *testing.T) {
 	}
 }
 
-func TestBackendDefault(t *testing.T) {
-	if got := Backend("").Default(); got != BackendCloudHypervisor {
-		t.Errorf("empty default = %q, want %q", got, BackendCloudHypervisor)
-	}
-	if got := BackendFirecracker.Default(); got != BackendFirecracker {
-		t.Errorf("set value should pass through, got %q", got)
-	}
+func TestEnumDefaults(t *testing.T) {
+	t.Run("AgentMode", func(t *testing.T) {
+		if got := AgentMode("").Default(); got != AgentModeClone {
+			t.Errorf("empty default = %q, want %q", got, AgentModeClone)
+		}
+		if got := AgentModeRun.Default(); got != AgentModeRun {
+			t.Errorf("set value should pass through, got %q", got)
+		}
+	})
+	t.Run("ToolboxMode", func(t *testing.T) {
+		if got := ToolboxMode("").Default(); got != ToolboxModeRun {
+			t.Errorf("empty default = %q, want %q", got, ToolboxModeRun)
+		}
+		if got := ToolboxModeStatic.Default(); got != ToolboxModeStatic {
+			t.Errorf("set value should pass through, got %q", got)
+		}
+	})
+	t.Run("OSType", func(t *testing.T) {
+		if got := OSType("").Default(); got != OSLinux {
+			t.Errorf("empty default = %q, want %q", got, OSLinux)
+		}
+		if got := OSWindows.Default(); got != OSWindows {
+			t.Errorf("set value should pass through, got %q", got)
+		}
+	})
+	t.Run("SnapshotPolicy", func(t *testing.T) {
+		if got := SnapshotPolicy("").Default(); got != SnapshotPolicyAlways {
+			t.Errorf("empty default = %q, want %q", got, SnapshotPolicyAlways)
+		}
+		if got := SnapshotPolicyNever.Default(); got != SnapshotPolicyNever {
+			t.Errorf("set value should pass through, got %q", got)
+		}
+	})
+	t.Run("Backend", func(t *testing.T) {
+		if got := Backend("").Default(); got != BackendCloudHypervisor {
+			t.Errorf("empty default = %q, want %q", got, BackendCloudHypervisor)
+		}
+		if got := BackendFirecracker.Default(); got != BackendFirecracker {
+			t.Errorf("set value should pass through, got %q", got)
+		}
+	})
 }
