@@ -23,6 +23,7 @@ func TestVMSpecApplyAndParse(t *testing.T) {
 		Managed:        true,
 		ForcePull:      true,
 		ConnType:       "rdp",
+		Backend:        "firecracker",
 	}
 	spec.Apply(pod)
 
@@ -40,6 +41,7 @@ func TestVMSpecApplyAndParse(t *testing.T) {
 		AnnotationManaged:        annotationTrue,
 		AnnotationForcePull:      annotationTrue,
 		AnnotationConnType:       spec.ConnType,
+		AnnotationBackend:        spec.Backend,
 	}
 	for key, want := range wantKeys {
 		if got := pod.Annotations[key]; got != want {
