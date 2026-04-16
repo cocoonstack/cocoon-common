@@ -61,11 +61,20 @@ spec:
                 description: AgentSpec defines the configuration for agent VMs in
                   a CocoonSet.
                 properties:
+                  backend:
+                    default: cloud-hypervisor
+                    description: |-
+                      Backend selects the hypervisor (cloud-hypervisor or firecracker).
+                      Defaults to cloud-hypervisor. Firecracker is Linux-only and does not
+                      support OCI VM images or Windows guests.
+                    enum:
+                    - cloud-hypervisor
+                    - firecracker
+                    type: string
                   connType:
                     description: |-
-                      ConnType overrides the auto-inferred connection protocol.
-                      Leave empty to use the default inference based on the OS field.
-                      Useful for Linux images that expose RDP (e.g. xrdp).
+                      ConnType overrides the OS-based connection protocol inference
+                      (e.g. a Linux image running xrdp should advertise rdp).
                     enum:
                     - ssh
                     - rdp
@@ -119,8 +128,8 @@ spec:
                       type: object
                     type: array
                   forcePull:
-                    description: ForcePull bypasses the image cache, forcing a fresh
-                      download from upstream.
+                    description: ForcePull bypasses the image cache and re-pulls from
+                      upstream.
                     type: boolean
                   image:
                     minLength: 1
@@ -238,11 +247,20 @@ spec:
                   description: ToolboxSpec defines the configuration for a toolbox
                     VM in a CocoonSet.
                   properties:
+                    backend:
+                      default: cloud-hypervisor
+                      description: |-
+                        Backend selects the hypervisor (cloud-hypervisor or firecracker).
+                        Defaults to cloud-hypervisor. Firecracker is Linux-only and does not
+                        support OCI VM images or Windows guests.
+                      enum:
+                      - cloud-hypervisor
+                      - firecracker
+                      type: string
                     connType:
                       description: |-
-                        ConnType overrides the auto-inferred connection protocol.
-                        Leave empty to use the default inference based on the OS field.
-                        Useful for Linux images that expose RDP (e.g. xrdp).
+                        ConnType overrides the OS-based connection protocol inference
+                        (e.g. a Linux image running xrdp should advertise rdp).
                       enum:
                       - ssh
                       - rdp

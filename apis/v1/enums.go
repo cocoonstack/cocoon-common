@@ -24,6 +24,10 @@ type CocoonSetPhase string
 // +kubebuilder:validation:Enum=ssh;rdp;vnc;adb
 type ConnType string
 
+// Backend selects the hypervisor backend used to run a VM.
+// +kubebuilder:validation:Enum=cloud-hypervisor;firecracker
+type Backend string
+
 const (
 	AgentModeClone AgentMode = "clone"
 	AgentModeRun   AgentMode = "run"
@@ -50,6 +54,9 @@ const (
 	ConnTypeRDP ConnType = "rdp"
 	ConnTypeVNC ConnType = "vnc"
 	ConnTypeADB ConnType = "adb"
+
+	BackendCloudHypervisor Backend = "cloud-hypervisor"
+	BackendFirecracker     Backend = "firecracker"
 )
 
 // IsValid reports whether m is a recognized AgentMode value.
@@ -107,4 +114,17 @@ func (p SnapshotPolicy) Default() SnapshotPolicy {
 // IsValid reports whether c is a recognized ConnType value.
 func (c ConnType) IsValid() bool {
 	return c == ConnTypeSSH || c == ConnTypeRDP || c == ConnTypeVNC || c == ConnTypeADB
+}
+
+// IsValid reports whether b is a recognized Backend value.
+func (b Backend) IsValid() bool {
+	return b == BackendCloudHypervisor || b == BackendFirecracker
+}
+
+// Default returns b when set, otherwise BackendCloudHypervisor.
+func (b Backend) Default() Backend {
+	if b == "" {
+		return BackendCloudHypervisor
+	}
+	return b
 }

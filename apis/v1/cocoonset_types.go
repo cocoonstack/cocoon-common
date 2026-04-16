@@ -64,6 +64,13 @@ type AgentSpec struct {
 	// +optional
 	ConnType ConnType `json:"connType,omitempty"`
 
+	// Backend selects the hypervisor (cloud-hypervisor or firecracker).
+	// Defaults to cloud-hypervisor. Firecracker is Linux-only and does not
+	// support OCI VM images or Windows guests.
+	// +optional
+	// +kubebuilder:default=cloud-hypervisor
+	Backend Backend `json:"backend,omitempty"`
+
 	// +optional
 	EnvFrom []corev1.EnvFromSource `json:"envFrom,omitempty"`
 
@@ -107,6 +114,13 @@ type ToolboxSpec struct {
 	// (e.g. a Linux image running xrdp should advertise rdp).
 	// +optional
 	ConnType ConnType `json:"connType,omitempty"`
+
+	// Backend selects the hypervisor (cloud-hypervisor or firecracker).
+	// Defaults to cloud-hypervisor. Firecracker is Linux-only and does not
+	// support OCI VM images or Windows guests.
+	// +optional
+	// +kubebuilder:default=cloud-hypervisor
+	Backend Backend `json:"backend,omitempty"`
 
 	// +optional
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`

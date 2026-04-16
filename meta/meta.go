@@ -40,6 +40,7 @@ const (
 	AnnotationHibernate = "vm.cocoonstack.io/hibernate"
 	AnnotationForkFrom  = "vm.cocoonstack.io/fork-from"
 	AnnotationConnType  = "vm.cocoonstack.io/conn-type"
+	AnnotationBackend   = "vm.cocoonstack.io/backend"
 
 	RoleMain     = "main"
 	RoleSubAgent = "sub-agent"
