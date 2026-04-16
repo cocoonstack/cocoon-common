@@ -27,13 +27,11 @@ type CocoonSetSpec struct {
 }
 
 // VMOptions are VM-level knobs shared by AgentSpec and ToolboxSpec.
+// Field semantics live on the type godocs (see ConnType, Backend).
 type VMOptions struct {
-	// ConnType overrides the OS-based connection protocol inference
-	// (e.g. a Linux image running xrdp should advertise rdp).
 	// +optional
 	ConnType ConnType `json:"connType,omitempty"`
 
-	// Backend selects the hypervisor (cloud-hypervisor or firecracker).
 	// +optional
 	// +kubebuilder:default=cloud-hypervisor
 	Backend Backend `json:"backend,omitempty"`

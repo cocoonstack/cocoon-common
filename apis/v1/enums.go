@@ -20,8 +20,9 @@ type SnapshotPolicy string
 // +kubebuilder:validation:Enum=Pending;Running;Scaling;Suspended;Failed
 type CocoonSetPhase string
 
-// ConnType is the connection protocol advertised for a VM.
-// Empty falls back to OS-based inference (Linux→ssh, Windows→rdp, Android→adb).
+// ConnType is the connection protocol advertised for a VM. Empty
+// falls back to OS-based inference (Linux→ssh, Windows→rdp, Android→adb);
+// set explicitly to override (e.g. Linux+xrdp→rdp).
 // +kubebuilder:validation:Enum=ssh;rdp;vnc;adb
 type ConnType string
 

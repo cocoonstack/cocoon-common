@@ -63,16 +63,18 @@ spec:
                 properties:
                   backend:
                     default: cloud-hypervisor
-                    description: Backend selects the hypervisor (cloud-hypervisor
-                      or firecracker).
+                    description: |-
+                      Backend selects the hypervisor backend used to run a VM.
+                      Firecracker is Linux-only and rejects OCI VM images and Windows guests.
                     enum:
                     - cloud-hypervisor
                     - firecracker
                     type: string
                   connType:
                     description: |-
-                      ConnType overrides the OS-based connection protocol inference
-                      (e.g. a Linux image running xrdp should advertise rdp).
+                      ConnType is the connection protocol advertised for a VM. Empty
+                      falls back to OS-based inference (Linux→ssh, Windows→rdp, Android→adb);
+                      set explicitly to override (e.g. Linux+xrdp→rdp).
                     enum:
                     - ssh
                     - rdp
@@ -247,16 +249,18 @@ spec:
                   properties:
                     backend:
                       default: cloud-hypervisor
-                      description: Backend selects the hypervisor (cloud-hypervisor
-                        or firecracker).
+                      description: |-
+                        Backend selects the hypervisor backend used to run a VM.
+                        Firecracker is Linux-only and rejects OCI VM images and Windows guests.
                       enum:
                       - cloud-hypervisor
                       - firecracker
                       type: string
                     connType:
                       description: |-
-                        ConnType overrides the OS-based connection protocol inference
-                        (e.g. a Linux image running xrdp should advertise rdp).
+                        ConnType is the connection protocol advertised for a VM. Empty
+                        falls back to OS-based inference (Linux→ssh, Windows→rdp, Android→adb);
+                        set explicitly to override (e.g. Linux+xrdp→rdp).
                       enum:
                       - ssh
                       - rdp
@@ -481,8 +485,9 @@ spec:
                   properties:
                     connType:
                       description: |-
-                        ConnType is the connection protocol advertised for a VM.
-                        Empty falls back to OS-based inference (Linux→ssh, Windows→rdp, Android→adb).
+                        ConnType is the connection protocol advertised for a VM. Empty
+                        falls back to OS-based inference (Linux→ssh, Windows→rdp, Android→adb);
+                        set explicitly to override (e.g. Linux+xrdp→rdp).
                       enum:
                       - ssh
                       - rdp
