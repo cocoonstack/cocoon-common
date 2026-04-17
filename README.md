@@ -72,8 +72,9 @@ For typed annotation access, prefer the `meta.VMSpec` / `meta.VMRuntime` / `meta
 spec := meta.VMSpec{
     VMName:         "vk-prod-demo-0",
     Image:          "ghcr.io/cocoonstack/cocoon/ubuntu:24.04",
-    Mode:           string(v1.AgentModeClone),
+    Mode:           string(v1.AgentModeRun),
     OS:             string(v1.OSLinux),
+    Backend:        string(v1.BackendFirecracker),
     SnapshotPolicy: string(v1.SnapshotPolicyAlways),
     Managed:        true,
     ForcePull:      true, // bypass image cache
