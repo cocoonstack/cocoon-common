@@ -15,6 +15,8 @@ import (
 	"time"
 )
 
+const localhost = "127.0.0.1"
+
 // LoadOrGenerateCert loads a TLS keypair from disk, falling back to a self-signed cert.
 // Returns a source label for logging ("disk <path>" or "self-signed").
 func LoadOrGenerateCert(certPath, keyPath, hostname, ip string) (tls.Certificate, string, error) {
@@ -67,7 +69,7 @@ func GenerateSelfSignedCert(hostname, ip string) (tls.Certificate, error) {
 func DetectNodeIP() string {
 	addrs, err := net.InterfaceAddrs()
 	if err != nil {
-		return "127.0.0.1"
+		return localhost
 	}
 	for _, addr := range addrs {
 		ipNet, ok := addr.(*net.IPNet)
@@ -78,5 +80,5 @@ func DetectNodeIP() string {
 			return ip4.String()
 		}
 	}
-	return "127.0.0.1"
+	return localhost
 }

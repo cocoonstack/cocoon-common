@@ -5,20 +5,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// HibernationDesire defines the desired hibernation state.
-// +kubebuilder:validation:Enum=Hibernate;Wake
-type HibernationDesire string
-
 const (
 	HibernationDesireHibernate HibernationDesire = "Hibernate"
 	HibernationDesireWake      HibernationDesire = "Wake"
-)
 
-// CocoonHibernationPhase represents the lifecycle phase of a CocoonHibernation.
-// +kubebuilder:validation:Enum=Pending;Hibernating;Hibernated;Waking;Active;Failed
-type CocoonHibernationPhase string
-
-const (
 	CocoonHibernationPhasePending     CocoonHibernationPhase = "Pending"
 	CocoonHibernationPhaseHibernating CocoonHibernationPhase = "Hibernating"
 	CocoonHibernationPhaseHibernated  CocoonHibernationPhase = "Hibernated"
@@ -26,6 +16,14 @@ const (
 	CocoonHibernationPhaseActive      CocoonHibernationPhase = "Active"
 	CocoonHibernationPhaseFailed      CocoonHibernationPhase = "Failed"
 )
+
+// HibernationDesire defines the desired hibernation state.
+// +kubebuilder:validation:Enum=Hibernate;Wake
+type HibernationDesire string
+
+// CocoonHibernationPhase represents the lifecycle phase of a CocoonHibernation.
+// +kubebuilder:validation:Enum=Pending;Hibernating;Hibernated;Waking;Active;Failed
+type CocoonHibernationPhase string
 
 // CocoonHibernationSpec defines the desired state of a CocoonHibernation.
 type CocoonHibernationSpec struct {

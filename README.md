@@ -32,17 +32,12 @@ make build
 
 ### `apis/v1`
 
-Typed Go definitions for the `cocoonset.cocoonstack.io/v1` API
-group, plus the generated CRD YAML manifests under
-`apis/v1/crds/`. The package ships:
+Typed Go definitions for the `cocoonset.cocoonstack.io/v1` API group, plus the generated CRD YAML manifests under `apis/v1/crds/`. The package ships:
 
 - `CocoonSet` -- declarative spec for an agent cluster (main + sub-agents + toolboxes)
 - `CocoonHibernation` -- per-pod hibernate / wake request
 
-Downstream operators import these via `go list -m` and copy the CRD
-YAML into their own kustomize tree (see `make import-crds` in
-cocoon-operator). Regenerate via `make generate manifests` after any
-type change.
+Downstream operators import these via `go list -m` and copy the CRD YAML into their own kustomize tree (see `make import-crds` in cocoon-operator). Regenerate via `make generate manifests` after any type change.
 
 ### `meta`
 
@@ -65,10 +60,7 @@ All identifiers live under two cocoonstack.io subdomains:
 For typed annotation access, prefer the `meta.VMSpec` / `meta.VMRuntime` / `meta.HibernateState` wrappers over raw map manipulation:
 
 ```go
-// operator side: build the spec contract for vk-cocoon to consume.
-// Managed=true means vk-cocoon owns this VM's lifecycle (Clone / Run /
-// Remove); Managed=false tells vk-cocoon to adopt a pre-assigned VM
-// (static toolboxes) using the VMRuntime hints below.
+// Managed=true: vk-cocoon owns lifecycle; false: adopt pre-assigned VM.
 spec := meta.VMSpec{
     VMName:         "vk-prod-demo-0",
     Image:          "ghcr.io/cocoonstack/cocoon/ubuntu:24.04",
@@ -81,12 +73,7 @@ spec := meta.VMSpec{
 }
 spec.Apply(pod)
 
-// vk-cocoon side: read the spec back and write the runtime contract.
-// VMRuntime.VNCPort is intentionally asymmetric — cloud-hypervisor
-// does not expose a VNC server, so vk-cocoon leaves it zero for
-// every VM it brings up itself. Static (Managed=false) toolboxes
-// carry a pre-seeded VMRuntime{VMID, IP, VNCPort} written by the
-// operator from the CocoonSet spec at pod-build time.
+// vk-cocoon side: write runtime state back to the pod.
 runtime := meta.VMRuntime{VMID: vmID, IP: ip}
 runtime.Apply(pod)
 
@@ -99,11 +86,7 @@ Two snapshot tag constants anchor the cross-component contract:
 - `meta.HibernateSnapshotTag` (`"hibernate"`) — the OCI tag vk-cocoon pushes a hibernation snapshot under, and the tag the operator probes to detect that a hibernation has completed.
 - `meta.DefaultSnapshotTag` (`"latest"`) — the tag vk-cocoon publishes routine (non-hibernate) VM snapshots under at pod-delete time, and the tag cocoon-operator garbage-collects when a CocoonSet is deleted.
 
-`meta.ShouldSnapshotVM(spec)` is the single shared decoder for the
-`SnapshotPolicy` / slot-index decision. vk-cocoon consults it on
-the producer side (should I push this VM?) and cocoon-operator on
-the GC side (should I delete this tag?) so the two cannot drift —
-under `main-only` both sides agree only slot-0 is touched.
+`meta.ShouldSnapshotVM(spec)` is the single shared decoder for the `SnapshotPolicy` / slot-index decision. vk-cocoon consults it on the producer side (should I push this VM?) and cocoon-operator on the GC side (should I delete this tag?) so the two cannot drift — under `main-only` both sides agree only slot-0 is touched.
 
 ### `k8s`
 

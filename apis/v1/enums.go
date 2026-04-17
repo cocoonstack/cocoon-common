@@ -1,5 +1,36 @@
 package v1
 
+const (
+	AgentModeClone AgentMode = "clone"
+	AgentModeRun   AgentMode = "run"
+
+	ToolboxModeRun    ToolboxMode = "run"
+	ToolboxModeClone  ToolboxMode = "clone"
+	ToolboxModeStatic ToolboxMode = "static"
+
+	OSLinux   OSType = "linux"
+	OSWindows OSType = "windows"
+	OSAndroid OSType = "android"
+
+	SnapshotPolicyAlways   SnapshotPolicy = "always"
+	SnapshotPolicyMainOnly SnapshotPolicy = "main-only"
+	SnapshotPolicyNever    SnapshotPolicy = "never"
+
+	CocoonSetPhasePending   CocoonSetPhase = "Pending"
+	CocoonSetPhaseRunning   CocoonSetPhase = "Running"
+	CocoonSetPhaseScaling   CocoonSetPhase = "Scaling"
+	CocoonSetPhaseSuspended CocoonSetPhase = "Suspended"
+	CocoonSetPhaseFailed    CocoonSetPhase = "Failed"
+
+	ConnTypeSSH ConnType = "ssh"
+	ConnTypeRDP ConnType = "rdp"
+	ConnTypeVNC ConnType = "vnc"
+	ConnTypeADB ConnType = "adb"
+
+	BackendCloudHypervisor Backend = "cloud-hypervisor"
+	BackendFirecracker     Backend = "firecracker"
+)
+
 // AgentMode defines the mode of an agent VM.
 // +kubebuilder:validation:Enum=clone;run
 type AgentMode string
@@ -32,37 +63,6 @@ type ConnType string
 // enforce these constraints at admission and run time.
 // +kubebuilder:validation:Enum=cloud-hypervisor;firecracker
 type Backend string
-
-const (
-	AgentModeClone AgentMode = "clone"
-	AgentModeRun   AgentMode = "run"
-
-	ToolboxModeRun    ToolboxMode = "run"
-	ToolboxModeClone  ToolboxMode = "clone"
-	ToolboxModeStatic ToolboxMode = "static"
-
-	OSLinux   OSType = "linux"
-	OSWindows OSType = "windows"
-	OSAndroid OSType = "android"
-
-	SnapshotPolicyAlways   SnapshotPolicy = "always"
-	SnapshotPolicyMainOnly SnapshotPolicy = "main-only"
-	SnapshotPolicyNever    SnapshotPolicy = "never"
-
-	CocoonSetPhasePending   CocoonSetPhase = "Pending"
-	CocoonSetPhaseRunning   CocoonSetPhase = "Running"
-	CocoonSetPhaseScaling   CocoonSetPhase = "Scaling"
-	CocoonSetPhaseSuspended CocoonSetPhase = "Suspended"
-	CocoonSetPhaseFailed    CocoonSetPhase = "Failed"
-
-	ConnTypeSSH ConnType = "ssh"
-	ConnTypeRDP ConnType = "rdp"
-	ConnTypeVNC ConnType = "vnc"
-	ConnTypeADB ConnType = "adb"
-
-	BackendCloudHypervisor Backend = "cloud-hypervisor"
-	BackendFirecracker     Backend = "firecracker"
-)
 
 // IsValid reports whether m is a recognized AgentMode value.
 func (m AgentMode) IsValid() bool {
