@@ -73,8 +73,8 @@ func OwnerDeploymentName(ownerRefs []metav1.OwnerReference) string {
 		if ref.Kind != "ReplicaSet" {
 			continue
 		}
-		if idx := strings.LastIndex(ref.Name, "-"); idx > 0 {
-			return ref.Name[:idx]
+		if before, _, ok := lastCut(ref.Name, "-"); ok {
+			return before
 		}
 	}
 	return ""
@@ -92,11 +92,11 @@ func VMNameForPod(namespace, podName string) string {
 
 // ExtractSlotFromVMName parses the trailing slot index from a VM name, or -1 if absent.
 func ExtractSlotFromVMName(vmName string) int {
-	idx := strings.LastIndex(vmName, "-")
-	if idx < 0 {
+	_, after, ok := lastCut(vmName, "-")
+	if !ok {
 		return -1
 	}
-	n, err := strconv.Atoi(vmName[idx+1:])
+	n, err := strconv.Atoi(after)
 	if err != nil {
 		return -1
 	}
@@ -108,8 +108,8 @@ func MainAgentVMName(vmName string) string {
 	if ExtractSlotFromVMName(vmName) < 0 {
 		return vmName
 	}
-	idx := strings.LastIndex(vmName, "-")
-	return vmName[:idx] + "-0"
+	before, _, _ := lastCut(vmName, "-")
+	return before + "-0"
 }
 
 // InferRoleFromVMName returns RoleMain for slot 0, RoleSubAgent otherwise.
@@ -137,4 +137,13 @@ func ConnectionType(osType string, hasVNCPort bool, override string) string {
 	default:
 		return ConnTypeSSH
 	}
+}
+
+// lastCut is like strings.Cut but splits at the last occurrence of sep.
+func lastCut(s, sep string) (before, after string, found bool) {
+	idx := strings.LastIndex(s, sep)
+	if idx < 0 {
+		return s, "", false
+	}
+	return s[:idx], s[idx+len(sep):], true
 }
