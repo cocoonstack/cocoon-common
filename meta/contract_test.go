@@ -23,6 +23,7 @@ func TestVMSpecApplyAndParse(t *testing.T) {
 		ForkFrom:       "vk-prod-demo-main-0",
 		Managed:        true,
 		ForcePull:      true,
+		NoDirectIO:     true,
 		ConnType:       "rdp",
 		Backend:        "firecracker",
 	}
@@ -41,6 +42,7 @@ func TestVMSpecApplyAndParse(t *testing.T) {
 		AnnotationForkFrom:       spec.ForkFrom,
 		AnnotationManaged:        annotationTrue,
 		AnnotationForcePull:      annotationTrue,
+		AnnotationNoDirectIO:     annotationTrue,
 		AnnotationConnType:       spec.ConnType,
 		AnnotationBackend:        spec.Backend,
 	}
@@ -64,10 +66,11 @@ func TestFromAgentSpec(t *testing.T) {
 		VMOptions: cocoonv1.VMOptions{
 			OS:        cocoonv1.OSWindows,
 			Backend:   cocoonv1.BackendFirecracker,
-			ConnType:  cocoonv1.ConnTypeRDP,
-			Network:   "default",
-			ForcePull: true,
-			Storage:   &storage,
+			ConnType:   cocoonv1.ConnTypeRDP,
+			Network:    "default",
+			ForcePull:  true,
+			NoDirectIO: true,
+			Storage:    &storage,
 		},
 	}
 	got := FromAgentSpec(in, "vk-prod-demo-0", cocoonv1.SnapshotPolicyAlways, "vk-prod-demo-main-0")
@@ -82,6 +85,7 @@ func TestFromAgentSpec(t *testing.T) {
 		ForkFrom:       "vk-prod-demo-main-0",
 		Managed:        true,
 		ForcePull:      true,
+		NoDirectIO:     true,
 		ConnType:       "rdp",
 		Backend:        "firecracker",
 	}
@@ -115,9 +119,10 @@ func TestFromToolboxSpec(t *testing.T) {
 		Image: "ghcr.io/cocoonstack/cocoon/toolbox:latest",
 		Mode:  cocoonv1.ToolboxModeClone,
 		VMOptions: cocoonv1.VMOptions{
-			Backend:  cocoonv1.BackendCloudHypervisor,
-			ConnType: cocoonv1.ConnTypeSSH,
-			Network:  "default",
+			Backend:    cocoonv1.BackendCloudHypervisor,
+			ConnType:   cocoonv1.ConnTypeSSH,
+			Network:    "default",
+			NoDirectIO: true,
 		},
 	}
 	got := FromToolboxSpec(in, "vk-prod-demo-shell", cocoonv1.SnapshotPolicyMainOnly)
@@ -129,6 +134,7 @@ func TestFromToolboxSpec(t *testing.T) {
 		Network:        "default",
 		SnapshotPolicy: "main-only",
 		Managed:        true,
+		NoDirectIO:     true,
 		ConnType:       "ssh",
 		Backend:        "cloud-hypervisor",
 	}

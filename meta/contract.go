@@ -27,6 +27,7 @@ type VMSpec struct {
 	ForkFrom       string
 	Managed        bool
 	ForcePull      bool
+	NoDirectIO     bool
 	ConnType       string
 	Backend        string
 }
@@ -53,6 +54,9 @@ func (s VMSpec) Apply(pod *corev1.Pod) {
 	if s.ForcePull {
 		a[AnnotationForcePull] = annotationTrue
 	}
+	if s.NoDirectIO {
+		a[AnnotationNoDirectIO] = annotationTrue
+	}
 }
 
 // ParseVMSpec extracts a VMSpec from pod annotations. Nil pods are tolerated.
@@ -72,6 +76,7 @@ func ParseVMSpec(pod *corev1.Pod) VMSpec {
 		ForkFrom:       a[AnnotationForkFrom],
 		Managed:        a[AnnotationManaged] == annotationTrue,
 		ForcePull:      a[AnnotationForcePull] == annotationTrue,
+		NoDirectIO:     a[AnnotationNoDirectIO] == annotationTrue,
 		ConnType:       a[AnnotationConnType],
 		Backend:        a[AnnotationBackend],
 	}
@@ -90,6 +95,7 @@ func FromAgentSpec(spec cocoonv1.AgentSpec, vmName string, snapshotPolicy cocoon
 		ForkFrom:       forkFrom,
 		Managed:        true,
 		ForcePull:      spec.ForcePull,
+		NoDirectIO:     spec.NoDirectIO,
 		ConnType:       string(spec.ConnType),
 		Backend:        string(spec.Backend.Default()),
 	}
@@ -107,6 +113,7 @@ func FromToolboxSpec(spec cocoonv1.ToolboxSpec, vmName string, snapshotPolicy co
 		SnapshotPolicy: string(snapshotPolicy.Default()),
 		Managed:        spec.Mode != cocoonv1.ToolboxModeStatic,
 		ForcePull:      spec.ForcePull,
+		NoDirectIO:     spec.NoDirectIO,
 		ConnType:       string(spec.ConnType),
 		Backend:        string(spec.Backend.Default()),
 	}

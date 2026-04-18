@@ -48,6 +48,12 @@ type VMOptions struct {
 	// +optional
 	ForcePull bool `json:"forcePull,omitempty"`
 
+	// NoDirectIO disables O_DIRECT on writable disks, using host page
+	// cache instead. Useful for dev/test with few VMs and abundant host
+	// memory. Cloud Hypervisor only; ignored by firecracker.
+	// +optional
+	NoDirectIO bool `json:"noDirectIO,omitempty"`
+
 	// Storage sizes the VM root volume.
 	// +optional
 	Storage *resource.Quantity `json:"storage,omitempty"`
