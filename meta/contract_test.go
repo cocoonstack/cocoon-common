@@ -64,8 +64,8 @@ func TestFromAgentSpec(t *testing.T) {
 		Image: "ghcr.io/cocoonstack/cocoon/ubuntu:24.04",
 		Mode:  cocoonv1.AgentModeRun,
 		VMOptions: cocoonv1.VMOptions{
-			OS:        cocoonv1.OSWindows,
-			Backend:   cocoonv1.BackendFirecracker,
+			OS:         cocoonv1.OSWindows,
+			Backend:    cocoonv1.BackendFirecracker,
 			ConnType:   cocoonv1.ConnTypeRDP,
 			Network:    "default",
 			ForcePull:  true,
