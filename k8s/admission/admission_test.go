@@ -64,8 +64,8 @@ func TestServeCopiesUIDAndAllowsNilResponse(t *testing.T) {
 
 	body, _ := io.ReadAll(rr.Result().Body)
 	_ = rr.Result().Body.Close()
-	var out admissionv1.AdmissionReview
-	if err := json.Unmarshal(body, &out); err != nil {
+	out := &admissionv1.AdmissionReview{}
+	if err := json.Unmarshal(body, out); err != nil {
 		t.Fatalf("unmarshal response: %v", err)
 	}
 	if out.Response == nil || !out.Response.Allowed {

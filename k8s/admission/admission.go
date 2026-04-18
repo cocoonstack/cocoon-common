@@ -41,11 +41,8 @@ func Decode(r *http.Request, maxBytes int64) (*admissionv1.AdmissionReview, erro
 	if maxBytes <= 0 {
 		maxBytes = DefaultMaxBody
 	}
-	var review admissionv1.AdmissionReview
-	if err := json.NewDecoder(io.LimitReader(r.Body, maxBytes)).Decode(&review); err != nil {
-		return nil, err
-	}
-	return &review, nil
+	review := &admissionv1.AdmissionReview{}
+	return review, json.NewDecoder(io.LimitReader(r.Body, maxBytes)).Decode(review)
 }
 
 // Serve decodes an AdmissionReview, dispatches to handler, and writes the response.

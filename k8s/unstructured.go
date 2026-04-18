@@ -9,9 +9,9 @@ import (
 
 // DecodeUnstructured converts an Unstructured object into a typed struct.
 func DecodeUnstructured[T any](u *unstructured.Unstructured) (*T, error) {
-	var out T
-	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, &out); err != nil {
+	out := new(T)
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, out); err != nil {
 		return nil, fmt.Errorf("decode %T: %w", out, err)
 	}
-	return &out, nil
+	return out, nil
 }

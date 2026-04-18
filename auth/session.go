@@ -46,11 +46,11 @@ func VerifySession(cookie string, key []byte) (*Session, bool) {
 	if err != nil {
 		return nil, false
 	}
-	var sess Session
-	if json.Unmarshal(data, &sess) != nil {
+	sess := &Session{}
+	if json.Unmarshal(data, sess) != nil {
 		return nil, false
 	}
-	return &sess, true
+	return sess, true
 }
 
 // RandomState returns a cryptographically random 32-character hex string
