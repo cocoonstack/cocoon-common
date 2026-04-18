@@ -1,7 +1,6 @@
 package v1
 
 import (
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -25,10 +24,17 @@ type HibernationDesire string
 // +kubebuilder:validation:Enum=Pending;Hibernating;Hibernated;Waking;Active;Failed
 type CocoonHibernationPhase string
 
+// HibernationPodRef identifies the target pod for hibernation.
+type HibernationPodRef struct {
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+}
+
 // CocoonHibernationSpec defines the desired state of a CocoonHibernation.
 type CocoonHibernationSpec struct {
 	// +kubebuilder:validation:Required
-	PodRef corev1.LocalObjectReference `json:"podRef"`
+	PodRef HibernationPodRef `json:"podRef"`
 
 	// +kubebuilder:validation:Required
 	Desire HibernationDesire `json:"desire"`
