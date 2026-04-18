@@ -79,5 +79,5 @@ formatters:
   settings:
     goimports:
       local-prefixes:
-        - github.com/cocoonstack/cocoon-common
+        - github.com/cocoonstack/
 

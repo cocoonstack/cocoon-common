@@ -8,6 +8,7 @@ Shared Go packages for [cocoonstack](https://github.com/cocoonstack) services.
 - `meta` -- shared CRD identifiers, annotation/label/toleration keys, VM naming helpers, the typed `VMSpec` / `VMRuntime` / `HibernateState` annotation contract, and pod-state helpers (`IsPodReady`, `IsPodTerminal`, `IsContainerRunning`, `IsWindowsPod`, `PodKey`, `PodNodePool`) every cocoon component shares
 - `k8s` -- Kubernetes client config bootstrap with the standard kubeconfig fallback chain, merge-patch helpers, env/duration/sleep helpers (`EnvOrDefault`, `EnvDuration`, `EnvBool`, `SleepCtx`), unstructured decoder, and TLS helpers (`LoadOrGenerateCert`, `GenerateSelfSignedCert`, `DetectNodeIP`)
 - `k8s/admission` -- shared admission-webhook scaffolding (`Allow` / `Deny` responses, `Decode` / `Serve` request loop, RFC 6902 `JSONPatchOp` + `EscapeJSONPointer` helpers) used by `cocoon-webhook` and reusable by any future cocoonstack admission handler
+- `auth` -- shared HMAC-signed session helpers (sign/verify cookies, random state generation) used by glance and epoch for SSO cookie management
 - `log` -- common log setup for cocoonstack binaries using `projecteru2/core/log`
 
 This repository keeps cross-project contracts in one place instead of re-exporting them from `cocoon-operator`. `cocoon-operator`, `cocoon-webhook`, and `vk-cocoon` all consume the same package set directly.
@@ -123,6 +124,23 @@ mux.HandleFunc("/mutate", func(w http.ResponseWriter, r *http.Request) {
 ```
 
 `commonadmission.JSONPatchOp`, `commonadmission.MarshalPatch`, and `commonadmission.EscapeJSONPointer` cover the RFC 6902 patch flow for mutating webhooks.
+
+### `auth`
+
+Shared HMAC-signed session helpers for SSO cookie management:
+
+```go
+import "github.com/cocoonstack/cocoon-common/auth"
+
+// Sign a session into a cookie value.
+cookie := auth.SignSession(auth.Session{User: "alice", Email: "alice@example.com", Exp: exp}, hmacKey)
+
+// Verify and decode.
+sess, ok := auth.VerifySession(cookie, hmacKey)
+
+// Generate a random state parameter for OAuth flows.
+state := auth.RandomState()
+```
 
 ### `log`
 

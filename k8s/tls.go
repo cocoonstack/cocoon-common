@@ -50,7 +50,7 @@ func GenerateSelfSignedCert(hostname, ip string) (tls.Certificate, error) {
 		KeyUsage:     x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
 		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		DNSNames:     []string{hostname, "localhost"},
-		IPAddresses:  []net.IP{net.ParseIP(ip), net.ParseIP("127.0.0.1")},
+		IPAddresses:  []net.IP{net.ParseIP(ip), net.ParseIP(localhost)},
 	}
 	certDER, err := x509.CreateCertificate(rand.Reader, &template, &template, &priv.PublicKey, priv)
 	if err != nil {
