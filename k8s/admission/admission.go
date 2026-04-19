@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/projecteru2/core/log"
+
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -89,7 +90,5 @@ func MarshalPatch(ops []JSONPatchOp) ([]byte, error) {
 
 // EscapeJSONPointer escapes ~ and / per RFC 6901 for use in patch paths.
 func EscapeJSONPointer(s string) string {
-	s = strings.ReplaceAll(s, "~", "~0")
-	s = strings.ReplaceAll(s, "/", "~1")
-	return s
+	return strings.NewReplacer("~", "~0", "/", "~1").Replace(s)
 }

@@ -1,6 +1,7 @@
 package k8s
 
 import (
+	"cmp"
 	"context"
 	"os"
 	"strconv"
@@ -9,10 +10,7 @@ import (
 
 // EnvOrDefault returns os.Getenv(key), falling back to fallback when unset or empty.
 func EnvOrDefault(key, fallback string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return fallback
+	return cmp.Or(os.Getenv(key), fallback)
 }
 
 // EnvDuration parses a duration env var, falling back to fallback when unset or invalid.

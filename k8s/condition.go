@@ -5,7 +5,9 @@ import (
 )
 
 // ConditionTypeReady is the condition type for overall readiness.
-const ConditionTypeReady = "Ready"
+const (
+	ConditionTypeReady = "Ready"
+)
 
 // NewReadyCondition builds a Ready condition. LastTransitionTime is left zero
 // so apimeta.SetStatusCondition preserves the existing timestamp on no-op updates.
