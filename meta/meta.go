@@ -42,6 +42,7 @@ const (
 	AnnotationConnType   = "vm.cocoonstack.io/conn-type"
 	AnnotationBackend    = "vm.cocoonstack.io/backend"
 	AnnotationNoDirectIO = "vm.cocoonstack.io/no-direct-io"
+	AnnotationProbePort  = "vm.cocoonstack.io/probe-port"
 
 	RoleMain     = "main"
 	RoleSubAgent = "sub-agent"
