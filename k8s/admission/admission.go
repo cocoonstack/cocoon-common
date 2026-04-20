@@ -10,13 +10,15 @@ import (
 	"strings"
 
 	"github.com/projecteru2/core/log"
-
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // DefaultMaxBody is the request-body ceiling Serve applies when the caller passes 0.
 const DefaultMaxBody int64 = 10 << 20
+
+// jsonPointerReplacer escapes ~ and / per RFC 6901.
+var jsonPointerReplacer = strings.NewReplacer("~", "~0", "/", "~1")
 
 // Handler is the admission callback. A nil return is treated as Allow().
 type Handler func(ctx context.Context, review *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse
@@ -90,5 +92,5 @@ func MarshalPatch(ops []JSONPatchOp) ([]byte, error) {
 
 // EscapeJSONPointer escapes ~ and / per RFC 6901 for use in patch paths.
 func EscapeJSONPointer(s string) string {
-	return strings.NewReplacer("~", "~0", "/", "~1").Replace(s)
+	return jsonPointerReplacer.Replace(s)
 }
