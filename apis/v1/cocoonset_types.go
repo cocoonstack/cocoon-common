@@ -56,6 +56,8 @@ type VMOptions struct {
 
 	// ProbePort overrides the default ICMP probe with a TCP port check.
 	// +optional
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=65535
 	ProbePort int32 `json:"probePort,omitempty"`
 
 	// Storage sizes the VM root volume.

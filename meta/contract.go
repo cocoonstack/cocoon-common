@@ -101,7 +101,7 @@ func FromAgentSpec(spec cocoonv1.AgentSpec, vmName string, snapshotPolicy cocoon
 		NoDirectIO:     spec.NoDirectIO,
 		ConnType:       string(spec.ConnType),
 		Backend:        string(spec.Backend.Default()),
-		ProbePort:      formatProbePort(spec.ProbePort),
+		ProbePort:      formatPort(spec.ProbePort),
 	}
 }
 
@@ -120,15 +120,8 @@ func FromToolboxSpec(spec cocoonv1.ToolboxSpec, vmName string, snapshotPolicy co
 		NoDirectIO:     spec.NoDirectIO,
 		ConnType:       string(spec.ConnType),
 		Backend:        string(spec.Backend.Default()),
-		ProbePort:      formatProbePort(spec.ProbePort),
+		ProbePort:      formatPort(spec.ProbePort),
 	}
-}
-
-func formatProbePort(port int32) string {
-	if port <= 0 {
-		return ""
-	}
-	return strconv.FormatInt(int64(port), 10)
 }
 
 // ShouldSnapshotVM reports whether the VM should be snapshotted based on its SnapshotPolicy.
@@ -158,9 +151,7 @@ func (r VMRuntime) Apply(pod *corev1.Pod) {
 	}
 	setIfNotEmpty(a, AnnotationVMID, r.VMID)
 	setIfNotEmpty(a, AnnotationIP, r.IP)
-	if r.VNCPort > 0 {
-		a[AnnotationVNCPort] = strconv.FormatInt(int64(r.VNCPort), 10)
-	}
+	setIfNotEmpty(a, AnnotationVNCPort, formatPort(r.VNCPort))
 }
 
 // ParseVMRuntime extracts a VMRuntime from pod annotations. Nil pods are tolerated.
@@ -227,4 +218,11 @@ func setIfNotEmpty(m map[string]string, key, value string) {
 	if value != "" {
 		m[key] = value
 	}
+}
+
+func formatPort(port int32) string {
+	if port <= 0 {
+		return ""
+	}
+	return strconv.FormatInt(int64(port), 10)
 }

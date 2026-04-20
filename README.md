@@ -56,7 +56,7 @@ All identifiers live under two cocoonstack.io subdomains:
 | Prefix | Used for | Examples |
 |---|---|---|
 | `cocoonset.cocoonstack.io/` | CocoonSet CRD group, Pod selector labels, and CocoonSet-level fields the operator mirrors onto a managed Pod | `cocoonset.cocoonstack.io/v1`, `name`, `role`, `slot`, `mode`, `image`, `os`, `storage`, `snapshot-policy`, `network`, `managed`, `force-pull` |
-| `vm.cocoonstack.io/` | VM-instance metadata — observed runtime state plus per-VM spec the operator hands to vk-cocoon | `id`, `name`, `ip`, `vnc-port`, `hibernate`, `fork-from`, `conn-type`, `backend`, `no-direct-io` |
+| `vm.cocoonstack.io/` | VM-instance metadata — observed runtime state plus per-VM spec the operator hands to vk-cocoon | `id`, `name`, `ip`, `vnc-port`, `hibernate`, `fork-from`, `conn-type`, `backend`, `no-direct-io`, `probe-port` |
 
 For typed annotation access, prefer the `meta.VMSpec` / `meta.VMRuntime` / `meta.HibernateState` wrappers over raw map manipulation:
 
@@ -70,7 +70,8 @@ spec := meta.VMSpec{
     Backend:        string(v1.BackendFirecracker),
     SnapshotPolicy: string(v1.SnapshotPolicyAlways),
     Managed:        true,
-    ForcePull:      true, // bypass image cache
+    ForcePull:      true,  // bypass image cache
+    ProbePort:      "22",  // TCP readiness probe on port 22
 }
 spec.Apply(pod)
 
