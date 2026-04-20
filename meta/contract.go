@@ -30,6 +30,7 @@ type VMSpec struct {
 	NoDirectIO     bool
 	ConnType       string
 	Backend        string
+	ProbePort      string
 }
 
 // Apply writes VMSpec into pod annotations. Empty fields are skipped (cannot clear existing values).
@@ -57,6 +58,7 @@ func (s VMSpec) Apply(pod *corev1.Pod) {
 	if s.NoDirectIO {
 		a[AnnotationNoDirectIO] = annotationTrue
 	}
+	setIfNotEmpty(a, AnnotationProbePort, s.ProbePort)
 }
 
 // ParseVMSpec extracts a VMSpec from pod annotations. Nil pods are tolerated.
@@ -79,6 +81,7 @@ func ParseVMSpec(pod *corev1.Pod) VMSpec {
 		NoDirectIO:     a[AnnotationNoDirectIO] == annotationTrue,
 		ConnType:       a[AnnotationConnType],
 		Backend:        a[AnnotationBackend],
+		ProbePort:      a[AnnotationProbePort],
 	}
 }
 
@@ -98,6 +101,7 @@ func FromAgentSpec(spec cocoonv1.AgentSpec, vmName string, snapshotPolicy cocoon
 		NoDirectIO:     spec.NoDirectIO,
 		ConnType:       string(spec.ConnType),
 		Backend:        string(spec.Backend.Default()),
+		ProbePort:      formatProbePort(spec.ProbePort),
 	}
 }
 
@@ -116,7 +120,15 @@ func FromToolboxSpec(spec cocoonv1.ToolboxSpec, vmName string, snapshotPolicy co
 		NoDirectIO:     spec.NoDirectIO,
 		ConnType:       string(spec.ConnType),
 		Backend:        string(spec.Backend.Default()),
+		ProbePort:      formatProbePort(spec.ProbePort),
 	}
+}
+
+func formatProbePort(port int32) string {
+	if port <= 0 {
+		return ""
+	}
+	return strconv.FormatInt(int64(port), 10)
 }
 
 // ShouldSnapshotVM reports whether the VM should be snapshotted based on its SnapshotPolicy.

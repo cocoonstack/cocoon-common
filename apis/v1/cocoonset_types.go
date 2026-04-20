@@ -54,6 +54,10 @@ type VMOptions struct {
 	// +optional
 	NoDirectIO bool `json:"noDirectIO,omitempty"`
 
+	// ProbePort overrides the default ICMP probe with a TCP port check.
+	// +optional
+	ProbePort int32 `json:"probePort,omitempty"`
+
 	// Storage sizes the VM root volume.
 	// +optional
 	Storage *resource.Quantity `json:"storage,omitempty"`

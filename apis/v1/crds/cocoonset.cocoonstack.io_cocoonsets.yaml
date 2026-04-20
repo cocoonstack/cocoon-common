@@ -161,6 +161,11 @@ spec:
                     - windows
                     - android
                     type: string
+                  probePort:
+                    description: ProbePort overrides the default ICMP probe with a
+                      TCP port check.
+                    format: int32
+                    type: integer
                   replicas:
                     default: 0
                     description: Replicas is the number of sub-agents; the main agent
@@ -316,6 +321,11 @@ spec:
                       - windows
                       - android
                       type: string
+                    probePort:
+                      description: ProbePort overrides the default ICMP probe with
+                        a TCP port check.
+                      format: int32
+                      type: integer
                     resources:
                       description: ResourceRequirements describes the compute resource
                         requirements.
