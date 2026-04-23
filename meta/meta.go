@@ -49,6 +49,11 @@ const (
 	RoleMain     = "main"
 	RoleSubAgent = "sub-agent"
 	RoleToolbox  = "toolbox"
+
+	HibernateSnapshotTag = "hibernate"
+	DefaultSnapshotTag   = "latest"
+
+	annotationTrue = "true"
 )
 
 // HasCocoonToleration reports whether the toleration list includes the virtual-kubelet provider key.

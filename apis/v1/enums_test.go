@@ -150,4 +150,14 @@ func TestEnumDefaults(t *testing.T) {
 			t.Errorf("set value should pass through, got %q", got)
 		}
 	})
+	t.Run("ConnType", func(t *testing.T) {
+		// ConnType.Default is a pass-through: empty stays empty so
+		// meta.ConnectionType can infer from OS/runtime instead.
+		if got := ConnType("").Default(); got != "" {
+			t.Errorf("empty should pass through unchanged, got %q", got)
+		}
+		if got := ConnTypeRDP.Default(); got != ConnTypeRDP {
+			t.Errorf("set value should pass through, got %q", got)
+		}
+	})
 }

@@ -15,9 +15,7 @@ import (
 	"time"
 )
 
-const (
-	localhost = "127.0.0.1"
-)
+const localhost = "127.0.0.1"
 
 // LoadOrGenerateCert loads a TLS keypair from disk, falling back to a self-signed cert.
 // Returns a source label for logging ("disk <path>" or "self-signed").
