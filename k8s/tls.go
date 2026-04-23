@@ -24,7 +24,7 @@ func LoadOrGenerateCert(certPath, keyPath, hostname, ip string) (tls.Certificate
 		if _, err := os.Stat(certPath); err == nil {
 			cert, err := tls.LoadX509KeyPair(certPath, keyPath)
 			if err != nil {
-				return tls.Certificate{}, "", fmt.Errorf("load TLS keypair %s: %w", certPath, err)
+				return tls.Certificate{}, "", fmt.Errorf("load tls keypair %s: %w", certPath, err)
 			}
 			return cert, fmt.Sprintf("disk %s", certPath), nil
 		}

@@ -4,10 +4,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const (
-	// ConditionTypeReady is the condition type for overall readiness.
-	ConditionTypeReady = "Ready"
-)
+// ConditionTypeReady is the condition type for overall readiness.
+const ConditionTypeReady = "Ready"
 
 // NewReadyCondition builds a Ready condition. LastTransitionTime is left zero
 // so apimeta.SetStatusCondition preserves the existing timestamp on no-op updates.

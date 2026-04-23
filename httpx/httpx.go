@@ -10,13 +10,11 @@ import (
 	"time"
 )
 
-const (
-	// DefaultReadHeaderTimeout is the conservative default for
-	// http.Server.ReadHeaderTimeout. 10s is what every cocoonstack
-	// consumer was already using and mitigates Slowloris attacks
-	// (gosec G112) by capping how long a client may take to send headers.
-	DefaultReadHeaderTimeout = 10 * time.Second
-)
+// DefaultReadHeaderTimeout is the conservative default for
+// http.Server.ReadHeaderTimeout. 10s is what every cocoonstack
+// consumer was already using and mitigates Slowloris attacks
+// (gosec G112) by capping how long a client may take to send headers.
+const DefaultReadHeaderTimeout = 10 * time.Second
 
 // StartFunc is the listen-and-serve entry point for a single server,
 // invoked in its own goroutine by Run. Typical implementations are
