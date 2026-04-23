@@ -136,6 +136,12 @@ type CocoonSetStatus struct {
 	DesiredAgents int32 `json:"desiredAgents"`
 
 	// +optional
+	ReadyToolboxes int32 `json:"readyToolboxes"`
+
+	// +optional
+	DesiredToolboxes int32 `json:"desiredToolboxes"`
+
+	// +optional
 	Agents []AgentStatus `json:"agents,omitempty"`
 
 	// +optional
