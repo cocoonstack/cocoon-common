@@ -16,11 +16,12 @@ const (
 	SnapshotPolicyMainOnly SnapshotPolicy = "main-only"
 	SnapshotPolicyNever    SnapshotPolicy = "never"
 
-	CocoonSetPhasePending   CocoonSetPhase = "Pending"
-	CocoonSetPhaseRunning   CocoonSetPhase = "Running"
-	CocoonSetPhaseScaling   CocoonSetPhase = "Scaling"
-	CocoonSetPhaseSuspended CocoonSetPhase = "Suspended"
-	CocoonSetPhaseFailed    CocoonSetPhase = "Failed"
+	CocoonSetPhasePending    CocoonSetPhase = "Pending"
+	CocoonSetPhaseRunning    CocoonSetPhase = "Running"
+	CocoonSetPhaseScaling    CocoonSetPhase = "Scaling"
+	CocoonSetPhaseSuspending CocoonSetPhase = "Suspending"
+	CocoonSetPhaseSuspended  CocoonSetPhase = "Suspended"
+	CocoonSetPhaseFailed     CocoonSetPhase = "Failed"
 
 	ConnTypeSSH ConnType = "ssh"
 	ConnTypeRDP ConnType = "rdp"
@@ -48,7 +49,7 @@ type OSType string
 type SnapshotPolicy string
 
 // CocoonSetPhase represents the lifecycle phase of a CocoonSet.
-// +kubebuilder:validation:Enum=Pending;Running;Scaling;Suspended;Failed
+// +kubebuilder:validation:Enum=Pending;Running;Scaling;Suspending;Suspended;Failed
 type CocoonSetPhase string
 
 // ConnType is the connection protocol advertised for a VM. Empty
