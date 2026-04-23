@@ -63,11 +63,12 @@ func HTTPSServerSpec(srv *http.Server, cert, key string) ServerSpec {
 }
 
 // Run starts every spec in its own goroutine and blocks until ctx is
-// canceled. On cancellation it calls Shutdown on each server using a
-// fresh timeout context that is *not* derived from the canceled parent
-// (shutdown must outlive the signal-derived ctx). Errors from both
-// serve and shutdown are aggregated with errors.Join. http.ErrServerClosed
-// is treated as a clean shutdown and never returned.
+// canceled or any spec's Start returns a non-ErrServerClosed error. On
+// exit it calls Shutdown on each server using a fresh timeout context
+// that is *not* derived from the canceled parent (shutdown must outlive
+// the signal-derived ctx). Errors from both serve and shutdown are
+// aggregated with errors.Join. http.ErrServerClosed is treated as a
+// clean shutdown and never returned.
 func Run(ctx context.Context, shutdownTimeout time.Duration, specs ...ServerSpec) error {
 	if len(specs) == 0 {
 		return nil
@@ -81,15 +82,22 @@ func Run(ctx context.Context, shutdownTimeout time.Duration, specs ...ServerSpec
 	// parent to derive WithTimeout from.
 	shutdownParent := context.WithoutCancel(ctx)
 
+	// runCtx lets any Start failure trigger the shutdown path without
+	// waiting for the caller's ctx to be canceled — otherwise a bind/TLS
+	// error on startup would leave Run blocked until SIGTERM.
+	runCtx, cancelRun := context.WithCancel(ctx)
+	defer cancelRun()
+
 	for i, spec := range specs {
 		wg.Go(func() {
 			if err := spec.Start(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 				serveErrs[i] = err
+				cancelRun()
 			}
 		})
 	}
 
-	<-ctx.Done()
+	<-runCtx.Done()
 
 	shutdownCtx, cancel := context.WithTimeout(shutdownParent, shutdownTimeout)
 	defer cancel()

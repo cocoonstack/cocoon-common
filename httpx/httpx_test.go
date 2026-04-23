@@ -84,23 +84,19 @@ func TestRunAggregatesServeErrors(t *testing.T) {
 		Start:  func() error { return startErr },
 	}
 
-	ctx, cancel := context.WithCancel(t.Context())
 	runErrCh := make(chan error, 1)
 	go func() {
-		runErrCh <- Run(ctx, time.Second, spec)
+		runErrCh <- Run(t.Context(), time.Second, spec)
 	}()
 
-	// Give the goroutine a moment to record its error, then cancel so Run can return.
-	time.Sleep(50 * time.Millisecond)
-	cancel()
-
+	// Run must return on its own when Start fails — without external cancel.
 	select {
 	case err := <-runErrCh:
 		if !errors.Is(err, startErr) {
 			t.Errorf("want err chain to contain %v, got %v", startErr, err)
 		}
 	case <-time.After(2 * time.Second):
-		t.Fatalf("Run did not return")
+		t.Fatalf("Run did not return after Start error")
 	}
 }
 
