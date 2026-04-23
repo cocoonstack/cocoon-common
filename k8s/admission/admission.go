@@ -57,6 +57,11 @@ func Serve(w http.ResponseWriter, r *http.Request, maxBytes int64, handler Handl
 		http.Error(w, "decode admission review", http.StatusBadRequest)
 		return
 	}
+	if review.Request == nil {
+		logger.Warn(r.Context(), "admission review missing request")
+		http.Error(w, "admission review missing request", http.StatusBadRequest)
+		return
+	}
 	resp := handler(r.Context(), review)
 	if resp == nil {
 		resp = Allow()

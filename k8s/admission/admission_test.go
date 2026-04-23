@@ -76,6 +76,28 @@ func TestServeCopiesUIDAndAllowsNilResponse(t *testing.T) {
 	}
 }
 
+func TestServeRejectsMissingRequest(t *testing.T) {
+	// AdmissionReview with no Request field — shared boundary helper must
+	// fail closed with 400, not nil-deref when copying UID.
+	raw, err := json.Marshal(&admissionv1.AdmissionReview{})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	rr := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(raw))
+	called := false
+	Serve(rr, r, 0, func(_ context.Context, _ *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
+		called = true
+		return Allow()
+	})
+	if rr.Result().StatusCode != http.StatusBadRequest {
+		t.Errorf("status: got %d, want %d", rr.Result().StatusCode, http.StatusBadRequest)
+	}
+	if called {
+		t.Errorf("handler should not be invoked when Request is nil")
+	}
+}
+
 func TestMarshalPatch(t *testing.T) {
 	raw, err := MarshalPatch([]JSONPatchOp{
 		{Op: "add", Path: "/metadata/annotations/x", Value: "y"},
