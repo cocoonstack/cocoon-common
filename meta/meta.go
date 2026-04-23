@@ -8,6 +8,8 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	cocoonv1 "github.com/cocoonstack/cocoon-common/apis/v1"
 )
 
 const (
@@ -47,11 +49,6 @@ const (
 	RoleMain     = "main"
 	RoleSubAgent = "sub-agent"
 	RoleToolbox  = "toolbox"
-
-	ConnTypeVNC = "vnc"
-	ConnTypeADB = "adb"
-	ConnTypeRDP = "rdp"
-	ConnTypeSSH = "ssh"
 )
 
 // HasCocoonToleration reports whether the toleration list includes the virtual-kubelet provider key.
@@ -130,13 +127,13 @@ func ConnectionType(osType string, hasVNCPort bool, override string) string {
 	}
 	switch {
 	case hasVNCPort:
-		return ConnTypeVNC
+		return string(cocoonv1.ConnTypeVNC)
 	case osType == "android":
-		return ConnTypeADB
+		return string(cocoonv1.ConnTypeADB)
 	case osType == "windows":
-		return ConnTypeRDP
+		return string(cocoonv1.ConnTypeRDP)
 	default:
-		return ConnTypeSSH
+		return string(cocoonv1.ConnTypeSSH)
 	}
 }
 

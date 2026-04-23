@@ -121,6 +121,13 @@ func (c ConnType) IsValid() bool {
 	return c == ConnTypeSSH || c == ConnTypeRDP || c == ConnTypeVNC || c == ConnTypeADB
 }
 
+// Default returns c unchanged. Unlike the other enums, ConnType has no
+// static default: an empty value signals "infer from OS and runtime"
+// (see meta.ConnectionType), so this method exists only for API symmetry.
+func (c ConnType) Default() ConnType {
+	return c
+}
+
 // IsValid reports whether b is a recognized Backend value.
 func (b Backend) IsValid() bool {
 	return b == BackendCloudHypervisor || b == BackendFirecracker

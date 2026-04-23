@@ -11,7 +11,10 @@ func TestSignAndVerifySession(t *testing.T) {
 	key := []byte("test-secret-key-32-bytes-long!!!")
 	sess := Session{User: "alice", Email: "alice@example.com", Exp: time.Now().Add(time.Hour).Unix()}
 
-	cookie := SignSession(sess, key)
+	cookie, err := SignSession(sess, key)
+	if err != nil {
+		t.Fatalf("SignSession: %v", err)
+	}
 	if cookie == "" {
 		t.Fatal("SignSession returned empty string")
 	}
@@ -29,7 +32,10 @@ func TestVerifySessionRejectsTampered(t *testing.T) {
 	t.Parallel()
 
 	key := []byte("test-secret")
-	cookie := SignSession(Session{User: "bob", Exp: time.Now().Add(time.Hour).Unix()}, key)
+	cookie, err := SignSession(Session{User: "bob", Exp: time.Now().Add(time.Hour).Unix()}, key)
+	if err != nil {
+		t.Fatalf("SignSession: %v", err)
+	}
 
 	if _, ok := VerifySession(cookie+"x", key); ok {
 		t.Error("expected tampered cookie to fail")
@@ -45,7 +51,10 @@ func TestVerifySessionRejectsTampered(t *testing.T) {
 func TestVerifySessionWrongKey(t *testing.T) {
 	t.Parallel()
 
-	cookie := SignSession(Session{User: "carol"}, []byte("key-a"))
+	cookie, err := SignSession(Session{User: "carol"}, []byte("key-a"))
+	if err != nil {
+		t.Fatalf("SignSession: %v", err)
+	}
 	if _, ok := VerifySession(cookie, []byte("key-b")); ok {
 		t.Error("expected wrong key to fail")
 	}

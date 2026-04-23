@@ -14,8 +14,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// DefaultMaxBody is the request-body ceiling Serve applies when the caller passes 0.
-const DefaultMaxBody int64 = 10 << 20
+const (
+	// DefaultMaxBody is the request-body ceiling Serve applies when the caller passes 0.
+	DefaultMaxBody int64 = 10 << 20
+)
 
 // jsonPointerReplacer escapes ~ and / per RFC 6901.
 var jsonPointerReplacer = strings.NewReplacer("~", "~0", "/", "~1")

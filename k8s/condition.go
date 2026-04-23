@@ -4,8 +4,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// ConditionTypeReady is the condition type for overall readiness.
 const (
+	// ConditionTypeReady is the condition type for overall readiness.
 	ConditionTypeReady = "Ready"
 )
 

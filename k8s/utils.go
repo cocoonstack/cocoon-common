@@ -24,7 +24,7 @@ func PatchStatus[T DeepCopyObject[T]](ctx context.Context, cli client.Client, ob
 
 // PatchHibernateState patches the hibernate annotation, short-circuiting if already at the desired state.
 func PatchHibernateState(ctx context.Context, cli client.Client, pod *corev1.Pod, state bool) error {
-	if bool(meta.ReadHibernateState(pod)) == state {
+	if meta.ReadHibernateState(pod) == meta.HibernateState(state) {
 		return nil
 	}
 	return patchMerge(ctx, cli, pod, func(p *corev1.Pod) {

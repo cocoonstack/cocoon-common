@@ -4,11 +4,10 @@ package auth
 
 import (
 	"crypto/hmac"
-	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"strings"
 )
 
@@ -20,13 +19,16 @@ type Session struct {
 }
 
 // SignSession encodes and HMAC-signs a session into a cookie value.
-func SignSession(sess Session, key []byte) string {
-	data, _ := json.Marshal(sess) //nolint:errcheck // Session fields are always serializable
+func SignSession(sess Session, key []byte) (string, error) {
+	data, err := json.Marshal(sess)
+	if err != nil {
+		return "", fmt.Errorf("marshal session: %w", err)
+	}
 	payload := base64.RawURLEncoding.EncodeToString(data)
 	mac := hmac.New(sha256.New, key)
 	mac.Write([]byte(payload))
 	sig := base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
-	return payload + "." + sig
+	return payload + "." + sig, nil
 }
 
 // VerifySession validates the HMAC signature and decodes the session.
@@ -51,12 +53,4 @@ func VerifySession(cookie string, key []byte) (*Session, bool) {
 		return nil, false
 	}
 	return sess, true
-}
-
-// RandomState returns a cryptographically random 32-character hex string
-// suitable for OAuth state parameters and CSRF nonces.
-func RandomState() string {
-	b := make([]byte, 16)
-	_, _ = rand.Read(b) //nolint:errcheck // crypto/rand.Read never fails on supported platforms
-	return hex.EncodeToString(b)
 }
