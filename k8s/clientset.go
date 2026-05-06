@@ -1,3 +1,4 @@
+// Package k8s provides shared Kubernetes client and helper utilities for cocoonstack projects.
 package k8s
 
 import (

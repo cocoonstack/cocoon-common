@@ -1,6 +1,6 @@
 module github.com/cocoonstack/cocoon-common
 
-go 1.25.0
+go 1.25.6
 
 require (
 	github.com/projecteru2/core v0.0.0-20241016125006-ff909eefe04c
