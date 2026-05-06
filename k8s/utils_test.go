@@ -48,7 +48,7 @@ func TestPatchHibernateStateShortCircuitsNoOp(t *testing.T) {
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{Name: "demo", Namespace: "ns"},
 	}
-	(meta.HibernateState(true)).Apply(pod)
+	meta.HibernateState(true).Apply(pod)
 	cli := newFakeClient(t, pod.DeepCopy())
 
 	// A second call with the same state should be a no-op: the fake
@@ -78,7 +78,7 @@ func TestPatchHibernateStateSetsAnnotation(t *testing.T) {
 
 func TestPatchHibernateStateClearsAnnotation(t *testing.T) {
 	pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "demo", Namespace: "ns"}}
-	(meta.HibernateState(true)).Apply(pod)
+	meta.HibernateState(true).Apply(pod)
 	cli := newFakeClient(t, pod.DeepCopy())
 
 	if err := PatchHibernateState(t.Context(), cli, pod, false); err != nil {
