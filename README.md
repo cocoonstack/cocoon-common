@@ -93,11 +93,18 @@ Two snapshot tag constants anchor the cross-component contract:
 `meta.LifecycleStatus` is the typed contract for the lifecycle-state annotation triple vk-cocoon writes (`state`, `observed-generation`, `message`):
 
 ```go
-meta.LifecycleStatus{
+status := meta.LifecycleStatus{
     State:              meta.LifecycleStateReady,
     ObservedGeneration: meta.ReadCocoonSetGeneration(pod),
-    Message:            "",
-}.Apply(pod) // or .PatchPayload() for an apiserver patch body
+}
+
+// In-memory: mutate the pod we already hold.
+status.Apply(pod)
+
+// Wire: status.Annotations() returns the annotation key/value map
+// (nil values delete the key); wrap with k8s.AnnotationsMergePatch
+// for an apiserver merge-patch body.
+patch, _ := k8s.AnnotationsMergePatch(status.Annotations())
 ```
 
 cocoon-operator stamps the owning CocoonSet's `metadata.generation` onto the pod via `meta.StampCocoonSetGeneration` so vk-cocoon can echo it back as `lifecycle-observed-generation`. Counter-based completion lets clients tell "the operation I asked for finished" from "an older completion is still being reported", without depending on wall-clock skew.

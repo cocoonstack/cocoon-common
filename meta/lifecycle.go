@@ -28,8 +28,8 @@ func (s LifecycleState) IsTerminal() bool {
 }
 
 // LifecycleStatus is the full triple (state, observed-generation, message).
-// PatchPayload is the source of truth for what gets written; Apply
-// consumes the same payload in-memory and Snapshot derives a comparison
+// Annotations is the source of truth for what gets written; Apply
+// consumes the same map in-memory and Snapshot derives a comparison
 // key from the same fields.
 type LifecycleStatus struct {
 	State              LifecycleState
@@ -37,9 +37,11 @@ type LifecycleStatus struct {
 	Message            string
 }
 
-// PatchPayload returns the strategic-merge value map. nil entries
-// instruct the apiserver to delete the key.
-func (s LifecycleStatus) PatchPayload() map[string]any {
+// Annotations returns the lifecycle annotation map for s. nil entries
+// signal "delete this key" — pass to k8s.AnnotationsMergePatch to wrap
+// into a `metadata.annotations` merge-patch body, or iterate directly
+// to mutate an in-memory pod (see Apply).
+func (s LifecycleStatus) Annotations() map[string]any {
 	annos := map[string]any{
 		AnnotationLifecycleState:              string(s.State),
 		AnnotationLifecycleObservedGeneration: strconv.FormatInt(s.ObservedGeneration, 10),
@@ -52,15 +54,15 @@ func (s LifecycleStatus) PatchPayload() map[string]any {
 	return annos
 }
 
-// Apply writes PatchPayload into the pod's annotations, deleting keys
-// whose payload value is nil. Empty message clears the annotation so a
-// stale failure reason cannot tail into the next lifecycle.
+// Apply writes Annotations into the pod's annotations, deleting keys
+// whose value is nil. Empty message clears the annotation so a stale
+// failure reason cannot tail into the next lifecycle.
 func (s LifecycleStatus) Apply(pod *corev1.Pod) {
 	if pod == nil {
 		return
 	}
 	a := ensurePodAnnotations(pod)
-	for key, val := range s.PatchPayload() {
+	for key, val := range s.Annotations() {
 		if val == nil {
 			delete(a, key)
 			continue

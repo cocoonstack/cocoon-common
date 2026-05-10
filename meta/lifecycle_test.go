@@ -86,7 +86,7 @@ func TestLifecycleStatusApplyNilPod(t *testing.T) {
 	LifecycleStatus{State: LifecycleStateReady}.Apply(nil)
 }
 
-func TestLifecycleStatusPatchPayload(t *testing.T) {
+func TestLifecycleStatusAnnotations(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
@@ -115,7 +115,7 @@ func TestLifecycleStatusPatchPayload(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			got := tt.status.PatchPayload()
+			got := tt.status.Annotations()
 			if len(got) != len(tt.want) {
 				t.Fatalf("payload size = %d, want %d", len(got), len(tt.want))
 			}
