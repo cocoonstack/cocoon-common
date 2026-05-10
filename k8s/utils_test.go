@@ -93,3 +93,34 @@ func TestPatchHibernateStateClearsAnnotation(t *testing.T) {
 		t.Errorf("hibernate annotation should be cleared, got %v", got.Annotations)
 	}
 }
+
+func TestPatchCocoonSetGenerationWritesValue(t *testing.T) {
+	pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "demo", Namespace: "ns"}}
+	cli := newFakeClient(t, pod.DeepCopy())
+
+	if err := PatchCocoonSetGeneration(t.Context(), cli, pod, 42); err != nil {
+		t.Fatalf("PatchCocoonSetGeneration: %v", err)
+	}
+
+	var got corev1.Pod
+	if err := cli.Get(t.Context(), client.ObjectKey{Namespace: "ns", Name: "demo"}, &got); err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if got.Annotations[meta.AnnotationCocoonSetGeneration] != "42" {
+		t.Errorf("annotation = %q, want 42", got.Annotations[meta.AnnotationCocoonSetGeneration])
+	}
+}
+
+func TestPatchCocoonSetGenerationShortCircuitsNoOp(t *testing.T) {
+	pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{
+		Name: "demo", Namespace: "ns",
+		Annotations: map[string]string{meta.AnnotationCocoonSetGeneration: "7"},
+	}}
+	cli := newFakeClient(t, pod.DeepCopy())
+
+	// Identical generation must be a true no-op: the fake client would
+	// error on Patch with an empty body, and the guard prevents that.
+	if err := PatchCocoonSetGeneration(t.Context(), cli, pod, 7); err != nil {
+		t.Fatalf("no-op PatchCocoonSetGeneration: %v", err)
+	}
+}

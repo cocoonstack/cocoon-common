@@ -32,6 +32,18 @@ func PatchHibernateState(ctx context.Context, cli client.Client, pod *corev1.Pod
 	})
 }
 
+// PatchCocoonSetGeneration stamps the owning CocoonSet's metadata.generation
+// onto the pod so vk-cocoon can read it back as lifecycle-observed-generation.
+// Short-circuits when the annotation is already correct.
+func PatchCocoonSetGeneration(ctx context.Context, cli client.Client, pod *corev1.Pod, generation int64) error {
+	if meta.ReadCocoonSetGeneration(pod) == generation {
+		return nil
+	}
+	return patchMerge(ctx, cli, pod, func(p *corev1.Pod) {
+		meta.StampCocoonSetGeneration(p, generation)
+	})
+}
+
 // patchMerge applies mutate under a MergeFrom patch on the primary resource.
 func patchMerge[T DeepCopyObject[T]](ctx context.Context, cli client.Client, obj T, mutate func(T)) error {
 	patch := client.MergeFrom(obj.DeepCopy())
