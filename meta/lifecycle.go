@@ -7,8 +7,7 @@ import (
 )
 
 // LifecycleState is the typed contract for the lifecycle-state annotation
-// vk-cocoon publishes on a Pod. Clients poll the annotation triple
-// (state, observed-generation, message) for non-stale completion detection.
+// vk-cocoon publishes on a Pod.
 type LifecycleState string
 
 const (
@@ -19,20 +18,7 @@ const (
 	LifecycleStateFailed      LifecycleState = "failed"
 )
 
-// LifecycleStatus is the full triple (state, observed-generation, message)
-// vk-cocoon writes atomically. Apply, PatchPayload, and Snapshot keep the
-// in-memory pod, the apiserver patch body, and the drift-comparison key
-// in sync — callers that touch one path go through this struct so they
-// cannot diverge.
-type LifecycleStatus struct {
-	State              LifecycleState
-	ObservedGeneration int64
-	Message            string
-}
-
-// IsTerminal reports whether s is one of the terminal states a client
-// would wait for (ready, hibernated, failed). Transient states
-// (creating, hibernating) return false.
+// IsTerminal reports whether s is a state a client would wait for.
 func (s LifecycleState) IsTerminal() bool {
 	switch s {
 	case LifecycleStateReady, LifecycleStateHibernated, LifecycleStateFailed:
@@ -41,26 +27,18 @@ func (s LifecycleState) IsTerminal() bool {
 	return false
 }
 
-// Apply writes the LifecycleStatus into the pod's annotations. An empty
-// message removes the message annotation so a stale failure reason from
-// a prior lifecycle does not tail along into the next one.
-func (s LifecycleStatus) Apply(pod *corev1.Pod) {
-	if pod == nil {
-		return
-	}
-	a := ensurePodAnnotations(pod)
-	a[AnnotationLifecycleState] = string(s.State)
-	a[AnnotationLifecycleObservedGeneration] = strconv.FormatInt(s.ObservedGeneration, 10)
-	if s.Message == "" {
-		delete(a, AnnotationLifecycleStateMessage)
-	} else {
-		a[AnnotationLifecycleStateMessage] = s.Message
-	}
+// LifecycleStatus is the full triple (state, observed-generation, message).
+// PatchPayload is the source of truth for what gets written; Apply
+// consumes the same payload in-memory and Snapshot derives a comparison
+// key from the same fields.
+type LifecycleStatus struct {
+	State              LifecycleState
+	ObservedGeneration int64
+	Message            string
 }
 
-// PatchPayload returns the strategic-merge value map for s. Empty
-// message uses a nil entry so the apiserver deletes the key — the
-// payload mirrors what Apply does in-memory.
+// PatchPayload returns the strategic-merge value map. nil entries
+// instruct the apiserver to delete the key.
 func (s LifecycleStatus) PatchPayload() map[string]any {
 	annos := map[string]any{
 		AnnotationLifecycleState:              string(s.State),
@@ -74,15 +52,30 @@ func (s LifecycleStatus) PatchPayload() map[string]any {
 	return annos
 }
 
-// Snapshot returns a stable comparison key. Uses NUL as separator so
-// arbitrary message contents (error strings can contain '|', '\n', etc.)
-// cannot collide with the join.
+// Apply writes PatchPayload into the pod's annotations, deleting keys
+// whose payload value is nil. Empty message clears the annotation so a
+// stale failure reason cannot tail into the next lifecycle.
+func (s LifecycleStatus) Apply(pod *corev1.Pod) {
+	if pod == nil {
+		return
+	}
+	a := ensurePodAnnotations(pod)
+	for key, val := range s.PatchPayload() {
+		if val == nil {
+			delete(a, key)
+			continue
+		}
+		a[key] = val.(string)
+	}
+}
+
+// Snapshot returns a stable comparison key. NUL separator avoids
+// collisions with arbitrary message contents.
 func (s LifecycleStatus) Snapshot() string {
 	return string(s.State) + "\x00" + strconv.FormatInt(s.ObservedGeneration, 10) + "\x00" + s.Message
 }
 
-// ReadLifecycleStatus returns the LifecycleStatus stored in the pod's
-// annotations. Missing or unparseable observed-generation falls back to 0.
+// ReadLifecycleStatus reads the triple from pod annotations.
 func ReadLifecycleStatus(pod *corev1.Pod) LifecycleStatus {
 	if pod == nil {
 		return LifecycleStatus{}
@@ -94,8 +87,7 @@ func ReadLifecycleStatus(pod *corev1.Pod) LifecycleStatus {
 	}
 }
 
-// ReadLifecycleState returns the lifecycle-state annotation on the pod,
-// or an empty string when the annotation is missing.
+// ReadLifecycleState reads the lifecycle-state annotation, "" when missing.
 func ReadLifecycleState(pod *corev1.Pod) LifecycleState {
 	if pod == nil {
 		return ""
@@ -103,50 +95,41 @@ func ReadLifecycleState(pod *corev1.Pod) LifecycleState {
 	return LifecycleState(pod.Annotations[AnnotationLifecycleState])
 }
 
-// ReadLifecycleObservedGeneration returns the observed-generation paired
-// with the lifecycle-state annotation. Returns 0 when missing or
-// unparseable so callers treat absence as "not observed yet".
+// ReadLifecycleObservedGeneration reads the observed-generation annotation.
+// Missing or unparseable returns 0 — callers treat it as "not observed yet".
 func ReadLifecycleObservedGeneration(pod *corev1.Pod) int64 {
-	if pod == nil {
-		return 0
-	}
-	raw := pod.Annotations[AnnotationLifecycleObservedGeneration]
-	if raw == "" {
-		return 0
-	}
-	n, err := strconv.ParseInt(raw, 10, 64)
-	if err != nil {
-		return 0
-	}
-	return n
+	return readInt64Annotation(pod, AnnotationLifecycleObservedGeneration)
 }
 
-// ReadCocoonSetGeneration returns the owning CocoonSet's metadata.generation
-// as stamped by cocoon-operator on the Pod. Returns 0 when missing.
-// vk-cocoon writes this back as lifecycle-observed-generation when a state
-// transition completes, giving clients a counter-based completion signal
-// that is not subject to wallclock skew.
+// ReadCocoonSetGeneration reads the CocoonSet generation stamped by
+// cocoon-operator. vk-cocoon writes it back as observed-generation —
+// counter-based completion is not subject to wallclock skew.
 func ReadCocoonSetGeneration(pod *corev1.Pod) int64 {
-	if pod == nil {
-		return 0
-	}
-	raw := pod.Annotations[AnnotationCocoonSetGeneration]
-	if raw == "" {
-		return 0
-	}
-	n, err := strconv.ParseInt(raw, 10, 64)
-	if err != nil {
-		return 0
-	}
-	return n
+	return readInt64Annotation(pod, AnnotationCocoonSetGeneration)
 }
 
-// StampCocoonSetGeneration writes generation onto the pod's annotation
-// map (allocating it if nil). The companion to ReadCocoonSetGeneration.
+// StampCocoonSetGeneration writes the CocoonSet generation onto the pod.
 func StampCocoonSetGeneration(pod *corev1.Pod, generation int64) {
 	if pod == nil {
 		return
 	}
 	a := ensurePodAnnotations(pod)
 	a[AnnotationCocoonSetGeneration] = strconv.FormatInt(generation, 10)
+}
+
+// readInt64Annotation parses an int64-valued annotation, returning 0
+// when missing or unparseable.
+func readInt64Annotation(pod *corev1.Pod, key string) int64 {
+	if pod == nil {
+		return 0
+	}
+	raw := pod.Annotations[key]
+	if raw == "" {
+		return 0
+	}
+	n, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil {
+		return 0
+	}
+	return n
 }
