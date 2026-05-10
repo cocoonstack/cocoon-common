@@ -2,6 +2,7 @@ package k8s
 
 import (
 	"context"
+	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -29,6 +30,19 @@ func PatchHibernateState(ctx context.Context, cli client.Client, pod *corev1.Pod
 	}
 	return patchMerge(ctx, cli, pod, func(p *corev1.Pod) {
 		meta.HibernateState(state).Apply(p)
+	})
+}
+
+// PatchCocoonSetGeneration stamps the owning CocoonSet's metadata.generation
+// onto the pod so vk-cocoon can read it back as lifecycle-observed-generation.
+// Short-circuits when the annotation is already correct.
+func PatchCocoonSetGeneration(ctx context.Context, cli client.Client, pod *corev1.Pod, generation int64) error {
+	want := strconv.FormatInt(generation, 10)
+	if pod.Annotations[meta.AnnotationCocoonSetGeneration] == want {
+		return nil
+	}
+	return patchMerge(ctx, cli, pod, func(p *corev1.Pod) {
+		meta.StampCocoonSetGeneration(p, generation)
 	})
 }
 
