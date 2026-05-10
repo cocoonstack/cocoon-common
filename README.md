@@ -5,7 +5,7 @@ Shared Go packages for [cocoonstack](https://github.com/cocoonstack) services.
 ## Overview
 
 - `apis/v1` -- typed CocoonSet and CocoonHibernation CRD Go types and generated CRD YAML manifests
-- `meta` -- shared CRD identifiers, annotation/label/toleration keys, VM naming helpers, the typed `VMSpec` / `VMRuntime` / `HibernateState` annotation contract, and pod-state helpers (`IsPodReady`, `IsPodTerminal`, `IsContainerRunning`, `IsWindowsPod`, `PodKey`, `PodNodePool`) every cocoon component shares
+- `meta` -- shared CRD identifiers, annotation/label/toleration keys, VM naming helpers, the typed `VMSpec` / `VMRuntime` / `HibernateState` / `LifecycleStatus` annotation contract, and pod-state helpers (`IsPodReady`, `IsPodTerminal`, `IsContainerRunning`, `IsWindowsPod`, `PodKey`, `PodNodePool`) every cocoon component shares
 - `k8s` -- Kubernetes client config bootstrap with the standard kubeconfig fallback chain, merge-patch helpers, env/duration/sleep helpers (`EnvOrDefault`, `EnvDuration`, `EnvBool`, `SleepCtx`), unstructured decoder, and TLS helpers (`LoadOrGenerateCert`, `GenerateSelfSignedCert`, `DetectNodeIP`)
 - `k8s/admission` -- shared admission-webhook scaffolding (`Allow` / `Deny` responses, `Decode` / `Serve` request loop, RFC 6902 `JSONPatchOp` + `EscapeJSONPointer` helpers) used by `cocoon-webhook` and reusable by any future cocoonstack admission handler
 - `auth` -- shared HMAC-signed session helpers (sign/verify cookies, random state generation) used by glance and epoch for SSO cookie management
@@ -55,8 +55,8 @@ All identifiers live under two cocoonstack.io subdomains:
 
 | Prefix | Used for | Examples |
 |---|---|---|
-| `cocoonset.cocoonstack.io/` | CocoonSet CRD group, Pod selector labels, and CocoonSet-level fields the operator mirrors onto a managed Pod | `cocoonset.cocoonstack.io/v1`, `name`, `role`, `slot`, `mode`, `image`, `os`, `storage`, `snapshot-policy`, `network`, `managed`, `force-pull` |
-| `vm.cocoonstack.io/` | VM-instance metadata — observed runtime state plus per-VM spec the operator hands to vk-cocoon | `id`, `name`, `ip`, `vnc-port`, `hibernate`, `fork-from`, `clone-from-dir`, `conn-type`, `backend`, `no-direct-io`, `probe-port` |
+| `cocoonset.cocoonstack.io/` | CocoonSet CRD group, Pod selector labels, and CocoonSet-level fields the operator mirrors onto a managed Pod | `cocoonset.cocoonstack.io/v1`, `name`, `role`, `slot`, `mode`, `image`, `os`, `storage`, `snapshot-policy`, `network`, `managed`, `force-pull`, `generation` |
+| `vm.cocoonstack.io/` | VM-instance metadata — observed runtime state plus per-VM spec the operator hands to vk-cocoon | `id`, `name`, `ip`, `vnc-port`, `hibernate`, `fork-from`, `clone-from-dir`, `conn-type`, `backend`, `no-direct-io`, `probe-port`, `lifecycle-state`, `lifecycle-observed-generation`, `lifecycle-state-message` |
 
 For typed annotation access, prefer the `meta.VMSpec` / `meta.VMRuntime` / `meta.HibernateState` wrappers over raw map manipulation:
 
@@ -90,6 +90,18 @@ Two snapshot tag constants anchor the cross-component contract:
 
 `meta.ShouldSnapshotVM(spec)` is the single shared decoder for the `SnapshotPolicy` / slot-index decision. vk-cocoon consults it on the producer side (should I push this VM?) and cocoon-operator on the GC side (should I delete this tag?) so the two cannot drift — under `main-only` both sides agree only slot-0 is touched.
 
+`meta.LifecycleStatus` is the typed contract for the lifecycle-state annotation triple vk-cocoon writes (`state`, `observed-generation`, `message`):
+
+```go
+meta.LifecycleStatus{
+    State:              meta.LifecycleStateReady,
+    ObservedGeneration: meta.ReadCocoonSetGeneration(pod),
+    Message:            "",
+}.Apply(pod) // or .PatchPayload() for an apiserver patch body
+```
+
+cocoon-operator stamps the owning CocoonSet's `metadata.generation` onto the pod via `meta.StampCocoonSetGeneration` so vk-cocoon can echo it back as `lifecycle-observed-generation`. Counter-based completion lets clients tell "the operation I asked for finished" from "an older completion is still being reported", without depending on wall-clock skew.
+
 ### `k8s`
 
 Use `k8s.LoadConfig()` to resolve cluster configuration from:
@@ -106,6 +118,7 @@ Other helpers in this package:
 - `k8s.StatusMergePatch` / `k8s.AnnotationsMergePatch` -- merge-patch builders used by reconcilers that prefer the JSON merge-patch encoding over `client.MergeFrom`.
 - `k8s.PatchStatus[T]` -- generic `client.MergeFrom` patch for the `/status` subresource; captures the pre-mutation snapshot via the kubebuilder-generated typed `DeepCopy()` so callers skip the boilerplate.
 - `k8s.PatchHibernateState` -- pod-level hibernate annotation patch that short-circuits when the pod already carries the desired state, safe to call unconditionally in a reconcile loop.
+- `k8s.PatchCocoonSetGeneration` -- stamps the owning CocoonSet's `metadata.generation` onto the pod for vk-cocoon to echo back as `lifecycle-observed-generation`; same short-circuit semantics as `PatchHibernateState`.
 - `k8s.NewReadyCondition` / `k8s.ConditionTypeReady` -- canonical `Ready` condition constructor shared across every cocoon CRD status block, leaving `LastTransitionTime` zero so `apimeta.SetStatusCondition` preserves the existing timestamp on no-op updates.
 - `k8s.DecodeUnstructured[T]` -- generic unstructured-to-typed converter.
 
