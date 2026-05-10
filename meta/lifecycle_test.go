@@ -11,19 +11,20 @@ func TestLifecycleStateIsTerminal(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
+		name  string
 		state LifecycleState
 		want  bool
 	}{
-		{LifecycleStateCreating, false},
-		{LifecycleStateHibernating, false},
-		{LifecycleStateReady, true},
-		{LifecycleStateHibernated, true},
-		{LifecycleStateFailed, true},
-		{LifecycleState(""), false},
-		{LifecycleState("unknown"), false},
+		{"creating", LifecycleStateCreating, false},
+		{"hibernating", LifecycleStateHibernating, false},
+		{"ready", LifecycleStateReady, true},
+		{"hibernated", LifecycleStateHibernated, true},
+		{"failed", LifecycleStateFailed, true},
+		{"empty", LifecycleState(""), false},
+		{"unknown", LifecycleState("unknown"), false},
 	}
 	for _, tt := range cases {
-		t.Run(string(tt.state), func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			if got := tt.state.IsTerminal(); got != tt.want {
 				t.Errorf("IsTerminal(%q) = %v, want %v", tt.state, got, tt.want)
 			}
