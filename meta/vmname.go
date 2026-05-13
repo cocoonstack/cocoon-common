@@ -43,13 +43,18 @@ func MainAgentVMNameFor(namespace, cocoonSet string) string {
 	return VMNameForDeployment(namespace, cocoonSet, 0)
 }
 
-// InferRoleFromAgentSlot returns RoleMain for slot 0, RoleSubAgent
-// otherwise. Toolboxes use RoleToolbox; do not route them through here.
+// InferRoleFromAgentSlot returns RoleMain for slot 0, RoleSubAgent for
+// positive slots, RoleToolbox for slot < 0 (so the chain with
+// ExtractAgentSlot stays safe for toolbox VM names).
 func InferRoleFromAgentSlot(slot int) string {
-	if slot == 0 {
+	switch {
+	case slot < 0:
+		return RoleToolbox
+	case slot == 0:
 		return RoleMain
+	default:
+		return RoleSubAgent
 	}
-	return RoleSubAgent
 }
 
 // ExtractSlotFromVMName parses the trailing slot index from a VM name,
@@ -67,19 +72,6 @@ func ExtractSlotFromVMName(vmName string) int {
 		return -1
 	}
 	return n
-}
-
-// MainAgentVMName replaces the slot suffix with 0. Non-slot names are
-// returned unchanged.
-//
-// Deprecated: shares the toolbox-collision bug of ExtractSlotFromVMName.
-// Prefer MainAgentVMNameFor(namespace, cocoonSet) for new code.
-func MainAgentVMName(vmName string) string {
-	if ExtractSlotFromVMName(vmName) < 0 {
-		return vmName
-	}
-	before, _, _ := lastCut(vmName, "-")
-	return before + "-0"
 }
 
 // InferRoleFromVMName returns RoleMain for slot 0, RoleSubAgent otherwise.
