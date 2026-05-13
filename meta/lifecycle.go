@@ -6,10 +6,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-// LifecycleState is the typed contract for the lifecycle-state annotation
-// vk-cocoon publishes on a Pod.
-type LifecycleState string
-
 const (
 	LifecycleStateCreating    LifecycleState = "creating"
 	LifecycleStateReady       LifecycleState = "ready"
@@ -18,13 +14,22 @@ const (
 	LifecycleStateFailed      LifecycleState = "failed"
 )
 
+// terminalStates is the lookup set IsTerminal consults — keep it in sync
+// with the const block above.
+var terminalStates = map[LifecycleState]struct{}{
+	LifecycleStateReady:      {},
+	LifecycleStateHibernated: {},
+	LifecycleStateFailed:     {},
+}
+
+// LifecycleState is the typed contract for the lifecycle-state annotation
+// vk-cocoon publishes on a Pod.
+type LifecycleState string
+
 // IsTerminal reports whether s is a state a client would wait for.
 func (s LifecycleState) IsTerminal() bool {
-	switch s {
-	case LifecycleStateReady, LifecycleStateHibernated, LifecycleStateFailed:
-		return true
-	}
-	return false
+	_, ok := terminalStates[s]
+	return ok
 }
 
 // LifecycleStatus is the full triple (state, observed-generation, message).
