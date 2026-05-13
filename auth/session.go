@@ -53,7 +53,7 @@ func VerifySession(cookie string, key []byte) (*Session, bool) {
 	if json.Unmarshal(data, sess) != nil {
 		return nil, false
 	}
-	if sess.Exp != 0 && sess.Exp < time.Now().Unix() {
+	if sess.Exp != 0 && sess.Exp <= time.Now().Unix() {
 		return nil, false
 	}
 	return sess, true
