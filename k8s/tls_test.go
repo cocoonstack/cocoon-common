@@ -144,7 +144,15 @@ func TestLoadOrGenerateCertExpiredDiskCertFallsBack(t *testing.T) {
 }
 
 func TestDetectNodeIPReturnsSomething(t *testing.T) {
-	if got := DetectNodeIP(); got == "" {
-		t.Errorf("DetectNodeIP returned empty string")
+	// CI hosts are expected to have at least one non-loopback IPv4
+	// interface; if not, the call should return ErrNoNodeIP so this
+	// test surfaces the environmental issue rather than passing on
+	// the previous silent fallback to localhost.
+	got, err := DetectNodeIP()
+	if err != nil {
+		t.Skipf("no non-loopback IPv4 on this host: %v", err)
+	}
+	if got == "" {
+		t.Errorf("DetectNodeIP returned empty string with no error")
 	}
 }
