@@ -1,12 +1,22 @@
 package k8s
 
-import "net"
+import (
+	"errors"
+	"fmt"
+	"net"
+)
 
-// DetectNodeIP returns the first non-loopback IPv4 address, or "127.0.0.1" if none found.
-func DetectNodeIP() string {
+// ErrNoNodeIP is returned when no non-loopback IPv4 address is
+// reachable. Callers pick the fallback — auto-substituting localhost
+// would mask misconfigured network namespaces.
+var ErrNoNodeIP = errors.New("no non-loopback IPv4 address found")
+
+// DetectNodeIP returns the first non-loopback IPv4 address, or
+// ErrNoNodeIP if none exists.
+func DetectNodeIP() (string, error) {
 	addrs, err := net.InterfaceAddrs()
 	if err != nil {
-		return localhost
+		return "", fmt.Errorf("list interface addresses: %w", err)
 	}
 	for _, addr := range addrs {
 		ipNet, ok := addr.(*net.IPNet)
@@ -14,8 +24,8 @@ func DetectNodeIP() string {
 			continue
 		}
 		if ip4 := ipNet.IP.To4(); ip4 != nil {
-			return ip4.String()
+			return ip4.String(), nil
 		}
 	}
-	return localhost
+	return "", ErrNoNodeIP
 }

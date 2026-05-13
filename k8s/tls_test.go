@@ -42,7 +42,7 @@ func TestGenerateSelfSignedCertIsParseable(t *testing.T) {
 }
 
 func TestLoadOrGenerateCertFallsBackToSelfSigned(t *testing.T) {
-	cert, source, err := LoadOrGenerateCert("/does/not/exist.crt", "/does/not/exist.key", "host", "10.0.0.1")
+	cert, source, err := LoadOrGenerateCert(t.Context(), "/does/not/exist.crt", "/does/not/exist.key", "host", "10.0.0.1")
 	if err != nil {
 		t.Fatalf("fallback: %v", err)
 	}
@@ -91,7 +91,7 @@ func TestLoadOrGenerateCertLoadsFromDisk(t *testing.T) {
 		t.Fatalf("write key: %v", err)
 	}
 
-	_, source, err := LoadOrGenerateCert(certPath, keyPath, "host", "10.0.0.1")
+	_, source, err := LoadOrGenerateCert(t.Context(), certPath, keyPath, "host", "10.0.0.1")
 	if err != nil {
 		t.Fatalf("load: %v", err)
 	}
@@ -100,8 +100,58 @@ func TestLoadOrGenerateCertLoadsFromDisk(t *testing.T) {
 	}
 }
 
+func TestLoadOrGenerateCertExpiredDiskCertFallsBack(t *testing.T) {
+	dir := t.TempDir()
+	certPath := filepath.Join(dir, "tls.crt")
+	keyPath := filepath.Join(dir, "tls.key")
+
+	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("gen key: %v", err)
+	}
+	// NotAfter in the past forces the expiry branch.
+	tmpl := x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject:      pkix.Name{CommonName: "host"},
+		NotBefore:    time.Now().Add(-2 * time.Hour),
+		NotAfter:     time.Now().Add(-time.Hour),
+		KeyUsage:     x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		IPAddresses:  []net.IP{net.ParseIP("10.0.0.1")},
+	}
+	certDER, err := x509.CreateCertificate(rand.Reader, &tmpl, &tmpl, &priv.PublicKey, priv)
+	if err != nil {
+		t.Fatalf("create cert: %v", err)
+	}
+	privDER, err := x509.MarshalECPrivateKey(priv)
+	if err != nil {
+		t.Fatalf("marshal key: %v", err)
+	}
+	if err := os.WriteFile(certPath, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certDER}), 0o600); err != nil {
+		t.Fatalf("write cert: %v", err)
+	}
+	if err := os.WriteFile(keyPath, pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: privDER}), 0o600); err != nil {
+		t.Fatalf("write key: %v", err)
+	}
+
+	_, source, err := LoadOrGenerateCert(t.Context(), certPath, keyPath, "host", "10.0.0.1")
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if source != "self-signed" {
+		t.Errorf("expected expired disk cert to fall back to self-signed, got source = %q", source)
+	}
+}
+
 func TestDetectNodeIPReturnsSomething(t *testing.T) {
-	if got := DetectNodeIP(); got == "" {
-		t.Errorf("DetectNodeIP returned empty string")
+	// CI hosts are expected to have at least one non-loopback IPv4
+	// interface; skip when none is present so the test reflects the
+	// environment rather than masking it as a pass.
+	got, err := DetectNodeIP()
+	if err != nil {
+		t.Skipf("no non-loopback IPv4 on this host: %v", err)
+	}
+	if got == "" {
+		t.Errorf("DetectNodeIP returned empty string with no error")
 	}
 }

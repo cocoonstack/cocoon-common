@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 )
 
 // Session holds the claims embedded in an HMAC-signed cookie.
@@ -32,7 +33,7 @@ func SignSession(sess Session, key []byte) (string, error) {
 }
 
 // VerifySession validates the HMAC signature and decodes the session.
-// Returns nil and false if the signature is invalid or decoding fails.
+// Exp == 0 means "no expiry".
 func VerifySession(cookie string, key []byte) (*Session, bool) {
 	payload, sig, ok := strings.Cut(cookie, ".")
 	if !ok {
@@ -50,6 +51,9 @@ func VerifySession(cookie string, key []byte) (*Session, bool) {
 	}
 	sess := &Session{}
 	if json.Unmarshal(data, sess) != nil {
+		return nil, false
+	}
+	if sess.Exp != 0 && sess.Exp <= time.Now().Unix() {
 		return nil, false
 	}
 	return sess, true

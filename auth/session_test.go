@@ -60,6 +60,34 @@ func TestVerifySessionWrongKey(t *testing.T) {
 	}
 }
 
+func TestVerifySessionRejectsExpired(t *testing.T) {
+	t.Parallel()
+
+	key := []byte("test-secret-key-32-bytes-long!!!")
+	expired := Session{User: "dave", Exp: time.Now().Add(-time.Hour).Unix()}
+	cookie, err := SignSession(expired, key)
+	if err != nil {
+		t.Fatalf("SignSession: %v", err)
+	}
+	if _, ok := VerifySession(cookie, key); ok {
+		t.Error("expected expired cookie to fail")
+	}
+}
+
+func TestVerifySessionZeroExpAccepted(t *testing.T) {
+	t.Parallel()
+
+	key := []byte("test-secret-key-32-bytes-long!!!")
+	// Exp == 0 means "no expiry" — must remain accepted.
+	cookie, err := SignSession(Session{User: "eve"}, key)
+	if err != nil {
+		t.Fatalf("SignSession: %v", err)
+	}
+	if _, ok := VerifySession(cookie, key); !ok {
+		t.Error("expected session with zero Exp to be accepted")
+	}
+}
+
 func TestRandomState(t *testing.T) {
 	t.Parallel()
 

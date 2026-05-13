@@ -3,12 +3,16 @@ package auth
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
 )
 
 // RandomState returns a cryptographically random 32-character hex string
 // suitable for OAuth state parameters and CSRF nonces.
+// Panics on crypto/rand failure — a weak nonce silently breaks CSRF.
 func RandomState() string {
 	b := make([]byte, 16)
-	_, _ = rand.Read(b) //nolint:errcheck // crypto/rand.Read never fails on supported platforms
+	if _, err := rand.Read(b); err != nil {
+		panic(fmt.Sprintf("crypto/rand.Read: %v", err))
+	}
 	return hex.EncodeToString(b)
 }
