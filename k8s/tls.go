@@ -9,10 +9,11 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"errors"
 	"fmt"
+	"io/fs"
 	"math/big"
 	"net"
-	"os"
 	"time"
 
 	"github.com/projecteru2/core/log"
@@ -20,15 +21,11 @@ import (
 
 const localhost = "127.0.0.1"
 
-// LoadOrGenerateCert loads a TLS keypair from disk, falling back to a self-signed cert.
-// Returns a source label for logging ("disk <path>" or "self-signed").
-//
-// If the on-disk cert is already expired, a warning is logged and the
-// function falls through to mint a self-signed cert — kubelets that
-// keep running with a stale cert appear healthy but get rejected by the
-// API server with an opaque TLS error.
-func LoadOrGenerateCert(certPath, keyPath, hostname, ip string) (tls.Certificate, string, error) {
-	cert, source, err := tryLoadDiskCert(certPath, keyPath)
+// LoadOrGenerateCert loads a TLS keypair from disk, falling back to a
+// self-signed cert when paths are empty, the cert is missing, or the
+// cert is expired. Returns a source label for logging.
+func LoadOrGenerateCert(ctx context.Context, certPath, keyPath, hostname, ip string) (tls.Certificate, string, error) {
+	cert, source, err := tryLoadDiskCert(ctx, certPath, keyPath)
 	if err != nil {
 		return tls.Certificate{}, "", err
 	}
@@ -42,61 +39,58 @@ func LoadOrGenerateCert(certPath, keyPath, hostname, ip string) (tls.Certificate
 	return cert, "self-signed", nil
 }
 
-// tryLoadDiskCert attempts to load the keypair at the configured paths.
-// Returns ("", "", nil) when the caller should fall back to a self-signed
-// cert (paths empty, cert missing, or cert expired) and propagates a
-// non-nil error only when the keypair load itself fails — that signals
-// operator misconfiguration which silently substituting a self-signed
-// cert would mask.
-func tryLoadDiskCert(certPath, keyPath string) (tls.Certificate, string, error) {
+// tryLoadDiskCert returns ("", "", nil) when the caller should fall
+// back to self-signed (paths empty, cert missing, or expired) and an
+// error only when a configured keypair fails to load.
+func tryLoadDiskCert(ctx context.Context, certPath, keyPath string) (tls.Certificate, string, error) {
 	if certPath == "" || keyPath == "" {
-		return tls.Certificate{}, "", nil
-	}
-	if _, err := os.Stat(certPath); err != nil {
 		return tls.Certificate{}, "", nil
 	}
 	cert, err := tls.LoadX509KeyPair(certPath, keyPath)
 	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return tls.Certificate{}, "", nil
+		}
 		return tls.Certificate{}, "", fmt.Errorf("load tls keypair %s: %w", certPath, err)
 	}
-	if isCertExpired(cert, certPath) {
+	if isCertExpired(ctx, cert, certPath) {
 		return tls.Certificate{}, "", nil
 	}
 	return cert, fmt.Sprintf("disk %s", certPath), nil
 }
 
-// isCertExpired returns true when the on-disk leaf cert is past its
-// NotAfter. Parse failures are logged as warnings (not fatal) and
-// treated as "not expired" so a load that succeeded at the tls layer
-// is not gratuitously discarded.
-func isCertExpired(cert tls.Certificate, certPath string) bool {
+// isCertExpired returns true when the leaf cert is past NotAfter.
+// Parse failures are warned and treated as "not expired".
+func isCertExpired(ctx context.Context, cert tls.Certificate, certPath string) bool {
 	logger := log.WithFunc("k8s.LoadOrGenerateCert")
 	if len(cert.Certificate) == 0 {
 		return false
 	}
 	parsed, err := x509.ParseCertificate(cert.Certificate[0])
 	if err != nil {
-		logger.Warnf(context.Background(), "parse disk cert %s: %v (keeping cert)", certPath, err)
+		logger.Warnf(ctx, "parse disk cert %s: %v (keeping cert)", certPath, err)
 		return false
 	}
 	if time.Now().After(parsed.NotAfter) {
-		logger.Warnf(context.Background(), "disk cert %s expired at %s, falling back to self-signed", certPath, parsed.NotAfter.Format(time.RFC3339))
+		logger.Warnf(ctx, "disk cert %s expired at %s, falling back to self-signed", certPath, parsed.NotAfter.Format(time.RFC3339))
 		return true
 	}
 	return false
 }
 
-// GenerateSelfSignedCert creates an in-memory ECDSA P-256 self-signed cert for hostname and ip.
+// GenerateSelfSignedCert creates an in-memory ECDSA P-256 self-signed
+// cert for hostname and ip.
 func GenerateSelfSignedCert(hostname, ip string) (tls.Certificate, error) {
 	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return tls.Certificate{}, err
 	}
+	now := time.Now()
 	template := x509.Certificate{
 		SerialNumber: big.NewInt(1),
 		Subject:      pkix.Name{CommonName: hostname},
-		NotBefore:    time.Now(),
-		NotAfter:     time.Now().Add(10 * 365 * 24 * time.Hour),
+		NotBefore:    now,
+		NotAfter:     now.Add(10 * 365 * 24 * time.Hour),
 		KeyUsage:     x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
 		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		DNSNames:     []string{hostname, "localhost"},

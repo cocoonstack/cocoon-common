@@ -42,7 +42,7 @@ func TestGenerateSelfSignedCertIsParseable(t *testing.T) {
 }
 
 func TestLoadOrGenerateCertFallsBackToSelfSigned(t *testing.T) {
-	cert, source, err := LoadOrGenerateCert("/does/not/exist.crt", "/does/not/exist.key", "host", "10.0.0.1")
+	cert, source, err := LoadOrGenerateCert(t.Context(), "/does/not/exist.crt", "/does/not/exist.key", "host", "10.0.0.1")
 	if err != nil {
 		t.Fatalf("fallback: %v", err)
 	}
@@ -91,7 +91,7 @@ func TestLoadOrGenerateCertLoadsFromDisk(t *testing.T) {
 		t.Fatalf("write key: %v", err)
 	}
 
-	_, source, err := LoadOrGenerateCert(certPath, keyPath, "host", "10.0.0.1")
+	_, source, err := LoadOrGenerateCert(t.Context(), certPath, keyPath, "host", "10.0.0.1")
 	if err != nil {
 		t.Fatalf("load: %v", err)
 	}
@@ -134,7 +134,7 @@ func TestLoadOrGenerateCertExpiredDiskCertFallsBack(t *testing.T) {
 		t.Fatalf("write key: %v", err)
 	}
 
-	_, source, err := LoadOrGenerateCert(certPath, keyPath, "host", "10.0.0.1")
+	_, source, err := LoadOrGenerateCert(t.Context(), certPath, keyPath, "host", "10.0.0.1")
 	if err != nil {
 		t.Fatalf("load: %v", err)
 	}

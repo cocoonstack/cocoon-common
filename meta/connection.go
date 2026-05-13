@@ -5,8 +5,7 @@ import (
 )
 
 // ConnectionType returns the connection protocol. A non-empty override
-// (typically AnnotationConnType) wins over OS-based inference, so a Linux
-// image running xrdp can advertise rdp without faking its OS field.
+// wins over OS-based inference (e.g. Linux + xrdp → rdp).
 func ConnectionType(osType string, hasVNCPort bool, override string) string {
 	if override != "" {
 		return override
@@ -14,9 +13,9 @@ func ConnectionType(osType string, hasVNCPort bool, override string) string {
 	switch {
 	case hasVNCPort:
 		return string(cocoonv1.ConnTypeVNC)
-	case osType == "android":
+	case osType == string(cocoonv1.OSAndroid):
 		return string(cocoonv1.ConnTypeADB)
-	case osType == "windows":
+	case osType == string(cocoonv1.OSWindows):
 		return string(cocoonv1.ConnTypeRDP)
 	default:
 		return string(cocoonv1.ConnTypeSSH)
