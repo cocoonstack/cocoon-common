@@ -121,7 +121,7 @@ Other helpers in this package:
 
 - `k8s.EnvOrDefault`, `k8s.EnvDuration`, `k8s.EnvBool` -- lenient env-var parsing that falls back to the supplied default on unset / malformed values.
 - `k8s.SleepCtx(ctx, d)` -- context-aware sleep; returns `false` when the context fires first so callers can exit retry loops without a second `select`.
-- `k8s.LoadOrGenerateCert` / `k8s.GenerateSelfSignedCert` / `k8s.DetectNodeIP` -- TLS bring-up helpers used by `vk-cocoon` and reusable by any cocoonstack HTTP server that needs a dev-time self-signed fallback.
+- `k8s.LoadOrGenerateCert` / `k8s.GenerateSelfSignedCert` / `k8s.DetectNodeIP` -- TLS bring-up helpers used by `vk-cocoon` and reusable by any cocoonstack HTTP server that needs a dev-time self-signed fallback. `DetectNodeIP` returns `(string, error)`.
 - `k8s.StatusMergePatch` / `k8s.AnnotationsMergePatch` -- merge-patch builders used by reconcilers that prefer the JSON merge-patch encoding over `client.MergeFrom`.
 - `k8s.PatchStatus[T]` -- generic `client.MergeFrom` patch for the `/status` subresource; captures the pre-mutation snapshot via the kubebuilder-generated typed `DeepCopy()` so callers skip the boilerplate.
 - `k8s.PatchHibernateState` -- pod-level hibernate annotation patch that short-circuits when the pod already carries the desired state, safe to call unconditionally in a reconcile loop.
@@ -153,19 +153,23 @@ Shared HMAC-signed session helpers for SSO cookie management:
 ```go
 import "github.com/cocoonstack/cocoon-common/auth"
 
-// Sign a session into a cookie value.
-cookie := auth.SignSession(auth.Session{User: "alice", Email: "alice@example.com", Exp: exp}, hmacKey)
+// Sign a session into a cookie value. Returns an error if HMAC signing fails.
+cookie, err := auth.SignSession(auth.Session{User: "alice", Email: "alice@example.com", Exp: exp}, hmacKey)
+if err != nil {
+    // handle signing failure
+}
 
-// Verify and decode.
+// Verify and decode. Exp is enforced internally — ok=false when expired.
 sess, ok := auth.VerifySession(cookie, hmacKey)
 
 // Generate a random state parameter for OAuth flows.
+// Panics if crypto/rand fails (treated as fatal per platform contract).
 state := auth.RandomState()
 ```
 
 ### `log`
 
-Use `log.Setup(ctx, envVar)` to initialize the shared logger from an environment variable, defaulting to `info`.
+Use `log.Setup(ctx, envVar) error` to initialize the shared logger from an environment variable, defaulting to `info`. Returns an error if the level value is invalid.
 
 ## Development
 
