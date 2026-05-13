@@ -33,9 +33,7 @@ func SignSession(sess Session, key []byte) (string, error) {
 }
 
 // VerifySession validates the HMAC signature and decodes the session.
-// Returns nil and false if the signature is invalid, decoding fails, or
-// the session has expired (Exp set and in the past). Exp == 0 means
-// "no expiry" and is accepted unconditionally.
+// Exp == 0 means "no expiry".
 func VerifySession(cookie string, key []byte) (*Session, bool) {
 	payload, sig, ok := strings.Cut(cookie, ".")
 	if !ok {

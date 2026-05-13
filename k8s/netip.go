@@ -6,17 +6,13 @@ import (
 	"net"
 )
 
-// ErrNoNodeIP is returned by DetectNodeIP when no non-loopback IPv4
-// address is reachable. Callers decide whether to fall back to a
-// configured default; auto-substituting 127.0.0.1 would mask
-// misconfigured network namespaces.
+// ErrNoNodeIP is returned when no non-loopback IPv4 address is
+// reachable. Callers pick the fallback — auto-substituting localhost
+// would mask misconfigured network namespaces.
 var ErrNoNodeIP = errors.New("no non-loopback IPv4 address found")
 
-// DetectNodeIP returns the first non-loopback IPv4 address.
-//
-// Returns a wrapped net.InterfaceAddrs error when the host network
-// stack is unavailable, or ErrNoNodeIP when every interface is
-// loopback / IPv6-only.
+// DetectNodeIP returns the first non-loopback IPv4 address, or
+// ErrNoNodeIP if none exists.
 func DetectNodeIP() (string, error) {
 	addrs, err := net.InterfaceAddrs()
 	if err != nil {

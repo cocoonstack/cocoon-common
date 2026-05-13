@@ -11,10 +11,6 @@ import (
 )
 
 // Setup initializes the core logger from envVar (default "info").
-//
-// Returns the underlying setup error so the caller chooses the failure
-// policy: a main package can Fatalf with its own logger, while a test
-// or library caller can surface the error and tear down cleanly.
 func Setup(ctx context.Context, envVar string) error {
 	level := os.Getenv(envVar)
 	if level == "" {
