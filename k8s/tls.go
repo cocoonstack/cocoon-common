@@ -42,9 +42,7 @@ func LoadOrGenerateCert(ctx context.Context, certPath, keyPath, hostname, ip str
 
 // tryLoadDiskCert returns ("", "", nil) when the caller should fall
 // back to self-signed (paths empty, cert missing, or expired) and an
-// error only when a configured keypair fails to load. A missing key
-// while the cert is present is a misconfiguration and surfaces as an
-// error rather than silently switching to self-signed.
+// error only when a configured keypair fails to load.
 func tryLoadDiskCert(ctx context.Context, certPath, keyPath string) (tls.Certificate, string, error) {
 	if certPath == "" || keyPath == "" {
 		return tls.Certificate{}, "", nil

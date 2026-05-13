@@ -44,8 +44,7 @@ func MainAgentVMNameFor(namespace, cocoonSet string) string {
 }
 
 // InferRoleFromAgentSlot returns RoleMain for slot 0, RoleSubAgent for
-// positive slots, RoleToolbox for slot < 0 (so the chain with
-// ExtractAgentSlot stays safe for toolbox VM names).
+// positive slots, RoleToolbox for slot < 0.
 func InferRoleFromAgentSlot(slot int) string {
 	switch {
 	case slot < 0:
