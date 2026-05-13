@@ -142,9 +142,13 @@ type CocoonSetStatus struct {
 	DesiredToolboxes int32 `json:"desiredToolboxes"`
 
 	// +optional
+	// +listType=map
+	// +listMapKey=slot
 	Agents []AgentStatus `json:"agents,omitempty"`
 
 	// +optional
+	// +listType=map
+	// +listMapKey=name
 	Toolboxes []ToolboxStatus `json:"toolboxes,omitempty"`
 
 	// +optional
