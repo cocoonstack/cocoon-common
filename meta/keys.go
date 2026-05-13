@@ -20,8 +20,6 @@ const (
 	LabelNodePool = "cocoonstack.io/pool"
 	// DefaultNodePool is the pool name used when LabelNodePool is unset.
 	DefaultNodePool = "default"
-	// LabelManagedBy follows the kubernetes app convention; reserved for tagging cocoon-managed workloads.
-	LabelManagedBy = "app.kubernetes.io/managed-by"
 
 	// AnnotationMode declares the VM provisioning mode (clone / run / static).
 	AnnotationMode = "cocoonset.cocoonstack.io/mode"
