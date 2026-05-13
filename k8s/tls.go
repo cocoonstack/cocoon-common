@@ -14,6 +14,7 @@ import (
 	"io/fs"
 	"math/big"
 	"net"
+	"os"
 	"time"
 
 	"github.com/projecteru2/core/log"
@@ -41,16 +42,21 @@ func LoadOrGenerateCert(ctx context.Context, certPath, keyPath, hostname, ip str
 
 // tryLoadDiskCert returns ("", "", nil) when the caller should fall
 // back to self-signed (paths empty, cert missing, or expired) and an
-// error only when a configured keypair fails to load.
+// error only when a configured keypair fails to load. A missing key
+// while the cert is present is a misconfiguration and surfaces as an
+// error rather than silently switching to self-signed.
 func tryLoadDiskCert(ctx context.Context, certPath, keyPath string) (tls.Certificate, string, error) {
 	if certPath == "" || keyPath == "" {
 		return tls.Certificate{}, "", nil
 	}
-	cert, err := tls.LoadX509KeyPair(certPath, keyPath)
-	if err != nil {
+	if _, err := os.Stat(certPath); err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return tls.Certificate{}, "", nil
 		}
+		return tls.Certificate{}, "", fmt.Errorf("stat tls cert %s: %w", certPath, err)
+	}
+	cert, err := tls.LoadX509KeyPair(certPath, keyPath)
+	if err != nil {
 		return tls.Certificate{}, "", fmt.Errorf("load tls keypair %s: %w", certPath, err)
 	}
 	if isCertExpired(ctx, cert, certPath) {
