@@ -39,6 +39,92 @@ func TestInferRoleFromVMName(t *testing.T) {
 	}
 }
 
+func TestExtractAgentSlot(t *testing.T) {
+	cases := []struct {
+		name      string
+		ns        string
+		cocoonSet string
+		vmName    string
+		want      int
+	}{
+		{
+			name:      "main agent",
+			ns:        "prod",
+			cocoonSet: "demo",
+			vmName:    "vk-prod-demo-0",
+			want:      0,
+		},
+		{
+			name:      "sub-agent",
+			ns:        "prod",
+			cocoonSet: "demo",
+			vmName:    "vk-prod-demo-3",
+			want:      3,
+		},
+		{
+			// The legacy ExtractSlotFromVMName would mis-read this as
+			// slot 2 because it splits at the last dash. ExtractAgentSlot
+			// rejects it because the suffix after the agent prefix
+			// contains a dash.
+			name:      "toolbox with trailing digit is not an agent slot",
+			ns:        "prod",
+			cocoonSet: "demo",
+			vmName:    "vk-prod-demo-db-2",
+			want:      -1,
+		},
+		{
+			name:      "toolbox without trailing digit",
+			ns:        "prod",
+			cocoonSet: "demo",
+			vmName:    "vk-prod-demo-toolbox",
+			want:      -1,
+		},
+		{
+			name:      "different cocoonset",
+			ns:        "prod",
+			cocoonSet: "demo",
+			vmName:    "vk-prod-other-0",
+			want:      -1,
+		},
+		{
+			name:      "different namespace",
+			ns:        "prod",
+			cocoonSet: "demo",
+			vmName:    "vk-staging-demo-0",
+			want:      -1,
+		},
+		{
+			name:      "non-vk prefix",
+			ns:        "prod",
+			cocoonSet: "demo",
+			vmName:    "prod-demo-0",
+			want:      -1,
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := ExtractAgentSlot(tt.ns, tt.cocoonSet, tt.vmName); got != tt.want {
+				t.Errorf("ExtractAgentSlot(%q,%q,%q) = %d, want %d", tt.ns, tt.cocoonSet, tt.vmName, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestMainAgentVMNameFor(t *testing.T) {
+	if got := MainAgentVMNameFor("prod", "demo"); got != "vk-prod-demo-0" {
+		t.Errorf("got %q, want %q", got, "vk-prod-demo-0")
+	}
+}
+
+func TestInferRoleFromAgentSlot(t *testing.T) {
+	if got := InferRoleFromAgentSlot(0); got != RoleMain {
+		t.Errorf("slot 0 = %q, want %q", got, RoleMain)
+	}
+	if got := InferRoleFromAgentSlot(7); got != RoleSubAgent {
+		t.Errorf("slot 7 = %q, want %q", got, RoleSubAgent)
+	}
+}
+
 func TestConnectionType(t *testing.T) {
 	cases := []struct {
 		name       string
