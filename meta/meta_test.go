@@ -105,9 +105,15 @@ func TestOwnerDeploymentName(t *testing.T) {
 	}
 }
 
-func TestHasCocoonToleration(t *testing.T) {
+func TestHasCocoonTolerationKey(t *testing.T) {
 	tolerations := []corev1.Toleration{{Key: TolerationKey}}
-	if !HasCocoonToleration(tolerations) {
+	if !HasCocoonTolerationKey(tolerations) {
 		t.Fatalf("expected toleration to be detected")
+	}
+	if HasCocoonTolerationKey(nil) {
+		t.Errorf("expected nil tolerations to be rejected")
+	}
+	if HasCocoonTolerationKey([]corev1.Toleration{{Key: "other"}}) {
+		t.Errorf("expected unrelated toleration to be rejected")
 	}
 }

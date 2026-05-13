@@ -7,8 +7,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// HasCocoonToleration reports whether the toleration list includes the virtual-kubelet provider key.
-func HasCocoonToleration(tolerations []corev1.Toleration) bool {
+// HasCocoonTolerationKey reports whether the toleration list includes
+// an entry whose Key matches TolerationKey. Operator/Value/Effect are
+// ignored — the cocoon-webhook gate is intentionally permissive to
+// accept any toleration spelling that targets the virtual-kubelet
+// taint. Use a stricter check at the call site if you need to match a
+// specific Operator or Effect.
+func HasCocoonTolerationKey(tolerations []corev1.Toleration) bool {
 	return slices.ContainsFunc(tolerations, func(t corev1.Toleration) bool {
 		return t.Key == TolerationKey
 	})
