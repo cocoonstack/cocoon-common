@@ -21,15 +21,19 @@ func IsOwnedByCocoonSet(ownerRefs []metav1.OwnerReference) bool {
 	})
 }
 
-// OwnerDeploymentName extracts the deployment name from a ReplicaSet owner reference.
-func OwnerDeploymentName(ownerRefs []metav1.OwnerReference) string {
+// OwnerDeploymentName extracts the deployment name from a ReplicaSet
+// owner reference. Returns ok=false when no ReplicaSet owner is present
+// or its name has no recognizable hash suffix — that lets the caller
+// distinguish "no owning deployment" from a legitimately empty name
+// instead of conflating both into an empty string.
+func OwnerDeploymentName(ownerRefs []metav1.OwnerReference) (string, bool) {
 	for _, ref := range ownerRefs {
 		if ref.Kind != "ReplicaSet" {
 			continue
 		}
 		if before, _, ok := lastCut(ref.Name, "-"); ok {
-			return before
+			return before, true
 		}
 	}
-	return ""
+	return "", false
 }
