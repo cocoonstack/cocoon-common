@@ -11,6 +11,7 @@ const (
 	OSLinux   OSType = "linux"
 	OSWindows OSType = "windows"
 	OSAndroid OSType = "android"
+	OSMacos   OSType = "macos"
 
 	SnapshotPolicyAlways   SnapshotPolicy = "always"
 	SnapshotPolicyMainOnly SnapshotPolicy = "main-only"
@@ -41,7 +42,7 @@ type AgentMode string
 type ToolboxMode string
 
 // OSType defines the guest operating system type.
-// +kubebuilder:validation:Enum=linux;windows;android
+// +kubebuilder:validation:Enum=linux;windows;android;macos
 type OSType string
 
 // SnapshotPolicy defines when VM snapshots are taken.
@@ -93,7 +94,7 @@ func (m ToolboxMode) Default() ToolboxMode {
 
 // IsValid reports whether o is a recognized OSType value.
 func (o OSType) IsValid() bool {
-	return o == OSLinux || o == OSWindows || o == OSAndroid
+	return o == OSLinux || o == OSWindows || o == OSAndroid || o == OSMacos
 }
 
 // Default returns o when set, otherwise OSLinux.
