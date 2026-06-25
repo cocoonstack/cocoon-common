@@ -19,6 +19,12 @@ type CocoonSetSpec struct {
 	// +kubebuilder:default=default
 	NodePool string `json:"nodePool,omitempty"`
 
+	// NodeName pins the VM to a node (cross-node migrate). Empty = let the
+	// scheduler place it within NodePool and leave it alone; a value adds a
+	// hostname nodeAffinity so the pod lands there or stays Pending if it won't fit.
+	// +optional
+	NodeName string `json:"nodeName,omitempty"`
+
 	// +kubebuilder:validation:Required
 	Agent AgentSpec `json:"agent"`
 
