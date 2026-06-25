@@ -26,6 +26,7 @@ const (
 	CocoonSetPhaseScaling    CocoonSetPhase = "Scaling"
 	CocoonSetPhaseSuspending CocoonSetPhase = "Suspending"
 	CocoonSetPhaseSuspended  CocoonSetPhase = "Suspended"
+	CocoonSetPhaseMigrating  CocoonSetPhase = "Migrating"
 	CocoonSetPhaseFailed     CocoonSetPhase = "Failed"
 
 	ConnTypeSSH ConnType = "ssh"
