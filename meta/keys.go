@@ -50,6 +50,10 @@ const (
 	AnnotationVNCPort = "vm.cocoonstack.io/vnc-port"
 	// AnnotationHibernate signals "hibernate this VM" when set to "true".
 	AnnotationHibernate = "vm.cocoonstack.io/hibernate"
+	// AnnotationRestoreFromHibernate signals that a freshly created pod must
+	// restore its VM from the :hibernate snapshot (cross-node migration) instead
+	// of cloning from the base image. Written by the operator on the rebuilt pod.
+	AnnotationRestoreFromHibernate = "vm.cocoonstack.io/restore-from-hibernate"
 	// AnnotationForkFrom names a VM to fork the new VM from.
 	AnnotationForkFrom = "vm.cocoonstack.io/fork-from"
 	// AnnotationCloneFromDir names a host directory to clone the VM image from (vk-cocoon-specific).

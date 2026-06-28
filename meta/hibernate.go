@@ -27,3 +27,12 @@ func ReadHibernateState(pod *corev1.Pod) HibernateState {
 	}
 	return HibernateState(pod.Annotations[AnnotationHibernate] == annotationTrue)
 }
+
+// ReadRestoreFromHibernate reports whether the pod is flagged to restore its VM
+// from the :hibernate snapshot instead of cloning from the base image.
+func ReadRestoreFromHibernate(pod *corev1.Pod) bool {
+	if pod == nil {
+		return false
+	}
+	return pod.Annotations[AnnotationRestoreFromHibernate] == annotationTrue
+}
