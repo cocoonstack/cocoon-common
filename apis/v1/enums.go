@@ -16,6 +16,7 @@ const (
 	OSLinux   OSType = "linux"
 	OSWindows OSType = "windows"
 	OSAndroid OSType = "android"
+	OSMacos   OSType = "macos"
 
 	SnapshotPolicyAlways   SnapshotPolicy = "always"
 	SnapshotPolicyMainOnly SnapshotPolicy = "main-only"
@@ -43,7 +44,7 @@ const (
 var (
 	agentModeValid      = []AgentMode{AgentModeClone, AgentModeRun}
 	toolboxModeValid    = []ToolboxMode{ToolboxModeRun, ToolboxModeClone, ToolboxModeStatic}
-	osTypeValid         = []OSType{OSLinux, OSWindows, OSAndroid}
+	osTypeValid         = []OSType{OSLinux, OSWindows, OSAndroid, OSMacos}
 	snapshotPolicyValid = []SnapshotPolicy{SnapshotPolicyAlways, SnapshotPolicyMainOnly, SnapshotPolicyNever}
 	connTypeValid       = []ConnType{ConnTypeSSH, ConnTypeRDP, ConnTypeVNC, ConnTypeADB}
 	backendValid        = []Backend{BackendCloudHypervisor, BackendFirecracker}
@@ -58,7 +59,7 @@ type AgentMode string
 type ToolboxMode string
 
 // OSType defines the guest operating system type.
-// +kubebuilder:validation:Enum=linux;windows;android
+// +kubebuilder:validation:Enum=linux;windows;android;macos
 type OSType string
 
 // SnapshotPolicy defines when VM snapshots are taken.

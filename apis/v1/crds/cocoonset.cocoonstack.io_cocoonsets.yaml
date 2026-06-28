@@ -160,6 +160,7 @@ spec:
                     - linux
                     - windows
                     - android
+                    - macos
                     type: string
                   probePort:
                     description: ProbePort overrides the default ICMP probe with a
@@ -328,6 +329,7 @@ spec:
                       - linux
                       - windows
                       - android
+                      - macos
                       type: string
                     probePort:
                       description: ProbePort overrides the default ICMP probe with
