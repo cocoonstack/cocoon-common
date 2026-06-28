@@ -67,7 +67,7 @@ type OSType string
 type SnapshotPolicy string
 
 // CocoonSetPhase represents the lifecycle phase of a CocoonSet.
-// +kubebuilder:validation:Enum=Pending;Running;Scaling;Suspending;Suspended;Failed
+// +kubebuilder:validation:Enum=Pending;Running;Scaling;Suspending;Suspended;Migrating;Failed
 type CocoonSetPhase string
 
 // ConnType is the connection protocol advertised for a VM. Empty

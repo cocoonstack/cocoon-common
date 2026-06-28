@@ -530,6 +530,7 @@ spec:
                 - Scaling
                 - Suspending
                 - Suspended
+                - Migrating
                 - Failed
                 type: string
               readyAgents:
