@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 
 	"github.com/projecteru2/core/log"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -16,9 +15,6 @@ import (
 
 // DefaultMaxBody is the request-body ceiling Serve applies when the caller passes 0.
 const DefaultMaxBody int64 = 10 << 20
-
-// jsonPointerReplacer escapes ~ and / per RFC 6901.
-var jsonPointerReplacer = strings.NewReplacer("~", "~0", "/", "~1")
 
 // Handler is the admission callback. A nil return is treated as Allow().
 type Handler func(ctx context.Context, review *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse
@@ -45,7 +41,10 @@ func Decode(r *http.Request, maxBytes int64) (*admissionv1.AdmissionReview, erro
 		maxBytes = DefaultMaxBody
 	}
 	review := &admissionv1.AdmissionReview{}
-	return review, json.NewDecoder(io.LimitReader(r.Body, maxBytes)).Decode(review)
+	if err := json.NewDecoder(io.LimitReader(r.Body, maxBytes)).Decode(review); err != nil {
+		return nil, fmt.Errorf("decode admission review: %w", err)
+	}
+	return review, nil
 }
 
 // Serve decodes an AdmissionReview, dispatches to handler, and writes the response.
@@ -53,7 +52,7 @@ func Serve(w http.ResponseWriter, r *http.Request, maxBytes int64, handler Handl
 	logger := log.WithFunc("cocooncommon.admission.Serve")
 	review, err := Decode(r, maxBytes)
 	if err != nil {
-		logger.Warnf(r.Context(), "decode admission review: %v", err)
+		logger.Warn(r.Context(), err.Error())
 		http.Error(w, "decode admission review", http.StatusBadRequest)
 		return
 	}
@@ -77,25 +76,4 @@ func Serve(w http.ResponseWriter, r *http.Request, maxBytes int64, handler Handl
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_, _ = w.Write(out) //nolint:gosec // marshaled JSON API response, not rendered as HTML
-}
-
-// JSONPatchOp represents a single RFC 6902 JSON Patch operation.
-type JSONPatchOp struct {
-	Op    string `json:"op"`
-	Path  string `json:"path"`
-	Value any    `json:"value,omitempty"`
-}
-
-// MarshalPatch encodes patch ops as JSON for AdmissionResponse.Patch.
-func MarshalPatch(ops []JSONPatchOp) ([]byte, error) {
-	out, err := json.Marshal(ops)
-	if err != nil {
-		return nil, fmt.Errorf("marshal patch: %w", err)
-	}
-	return out, nil
-}
-
-// EscapeJSONPointer escapes ~ and / per RFC 6901 for use in patch paths.
-func EscapeJSONPointer(s string) string {
-	return jsonPointerReplacer.Replace(s)
 }

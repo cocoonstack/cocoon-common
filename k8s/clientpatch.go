@@ -17,8 +17,7 @@ type DeepCopyObject[T any] interface {
 
 // PatchStatus applies mutate under a MergeFrom patch on the /status subresource.
 func PatchStatus[T DeepCopyObject[T]](ctx context.Context, cli client.Client, obj T, mutate func(T)) error {
-	patch := client.MergeFrom(obj.DeepCopy())
-	mutate(obj)
+	patch := buildMergePatch(obj, mutate)
 	return cli.Status().Patch(ctx, obj, patch)
 }
 
@@ -46,7 +45,14 @@ func PatchCocoonSetGeneration(ctx context.Context, cli client.Client, pod *corev
 
 // patchMerge applies mutate under a MergeFrom patch on the primary resource.
 func patchMerge[T DeepCopyObject[T]](ctx context.Context, cli client.Client, obj T, mutate func(T)) error {
+	patch := buildMergePatch(obj, mutate)
+	return cli.Patch(ctx, obj, patch)
+}
+
+// buildMergePatch snapshots obj, applies mutate in place, and returns the
+// MergeFrom patch capturing the delta.
+func buildMergePatch[T DeepCopyObject[T]](obj T, mutate func(T)) client.Patch {
 	patch := client.MergeFrom(obj.DeepCopy())
 	mutate(obj)
-	return cli.Patch(ctx, obj, patch)
+	return patch
 }

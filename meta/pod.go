@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
+
+	cocoonv1 "github.com/cocoonstack/cocoon-common/apis/v1"
 )
 
 // IsPodReady reports whether pod has a PodReady=True condition.
@@ -45,7 +47,7 @@ func IsWindowsPod(pod *corev1.Pod) bool {
 	if pod == nil {
 		return false
 	}
-	return strings.EqualFold(pod.Annotations[AnnotationOS], "windows")
+	return strings.EqualFold(pod.Annotations[AnnotationOS], string(cocoonv1.OSWindows))
 }
 
 // PodNodePool returns the cocoon pool from nodeSelector, labels, annotations, or DefaultNodePool.
