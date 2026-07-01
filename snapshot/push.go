@@ -170,7 +170,7 @@ func (p *Pusher) uploadTarEntry(ctx context.Context, name string, hdr *tar.Heade
 	digestHex := hex.EncodeToString(h.Sum(nil))
 	digest := "sha256:" + digestHex
 
-	exists, existsErr := p.Uploader.BlobExists(ctx, name, digest)
+	exists, existsErr := p.Uploader.HasBlob(ctx, name, digest)
 	if existsErr != nil {
 		return manifest.Descriptor{}, manifest.SnapshotFile{}, fmt.Errorf("check blob %s: %w", digest, existsErr)
 	}
@@ -231,7 +231,7 @@ func (p *Pusher) uploadSnapshotConfig(ctx context.Context, name string, cfg *sna
 	}
 
 	digest := "sha256:" + ociutil.SHA256Hex(data)
-	exists, existsErr := p.Uploader.BlobExists(ctx, name, digest)
+	exists, existsErr := p.Uploader.HasBlob(ctx, name, digest)
 	if existsErr != nil {
 		return manifest.Descriptor{}, fmt.Errorf("check config blob %s: %w", digest, existsErr)
 	}

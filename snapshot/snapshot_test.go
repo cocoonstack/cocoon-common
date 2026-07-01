@@ -35,7 +35,7 @@ func newFakeUploader() *fakeUploader {
 	}
 }
 
-func (f *fakeUploader) BlobExists(_ context.Context, _, digest string) (bool, error) {
+func (f *fakeUploader) HasBlob(_ context.Context, _, digest string) (bool, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	_, ok := f.blobs[digest]
@@ -345,7 +345,7 @@ func TestPullReassemblesTarFromOCISnapshot(t *testing.T) {
 	var gotEnvelope *snapshotExportEnvelope
 	for {
 		hdr, err := tr.Next()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
@@ -432,7 +432,7 @@ func TestPullPreservesSparseTarMetadata(t *testing.T) {
 	tr := tar.NewReader(&pullCocoon.importPayload)
 	for {
 		hdr, err := tr.Next()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {

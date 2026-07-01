@@ -17,7 +17,7 @@ type Downloader interface {
 
 // CocoonRunner abstracts the cocoon image import subprocess.
 type CocoonRunner interface {
-	ImageImport(ctx context.Context, name string) (io.WriteCloser, func() error, error)
+	ImportImage(ctx context.Context, name string) (io.WriteCloser, func() error, error)
 }
 
 // Puller downloads cloud-image artifacts and pipes them into cocoon image import.
@@ -51,7 +51,7 @@ func (p *Puller) Pull(ctx context.Context, opts PullOptions) error {
 		return fmt.Errorf("get manifest %s:%s: %w", opts.Name, opts.Tag, err)
 	}
 
-	stdin, wait, err := p.Cocoon.ImageImport(ctx, localName)
+	stdin, wait, err := p.Cocoon.ImportImage(ctx, localName)
 	if err != nil {
 		return fmt.Errorf("start cocoon image import: %w", err)
 	}
