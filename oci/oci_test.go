@@ -2,7 +2,6 @@ package oci
 
 import (
 	"bytes"
-	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"io"
@@ -23,20 +22,20 @@ func TestOCIRegistryRoundTrip(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	r := NewOCIRegistry(strings.TrimPrefix(srv.URL, "http://")+"/cocoon", authn.DefaultKeychain)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	blob := []byte("hello cocoon blob")
 	sum := sha256.Sum256(blob)
 	digest := "sha256:" + hex.EncodeToString(sum[:])
 
-	if ok, err := r.BlobExists(ctx, "myvm", digest); err != nil || ok {
-		t.Fatalf("BlobExists before put = (%v, %v), want (false, nil)", ok, err)
+	if ok, err := r.HasBlob(ctx, "myvm", digest); err != nil || ok {
+		t.Fatalf("HasBlob before put = (%v, %v), want (false, nil)", ok, err)
 	}
 	if err := r.PutBlob(ctx, "myvm", digest, bytes.NewReader(blob), int64(len(blob))); err != nil {
 		t.Fatalf("PutBlob: %v", err)
 	}
-	if ok, err := r.BlobExists(ctx, "myvm", digest); err != nil || !ok {
-		t.Fatalf("BlobExists after put = (%v, %v), want (true, nil)", ok, err)
+	if ok, err := r.HasBlob(ctx, "myvm", digest); err != nil || !ok {
+		t.Fatalf("HasBlob after put = (%v, %v), want (true, nil)", ok, err)
 	}
 
 	rc, err := r.GetBlob(ctx, "myvm", digest)

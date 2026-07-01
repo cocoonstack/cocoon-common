@@ -32,7 +32,7 @@ var (
 
 // Uploader abstracts OCI blob and manifest uploads.
 type Uploader interface {
-	BlobExists(ctx context.Context, name, digest string) (bool, error)
+	HasBlob(ctx context.Context, name, digest string) (bool, error)
 	PutBlob(ctx context.Context, name, digest string, body io.Reader, size int64) error
 	PutManifest(ctx context.Context, name, tag string, data []byte, contentType string) error
 }
@@ -90,8 +90,8 @@ func (e *ExecCocoon) Import(ctx context.Context, opts ImportOptions) (io.WriteCl
 	return e.startWithStdinPipe(ctx, args, "cocoon snapshot import")
 }
 
-// ImageImport starts a `cocoon image import` subprocess accepting data on stdin.
-func (e *ExecCocoon) ImageImport(ctx context.Context, name string) (io.WriteCloser, func() error, error) {
+// ImportImage starts a `cocoon image import` subprocess accepting data on stdin.
+func (e *ExecCocoon) ImportImage(ctx context.Context, name string) (io.WriteCloser, func() error, error) {
 	return e.startWithStdinPipe(ctx, []string{"image", "import", name}, "cocoon image import")
 }
 

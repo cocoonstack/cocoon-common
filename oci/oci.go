@@ -63,8 +63,8 @@ func (r *OCIRegistry) GetBlob(ctx context.Context, repo, digest string) (io.Read
 	return layer.Compressed()
 }
 
-// BlobExists reports whether the blob is already present, so pushes can skip it.
-func (r *OCIRegistry) BlobExists(ctx context.Context, repo, digest string) (bool, error) {
+// HasBlob reports whether the blob is already present, so pushes can skip it.
+func (r *OCIRegistry) HasBlob(ctx context.Context, repo, digest string) (bool, error) {
 	ref, err := name.NewDigest(r.base + "/" + repo + "@" + digest)
 	if err != nil {
 		return false, fmt.Errorf("parse digest %s@%s: %w", repo, digest, err)

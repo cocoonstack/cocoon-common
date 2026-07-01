@@ -11,17 +11,6 @@ import (
 	"github.com/cocoonstack/cocoon-common/manifest"
 )
 
-// fakeBlobs is a tiny in-memory BlobReader for tests.
-type fakeBlobs map[string][]byte
-
-func (f fakeBlobs) ReadBlob(_ context.Context, digest string) (io.ReadCloser, error) {
-	data, ok := f[digest]
-	if !ok {
-		return nil, errors.New("blob not found: " + digest)
-	}
-	return io.NopCloser(bytes.NewReader(data)), nil
-}
-
 const (
 	diskBlobA = "AAAA"
 	diskBlobB = "BBBB"
@@ -56,6 +45,17 @@ var winManifest = `{
     }
   ]
 }`
+
+// fakeBlobs is a tiny in-memory BlobReader for tests.
+type fakeBlobs map[string][]byte
+
+func (f fakeBlobs) ReadBlob(_ context.Context, digest string) (io.ReadCloser, error) {
+	data, ok := f[digest]
+	if !ok {
+		return nil, errors.New("blob not found: " + digest)
+	}
+	return io.NopCloser(bytes.NewReader(data)), nil
+}
 
 func TestStreamConcatenatesDiskLayersInTitleOrder(t *testing.T) {
 	blobs := fakeBlobs{
@@ -129,7 +129,7 @@ type fakeCocoon struct {
 	importName    string
 }
 
-func (f *fakeCocoon) ImageImport(_ context.Context, name string) (io.WriteCloser, func() error, error) {
+func (f *fakeCocoon) ImportImage(_ context.Context, name string) (io.WriteCloser, func() error, error) {
 	f.importName = name
 	return nopCloser{w: &f.importPayload}, func() error { return nil }, nil
 }
