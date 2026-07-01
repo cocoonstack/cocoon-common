@@ -65,6 +65,21 @@ func TestReadHibernateStateNilPod(t *testing.T) {
 	}
 }
 
+func TestMarkRestoreFromHibernate(t *testing.T) {
+	pod := &corev1.Pod{}
+	if ReadRestoreFromHibernate(pod) {
+		t.Fatal("fresh pod should not be flagged for restore")
+	}
+	MarkRestoreFromHibernate(pod)
+	if !ReadRestoreFromHibernate(pod) {
+		t.Errorf("MarkRestoreFromHibernate should round-trip through ReadRestoreFromHibernate")
+	}
+}
+
+func TestMarkRestoreFromHibernateNilPod(t *testing.T) {
+	MarkRestoreFromHibernate(nil) // must not panic
+}
+
 func TestHibernateSnapshotTagConstant(t *testing.T) {
 	if HibernateSnapshotTag != "hibernate" {
 		t.Errorf("HibernateSnapshotTag = %q, want %q", HibernateSnapshotTag, "hibernate")
