@@ -45,5 +45,6 @@ func MarkRestoreFromHibernate(pod *corev1.Pod) {
 	if pod == nil {
 		return
 	}
-	ensurePodAnnotations(pod)[AnnotationRestoreFromHibernate] = annotationTrue
+	a := ensurePodAnnotations(pod)
+	a[AnnotationRestoreFromHibernate] = annotationTrue
 }
