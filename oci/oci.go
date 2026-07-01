@@ -37,11 +37,12 @@ func NewOCIRegistry(base string, keychain authn.Keychain) *OCIRegistry {
 	return &OCIRegistry{base: base, opts: []remote.Option{remote.WithAuthFromKeychain(keychain)}}
 }
 
-// GetManifest fetches the raw manifest bytes and media type at repo:tag.
+// GetManifest fetches the raw manifest bytes and media type at repo:tag, or at
+// repo@digest when tag is a sha256:... digest (multi-arch child manifests).
 func (r *OCIRegistry) GetManifest(ctx context.Context, repo, tag string) ([]byte, string, error) {
-	ref, err := name.ParseReference(r.base + "/" + repo + ":" + tag)
+	ref, err := r.parseRef(repo, tag)
 	if err != nil {
-		return nil, "", fmt.Errorf("parse ref %s:%s: %w", repo, tag, err)
+		return nil, "", err
 	}
 	desc, err := remote.Get(ref, r.callOpts(ctx)...)
 	if err != nil {
@@ -122,19 +123,28 @@ func (r *OCIRegistry) PutManifest(ctx context.Context, repo, tag string, data []
 
 // DeleteManifest removes the manifest at repo:reference (tag or digest).
 func (r *OCIRegistry) DeleteManifest(ctx context.Context, repo, reference string) error {
-	// A digest (sha256:...) joins the repo with '@'; a tag with ':'.
+	ref, err := r.parseRef(repo, reference)
+	if err != nil {
+		return err
+	}
+	if err := remote.Delete(ref, r.callOpts(ctx)...); err != nil {
+		return fmt.Errorf("delete manifest %s: %w", reference, err)
+	}
+	return nil
+}
+
+// parseRef resolves repo + reference into a name.Reference: a digest (sha256:...)
+// joins the repo with '@', a tag with ':'.
+func (r *OCIRegistry) parseRef(repo, reference string) (name.Reference, error) {
 	sep := ":"
 	if strings.ContainsRune(reference, ':') {
 		sep = "@"
 	}
 	ref, err := name.ParseReference(r.base + "/" + repo + sep + reference)
 	if err != nil {
-		return fmt.Errorf("parse ref %s%s%s: %w", repo, sep, reference, err)
+		return nil, fmt.Errorf("parse ref %s%s%s: %w", repo, sep, reference, err)
 	}
-	if err := remote.Delete(ref, r.callOpts(ctx)...); err != nil {
-		return fmt.Errorf("delete manifest %s: %w", reference, err)
-	}
-	return nil
+	return ref, nil
 }
 
 func (r *OCIRegistry) callOpts(ctx context.Context) []remote.Option {
