@@ -167,8 +167,7 @@ type nopCloser struct{ w io.Writer }
 func (n nopCloser) Write(p []byte) (int, error) { return n.w.Write(p) }
 func (n nopCloser) Close() error                { return nil }
 
-// fakeDownloader implements snapshot.Downloader from a static manifest +
-// blob map.
+// fakeDownloader serves Puller's Downloader from a static manifest + blob map.
 type fakeDownloader struct {
 	manifest    []byte
 	contentType string

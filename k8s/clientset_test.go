@@ -51,9 +51,8 @@ func TestNewClientsetAndDynamicBadKubeconfigWraps(t *testing.T) {
 	}
 }
 
-// writeKubeconfig writes a minimal valid kubeconfig under t.TempDir() and
-// returns its path. The server URL is fake — good enough for the clients
-// to build; no requests are issued in these tests.
+// The server URL is fake — good enough for the clients to build; no requests
+// are issued in these tests.
 func writeKubeconfig(t *testing.T) string {
 	t.Helper()
 	body := `apiVersion: v1
