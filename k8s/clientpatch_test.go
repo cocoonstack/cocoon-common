@@ -13,15 +13,6 @@ import (
 	"github.com/cocoonstack/cocoon-common/meta"
 )
 
-func newFakeClient(t *testing.T, objs ...client.Object) client.Client {
-	t.Helper()
-	scheme := runtime.NewScheme()
-	if err := clientgoscheme.AddToScheme(scheme); err != nil {
-		t.Fatalf("add client-go scheme: %v", err)
-	}
-	return ctrlfake.NewClientBuilder().WithScheme(scheme).WithObjects(objs...).Build()
-}
-
 func TestPatchMergeWritesDelta(t *testing.T) {
 	pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "demo", Namespace: "ns"}}
 	cli := newFakeClient(t, pod.DeepCopy())
@@ -123,4 +114,13 @@ func TestPatchCocoonSetGenerationShortCircuitsNoOp(t *testing.T) {
 	if err := PatchCocoonSetGeneration(t.Context(), cli, pod, 7); err != nil {
 		t.Fatalf("no-op PatchCocoonSetGeneration: %v", err)
 	}
+}
+
+func newFakeClient(t *testing.T, objs ...client.Object) client.Client {
+	t.Helper()
+	scheme := runtime.NewScheme()
+	if err := clientgoscheme.AddToScheme(scheme); err != nil {
+		t.Fatalf("add client-go scheme: %v", err)
+	}
+	return ctrlfake.NewClientBuilder().WithScheme(scheme).WithObjects(objs...).Build()
 }

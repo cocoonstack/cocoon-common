@@ -26,8 +26,6 @@ var (
 	errMissingSnapshotJSON = errors.New("snapshot.json not found in export stream")
 
 	nowFunc = time.Now // tests override
-
-	_ CocoonRunner = (*ExecCocoon)(nil)
 )
 
 // Uploader abstracts OCI blob and manifest uploads.
@@ -54,6 +52,8 @@ type ImportOptions struct {
 	Name        string
 	Description string
 }
+
+var _ CocoonRunner = (*ExecCocoon)(nil)
 
 // ExecCocoon runs the cocoon binary as a subprocess.
 type ExecCocoon struct {

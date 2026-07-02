@@ -19,11 +19,6 @@ import (
 	"github.com/cocoonstack/cocoon-common/snapshot"
 )
 
-func digestOf(b []byte) string {
-	sum := sha256.Sum256(b)
-	return "sha256:" + hex.EncodeToString(sum[:])
-}
-
 // TestOCIRegistryRoundTrip exercises the full Registry surface against an
 // in-memory OCI registry: a blob and a custom-artifactType manifest survive a
 // put -> exists -> get -> delete round trip.
@@ -188,4 +183,9 @@ func TestStreamResolvesIndexChildByDigest(t *testing.T) {
 	if !found {
 		t.Fatal("import tar missing config.json layer from resolved child manifest")
 	}
+}
+
+func digestOf(b []byte) string {
+	sum := sha256.Sum256(b)
+	return "sha256:" + hex.EncodeToString(sum[:])
 }

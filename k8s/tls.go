@@ -97,7 +97,7 @@ func tryLoadDiskCert(ctx context.Context, certPath, keyPath string) (tls.Certifi
 // isCertExpired returns true when the leaf cert is past NotAfter.
 // Parse failures are warned and treated as "not expired".
 func isCertExpired(ctx context.Context, cert tls.Certificate, certPath string) bool {
-	logger := log.WithFunc("k8s.LoadOrGenerateCert")
+	logger := log.WithFunc("k8s.isCertExpired")
 	if len(cert.Certificate) == 0 {
 		return false
 	}

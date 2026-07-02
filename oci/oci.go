@@ -16,13 +16,11 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/types"
 )
 
-var (
-	_ Registry = (*OCIRegistry)(nil)
+// errBlobUncompressed guards the DiffID/Uncompressed accessors: cocoon blobs
+// are opaque content-addressed bytes and WriteLayer only reads Compressed().
+var errBlobUncompressed = errors.New("cocoon blob layers expose only compressed bytes")
 
-	// errBlobUncompressed guards the DiffID/Uncompressed accessors: cocoon blobs
-	// are opaque content-addressed bytes and WriteLayer only reads Compressed().
-	errBlobUncompressed = errors.New("cocoon blob layers expose only compressed bytes")
-)
+var _ Registry = (*OCIRegistry)(nil)
 
 // OCIRegistry is a Registry backed by a standard OCI Distribution registry
 // (e.g. Artifact Registry), using OCI upload sessions and keychain auth.

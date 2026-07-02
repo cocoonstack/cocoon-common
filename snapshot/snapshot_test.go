@@ -15,151 +15,6 @@ import (
 	"github.com/cocoonstack/cocoon-common/ociutil"
 )
 
-// fakeUploader records every blob and manifest write so tests can assert
-// the wire format produced by Pusher.
-type fakeUploader struct {
-	mu        sync.Mutex
-	blobs     map[string][]byte // digest -> bytes
-	manifests map[string]fakeManifestUpload
-}
-
-type fakeManifestUpload struct {
-	bytes       []byte
-	contentType string
-}
-
-func newFakeUploader() *fakeUploader {
-	return &fakeUploader{
-		blobs:     map[string][]byte{},
-		manifests: map[string]fakeManifestUpload{},
-	}
-}
-
-func (f *fakeUploader) HasBlob(_ context.Context, _, digest string) (bool, error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	_, ok := f.blobs[digest]
-	return ok, nil
-}
-
-func (f *fakeUploader) PutBlob(_ context.Context, _, digest string, body io.Reader, _ int64) error {
-	data, err := io.ReadAll(body)
-	if err != nil {
-		return err
-	}
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.blobs[digest] = data
-	return nil
-}
-
-func (f *fakeUploader) PutManifest(_ context.Context, name, tag string, data []byte, contentType string) error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.manifests[name+":"+tag] = fakeManifestUpload{bytes: data, contentType: contentType}
-	return nil
-}
-
-func (f *fakeUploader) GetManifest(_ context.Context, name, tag string) ([]byte, string, error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	m, ok := f.manifests[name+":"+tag]
-	if !ok {
-		return nil, "", errors.New("not found")
-	}
-	return m.bytes, m.contentType, nil
-}
-
-func (f *fakeUploader) GetBlob(_ context.Context, _, digest string) (io.ReadCloser, error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	data, ok := f.blobs[digest]
-	if !ok {
-		return nil, errors.New("blob not found")
-	}
-	return io.NopCloser(bytes.NewReader(data)), nil
-}
-
-// fakeCocoon serves a deterministic snapshot tar from Export and captures
-// the bytes Import receives so tests can assert pull-side reassembly.
-type fakeCocoon struct {
-	exportTar     []byte
-	importPayload bytes.Buffer
-	importOpts    ImportOptions
-}
-
-func (f *fakeCocoon) Export(_ context.Context, _ string) (io.ReadCloser, func() error, error) {
-	return io.NopCloser(bytes.NewReader(f.exportTar)), func() error { return nil }, nil
-}
-
-func (f *fakeCocoon) Import(_ context.Context, opts ImportOptions) (io.WriteCloser, func() error, error) {
-	f.importOpts = opts
-	return &nopWriteCloser{w: &f.importPayload}, func() error { return nil }, nil
-}
-
-type nopWriteCloser struct{ w io.Writer }
-
-func (n *nopWriteCloser) Write(p []byte) (int, error) { return n.w.Write(p) }
-func (n *nopWriteCloser) Close() error                { return nil }
-
-type exportTarEntry struct {
-	data []byte
-	mode int64
-	pax  map[string]string
-}
-
-// buildExportTar produces a fake `cocoon snapshot export` tar containing a
-// snapshot.json envelope plus the named files.
-func buildExportTar(t *testing.T, cfg snapshotExportConfig, files map[string][]byte) []byte {
-	t.Helper()
-	entries := make(map[string]exportTarEntry, len(files))
-	for name, data := range files {
-		entries[name] = exportTarEntry{data: data, mode: 0o640}
-	}
-	return buildExportTarEntries(t, cfg, entries)
-}
-
-func buildExportTarEntries(t *testing.T, cfg snapshotExportConfig, files map[string]exportTarEntry) []byte {
-	t.Helper()
-	var buf bytes.Buffer
-	tw := tar.NewWriter(&buf)
-
-	envelope := snapshotExportEnvelope{Version: 1, Config: cfg}
-	envBytes, err := json.Marshal(envelope)
-	if err != nil {
-		t.Fatalf("marshal envelope: %v", err)
-	}
-	if err := tw.WriteHeader(&tar.Header{Name: snapshotJSONName, Size: int64(len(envBytes)), Mode: 0o644}); err != nil {
-		t.Fatalf("write envelope header: %v", err)
-	}
-	if _, err := tw.Write(envBytes); err != nil {
-		t.Fatalf("write envelope: %v", err)
-	}
-
-	// Stable order so the layer order in the produced manifest is testable.
-	for _, name := range []string{"config.json", "state.json", "memory-ranges", "overlay.qcow2", "cidata.img"} {
-		entry, ok := files[name]
-		if !ok {
-			continue
-		}
-		mode := entry.mode
-		if mode == 0 {
-			mode = 0o640
-		}
-		hdr := &tar.Header{Name: name, Size: int64(len(entry.data)), Mode: mode, PAXRecords: entry.pax}
-		if err := tw.WriteHeader(hdr); err != nil {
-			t.Fatalf("write %s header: %v", name, err)
-		}
-		if _, err := tw.Write(entry.data); err != nil {
-			t.Fatalf("write %s: %v", name, err)
-		}
-	}
-	if err := tw.Close(); err != nil {
-		t.Fatalf("close tar: %v", err)
-	}
-	return buf.Bytes()
-}
-
 func TestPushProducesOCISnapshotManifest(t *testing.T) {
 	files := map[string][]byte{
 		"config.json":   []byte(`{"cpu":4}`),
@@ -549,4 +404,149 @@ func TestFetchSnapshotConfigRejectsOversizeDescriptor(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "config blob too large") {
 		t.Fatalf("err = %v, want 'config blob too large' substring", err)
 	}
+}
+
+// fakeUploader records every blob and manifest write so tests can assert
+// the wire format produced by Pusher.
+type fakeUploader struct {
+	mu        sync.Mutex
+	blobs     map[string][]byte // digest -> bytes
+	manifests map[string]fakeManifestUpload
+}
+
+type fakeManifestUpload struct {
+	bytes       []byte
+	contentType string
+}
+
+func newFakeUploader() *fakeUploader {
+	return &fakeUploader{
+		blobs:     map[string][]byte{},
+		manifests: map[string]fakeManifestUpload{},
+	}
+}
+
+func (f *fakeUploader) HasBlob(_ context.Context, _, digest string) (bool, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	_, ok := f.blobs[digest]
+	return ok, nil
+}
+
+func (f *fakeUploader) PutBlob(_ context.Context, _, digest string, body io.Reader, _ int64) error {
+	data, err := io.ReadAll(body)
+	if err != nil {
+		return err
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.blobs[digest] = data
+	return nil
+}
+
+func (f *fakeUploader) PutManifest(_ context.Context, name, tag string, data []byte, contentType string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.manifests[name+":"+tag] = fakeManifestUpload{bytes: data, contentType: contentType}
+	return nil
+}
+
+func (f *fakeUploader) GetManifest(_ context.Context, name, tag string) ([]byte, string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	m, ok := f.manifests[name+":"+tag]
+	if !ok {
+		return nil, "", errors.New("not found")
+	}
+	return m.bytes, m.contentType, nil
+}
+
+func (f *fakeUploader) GetBlob(_ context.Context, _, digest string) (io.ReadCloser, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	data, ok := f.blobs[digest]
+	if !ok {
+		return nil, errors.New("blob not found")
+	}
+	return io.NopCloser(bytes.NewReader(data)), nil
+}
+
+// fakeCocoon serves a deterministic snapshot tar from Export and captures
+// the bytes Import receives so tests can assert pull-side reassembly.
+type fakeCocoon struct {
+	exportTar     []byte
+	importPayload bytes.Buffer
+	importOpts    ImportOptions
+}
+
+func (f *fakeCocoon) Export(_ context.Context, _ string) (io.ReadCloser, func() error, error) {
+	return io.NopCloser(bytes.NewReader(f.exportTar)), func() error { return nil }, nil
+}
+
+func (f *fakeCocoon) Import(_ context.Context, opts ImportOptions) (io.WriteCloser, func() error, error) {
+	f.importOpts = opts
+	return &nopWriteCloser{w: &f.importPayload}, func() error { return nil }, nil
+}
+
+type nopWriteCloser struct{ w io.Writer }
+
+func (n *nopWriteCloser) Write(p []byte) (int, error) { return n.w.Write(p) }
+func (n *nopWriteCloser) Close() error                { return nil }
+
+type exportTarEntry struct {
+	data []byte
+	mode int64
+	pax  map[string]string
+}
+
+// buildExportTar produces a fake `cocoon snapshot export` tar containing a
+// snapshot.json envelope plus the named files.
+func buildExportTar(t *testing.T, cfg snapshotExportConfig, files map[string][]byte) []byte {
+	t.Helper()
+	entries := make(map[string]exportTarEntry, len(files))
+	for name, data := range files {
+		entries[name] = exportTarEntry{data: data, mode: 0o640}
+	}
+	return buildExportTarEntries(t, cfg, entries)
+}
+
+func buildExportTarEntries(t *testing.T, cfg snapshotExportConfig, files map[string]exportTarEntry) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	tw := tar.NewWriter(&buf)
+
+	envelope := snapshotExportEnvelope{Version: 1, Config: cfg}
+	envBytes, err := json.Marshal(envelope)
+	if err != nil {
+		t.Fatalf("marshal envelope: %v", err)
+	}
+	if err := tw.WriteHeader(&tar.Header{Name: snapshotJSONName, Size: int64(len(envBytes)), Mode: 0o644}); err != nil {
+		t.Fatalf("write envelope header: %v", err)
+	}
+	if _, err := tw.Write(envBytes); err != nil {
+		t.Fatalf("write envelope: %v", err)
+	}
+
+	// Stable order so the layer order in the produced manifest is testable.
+	for _, name := range []string{"config.json", "state.json", "memory-ranges", "overlay.qcow2", "cidata.img"} {
+		entry, ok := files[name]
+		if !ok {
+			continue
+		}
+		mode := entry.mode
+		if mode == 0 {
+			mode = 0o640
+		}
+		hdr := &tar.Header{Name: name, Size: int64(len(entry.data)), Mode: mode, PAXRecords: entry.pax}
+		if err := tw.WriteHeader(hdr); err != nil {
+			t.Fatalf("write %s header: %v", name, err)
+		}
+		if _, err := tw.Write(entry.data); err != nil {
+			t.Fatalf("write %s: %v", name, err)
+		}
+	}
+	if err := tw.Close(); err != nil {
+		t.Fatalf("close tar: %v", err)
+	}
+	return buf.Bytes()
 }

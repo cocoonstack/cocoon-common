@@ -49,7 +49,7 @@ func Decode(r *http.Request, maxBytes int64) (*admissionv1.AdmissionReview, erro
 
 // Serve decodes an AdmissionReview, dispatches to handler, and writes the response.
 func Serve(w http.ResponseWriter, r *http.Request, maxBytes int64, handler Handler) {
-	logger := log.WithFunc("cocooncommon.admission.Serve")
+	logger := log.WithFunc("admission.Serve")
 	review, err := Decode(r, maxBytes)
 	if err != nil {
 		logger.Warn(r.Context(), err.Error())
