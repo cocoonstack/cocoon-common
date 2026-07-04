@@ -115,13 +115,13 @@ func FromToolboxSpec(spec cocoonv1.ToolboxSpec, vmName string, snapshotPolicy co
 	}
 }
 
-// ShouldSnapshotVM reports whether the VM should be snapshotted based on its SnapshotPolicy.
-func ShouldSnapshotVM(spec VMSpec) bool {
+// ShouldSnapshotVM reports whether the VM should be snapshotted based on its SnapshotPolicy and role.
+func ShouldSnapshotVM(spec VMSpec, role string) bool {
 	switch cocoonv1.SnapshotPolicy(spec.SnapshotPolicy).Default() {
 	case cocoonv1.SnapshotPolicyNever:
 		return false
 	case cocoonv1.SnapshotPolicyMainOnly:
-		return ExtractSlotFromVMName(spec.VMName) == 0
+		return role == RoleMain
 	default:
 		return true
 	}

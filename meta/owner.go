@@ -18,9 +18,18 @@ func HasCocoonTolerationKey(tolerations []corev1.Toleration) bool {
 
 // IsOwnedByCocoonSet reports whether any owner reference is a CocoonSet.
 func IsOwnedByCocoonSet(ownerRefs []metav1.OwnerReference) bool {
-	return slices.ContainsFunc(ownerRefs, func(ref metav1.OwnerReference) bool {
-		return ref.Kind == KindCocoonSet
-	})
+	return CocoonSetOwnerName(ownerRefs) != ""
+}
+
+// CocoonSetOwnerName returns the name of the CocoonSet owner reference, or
+// "" if none is present.
+func CocoonSetOwnerName(ownerRefs []metav1.OwnerReference) string {
+	for _, ref := range ownerRefs {
+		if ref.Kind == KindCocoonSet {
+			return ref.Name
+		}
+	}
+	return ""
 }
 
 // OwnerDeploymentName extracts the deployment name from a ReplicaSet

@@ -3,6 +3,8 @@ package meta
 import (
 	"strconv"
 	"strings"
+
+	corev1 "k8s.io/api/core/v1"
 )
 
 // VMNameForDeployment builds a deterministic VM name from a deployment and slot index.
@@ -56,32 +58,11 @@ func InferRoleFromAgentSlot(slot int) string {
 	}
 }
 
-// ExtractSlotFromVMName parses the trailing slot index from a VM name,
-// or -1 if absent.
-//
-// Deprecated: misclassifies toolbox names with numeric suffixes (e.g.
-// "vk-NS-CS-db-2" → slot 2). Prefer ExtractAgentSlot.
-func ExtractSlotFromVMName(vmName string) int {
-	_, after, ok := lastCut(vmName, "-")
-	if !ok {
-		return -1
-	}
-	n, err := strconv.Atoi(after)
-	if err != nil {
-		return -1
-	}
-	return n
-}
-
-// InferRoleFromVMName returns RoleMain for slot 0, RoleSubAgent otherwise.
-//
-// Deprecated: shares the toolbox-collision bug of ExtractSlotFromVMName.
-// Prefer InferRoleFromAgentSlot(ExtractAgentSlot(ns, cs, vmName)).
-func InferRoleFromVMName(vmName string) string {
-	if ExtractSlotFromVMName(vmName) == 0 {
-		return RoleMain
-	}
-	return RoleSubAgent
+// RoleForPod derives a pod's role (RoleMain, RoleSubAgent, RoleToolbox)
+// from its CocoonSet owner and VM name.
+func RoleForPod(pod *corev1.Pod, vmName string) string {
+	cocoonSet := CocoonSetOwnerName(pod.OwnerReferences)
+	return InferRoleFromAgentSlot(ExtractAgentSlot(pod.Namespace, cocoonSet, vmName))
 }
 
 // lastCut is like strings.Cut but splits at the last occurrence of sep.

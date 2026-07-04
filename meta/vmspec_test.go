@@ -218,28 +218,30 @@ func TestShouldSnapshotVM(t *testing.T) {
 	cases := []struct {
 		name   string
 		policy cocoonv1.SnapshotPolicy
-		vmName string
+		role   string
 		want   bool
 	}{
-		{"always/slot0", cocoonv1.SnapshotPolicyAlways, "vk-prod-demo-0", true},
-		{"always/slot3", cocoonv1.SnapshotPolicyAlways, "vk-prod-demo-3", true},
-		{"always/toolbox", cocoonv1.SnapshotPolicyAlways, "vk-prod-my-tb", true},
-		{"empty-defaults-to-always", "", "vk-prod-demo-0", true},
-		{"empty-defaults-to-always/sub", "", "vk-prod-demo-2", true},
+		{"always/main", cocoonv1.SnapshotPolicyAlways, RoleMain, true},
+		{"always/sub-agent", cocoonv1.SnapshotPolicyAlways, RoleSubAgent, true},
+		{"always/toolbox", cocoonv1.SnapshotPolicyAlways, RoleToolbox, true},
+		{"always/empty-role", cocoonv1.SnapshotPolicyAlways, "", true},
+		{"empty-policy-defaults-to-always", "", RoleToolbox, true},
 
-		{"never/slot0", cocoonv1.SnapshotPolicyNever, "vk-prod-demo-0", false},
-		{"never/slot3", cocoonv1.SnapshotPolicyNever, "vk-prod-demo-3", false},
-		{"never/toolbox", cocoonv1.SnapshotPolicyNever, "vk-prod-my-tb", false},
+		{"never/main", cocoonv1.SnapshotPolicyNever, RoleMain, false},
+		{"never/sub-agent", cocoonv1.SnapshotPolicyNever, RoleSubAgent, false},
+		{"never/toolbox", cocoonv1.SnapshotPolicyNever, RoleToolbox, false},
+		{"never/empty-role", cocoonv1.SnapshotPolicyNever, "", false},
 
-		{"main-only/slot0", cocoonv1.SnapshotPolicyMainOnly, "vk-prod-demo-0", true},
-		{"main-only/slot3", cocoonv1.SnapshotPolicyMainOnly, "vk-prod-demo-3", false},
-		{"main-only/toolbox", cocoonv1.SnapshotPolicyMainOnly, "vk-prod-my-tb", false},
+		{"main-only/main", cocoonv1.SnapshotPolicyMainOnly, RoleMain, true},
+		{"main-only/sub-agent", cocoonv1.SnapshotPolicyMainOnly, RoleSubAgent, false},
+		{"main-only/toolbox", cocoonv1.SnapshotPolicyMainOnly, RoleToolbox, false},
+		{"main-only/empty-role", cocoonv1.SnapshotPolicyMainOnly, "", false},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			spec := VMSpec{VMName: c.vmName, SnapshotPolicy: string(c.policy)}
-			if got := ShouldSnapshotVM(spec); got != c.want {
-				t.Errorf("ShouldSnapshotVM(%s, %q) = %v, want %v", c.policy, c.vmName, got, c.want)
+			spec := VMSpec{SnapshotPolicy: string(c.policy)}
+			if got := ShouldSnapshotVM(spec, c.role); got != c.want {
+				t.Errorf("ShouldSnapshotVM(%s, %q) = %v, want %v", c.policy, c.role, got, c.want)
 			}
 		})
 	}

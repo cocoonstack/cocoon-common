@@ -14,21 +14,6 @@ func TestVMNamingHelpers(t *testing.T) {
 	if got := VMNameForPod("prod", "toolbox"); got != "vk-prod-toolbox" {
 		t.Fatalf("pod vm name mismatch: got %q", got)
 	}
-	if got := ExtractSlotFromVMName("vk-prod-demo-2"); got != 2 {
-		t.Fatalf("slot mismatch: got %d", got)
-	}
-	if got := ExtractSlotFromVMName("vk-prod-toolbox"); got != -1 {
-		t.Fatalf("expected non-slot vm name to return -1, got %d", got)
-	}
-}
-
-func TestInferRoleFromVMName(t *testing.T) {
-	if got := InferRoleFromVMName("vk-prod-demo-0"); got != RoleMain {
-		t.Fatalf("expected role %q, got %q", RoleMain, got)
-	}
-	if got := InferRoleFromVMName("vk-prod-demo-3"); got != RoleSubAgent {
-		t.Fatalf("expected role %q, got %q", RoleSubAgent, got)
-	}
 }
 
 func TestExtractAgentSlot(t *testing.T) {
@@ -54,10 +39,9 @@ func TestExtractAgentSlot(t *testing.T) {
 			want:      3,
 		},
 		{
-			// The legacy ExtractSlotFromVMName would mis-read this as
-			// slot 2 because it splits at the last dash. ExtractAgentSlot
-			// rejects it because the suffix after the agent prefix
-			// contains a dash.
+			// A naive last-dash split would misread this as slot 2;
+			// ExtractAgentSlot rejects it because the suffix after the
+			// agent prefix contains a dash.
 			name:      "toolbox with trailing digit is not an agent slot",
 			ns:        "prod",
 			cocoonSet: "demo",
@@ -117,6 +101,50 @@ func TestInferRoleFromAgentSlot(t *testing.T) {
 	}
 	if got := InferRoleFromAgentSlot(-1); got != RoleToolbox {
 		t.Errorf("slot -1 = %q, want %q", got, RoleToolbox)
+	}
+}
+
+func TestRoleForPod(t *testing.T) {
+	cocoonSetOwner := []metav1.OwnerReference{{Kind: KindCocoonSet, Name: "cs"}}
+	cases := []struct {
+		name   string
+		pod    *corev1.Pod
+		vmName string
+		want   string
+	}{
+		{
+			name:   "agent slot 0 is main",
+			pod:    &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Namespace: "ns", OwnerReferences: cocoonSetOwner}},
+			vmName: "vk-ns-cs-0",
+			want:   RoleMain,
+		},
+		{
+			name:   "agent slot 2 is sub-agent",
+			pod:    &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Namespace: "ns", OwnerReferences: cocoonSetOwner}},
+			vmName: "vk-ns-cs-2",
+			want:   RoleSubAgent,
+		},
+		{
+			// Regression: toolbox "app-0" builds VM name "vk-ns-cs-app-0",
+			// which a naive last-dash split would misread as agent slot 0.
+			name:   "toolbox named app-0 is not main",
+			pod:    &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Namespace: "ns", OwnerReferences: cocoonSetOwner}},
+			vmName: "vk-ns-cs-app-0",
+			want:   RoleToolbox,
+		},
+		{
+			name:   "no CocoonSet owner is toolbox",
+			pod:    &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Namespace: "ns"}},
+			vmName: "vk-ns-cs-0",
+			want:   RoleToolbox,
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := RoleForPod(tt.pod, tt.vmName); got != tt.want {
+				t.Errorf("got %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
 
