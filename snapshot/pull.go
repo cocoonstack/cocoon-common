@@ -20,12 +20,6 @@ import (
 // Real configs hit ~1.4 MB on fragmented Windows VMs; 64 MiB leaves headroom while bounding pathological reads.
 const maxSnapshotConfigSize = 64 << 20
 
-// Puller downloads snapshot artifacts and pipes them into cocoon snapshot import.
-type Puller struct {
-	Downloader Downloader
-	Cocoon     CocoonRunner
-}
-
 // PullOptions configures a snapshot pull operation.
 type PullOptions struct {
 	Name        string
@@ -41,6 +35,12 @@ type StreamOptions struct {
 	LocalName string // empty = use Name
 	Writer    io.Writer
 	Progress  func(string)
+}
+
+// Puller downloads snapshot artifacts and pipes them into cocoon snapshot import.
+type Puller struct {
+	Downloader Downloader
+	Cocoon     CocoonRunner
 }
 
 // Pull downloads a snapshot artifact and feeds it to `cocoon snapshot import`.

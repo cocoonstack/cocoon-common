@@ -18,12 +18,6 @@ import (
 	"github.com/cocoonstack/cocoon-common/ociutil"
 )
 
-// Pusher exports and uploads cocoon snapshots as OCI artifacts.
-type Pusher struct {
-	Uploader Uploader
-	Cocoon   CocoonRunner
-}
-
 // PushOptions configures a snapshot push operation.
 type PushOptions struct {
 	Name      string
@@ -42,6 +36,12 @@ type PushResult struct {
 	ManifestBytes  []byte
 	TotalSize      int64
 	LayerCount     int
+}
+
+// Pusher exports and uploads cocoon snapshots as OCI artifacts.
+type Pusher struct {
+	Uploader Uploader
+	Cocoon   CocoonRunner
 }
 
 // Push exports a snapshot via cocoon and uploads it as an OCI artifact.

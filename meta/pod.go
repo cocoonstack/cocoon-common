@@ -1,6 +1,7 @@
 package meta
 
 import (
+	"cmp"
 	"slices"
 	"strings"
 
@@ -55,14 +56,5 @@ func PodNodePool(pod *corev1.Pod) string {
 	if pod == nil {
 		return DefaultNodePool
 	}
-	if v := pod.Spec.NodeSelector[LabelNodePool]; v != "" {
-		return v
-	}
-	if v := pod.Labels[LabelNodePool]; v != "" {
-		return v
-	}
-	if v := pod.Annotations[LabelNodePool]; v != "" {
-		return v
-	}
-	return DefaultNodePool
+	return cmp.Or(pod.Spec.NodeSelector[LabelNodePool], pod.Labels[LabelNodePool], pod.Annotations[LabelNodePool], DefaultNodePool)
 }

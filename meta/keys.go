@@ -85,6 +85,5 @@ const (
 	// DefaultSnapshotTag names the default snapshot tag.
 	DefaultSnapshotTag = "latest"
 
-	// annotationTrue is the canonical "true" string for bool-valued annotations.
 	annotationTrue = "true"
 )
