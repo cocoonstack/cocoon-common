@@ -1,6 +1,7 @@
 package cloudimg
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -18,12 +19,6 @@ type CocoonRunner interface {
 	ImportImage(ctx context.Context, name string) (io.WriteCloser, func() error, error)
 }
 
-// Puller downloads cloud-image artifacts and pipes them into cocoon image import.
-type Puller struct {
-	Downloader Downloader
-	Cocoon     CocoonRunner
-}
-
 // PullOptions configures a cloud-image pull operation.
 type PullOptions struct {
 	Name      string // OCI repository name. Required.
@@ -31,18 +26,19 @@ type PullOptions struct {
 	LocalName string // Override the cocoon-side image name. Empty = use Name.
 }
 
+// Puller downloads cloud-image artifacts and pipes them into cocoon image import.
+type Puller struct {
+	Downloader Downloader
+	Cocoon     CocoonRunner
+}
+
 // Pull downloads a cloud-image artifact and pipes it into cocoon image import.
 func (p *Puller) Pull(ctx context.Context, opts PullOptions) error {
 	if opts.Name == "" {
 		return errors.New("cloudimg pull: name is required")
 	}
-	if opts.Tag == "" {
-		opts.Tag = "latest"
-	}
-	localName := opts.LocalName
-	if localName == "" {
-		localName = opts.Name
-	}
+	opts.Tag = cmp.Or(opts.Tag, "latest")
+	localName := cmp.Or(opts.LocalName, opts.Name)
 
 	raw, _, err := p.Downloader.GetManifest(ctx, opts.Name, opts.Tag)
 	if err != nil {

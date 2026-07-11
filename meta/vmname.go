@@ -64,12 +64,3 @@ func RoleForPod(pod *corev1.Pod, vmName string) string {
 	cocoonSet := CocoonSetOwnerName(pod.OwnerReferences)
 	return InferRoleFromAgentSlot(ExtractAgentSlot(pod.Namespace, cocoonSet, vmName))
 }
-
-// lastCut is like strings.Cut but splits at the last occurrence of sep.
-func lastCut(s, sep string) (before, after string, found bool) {
-	idx := strings.LastIndex(s, sep)
-	if idx < 0 {
-		return s, "", false
-	}
-	return s[:idx], s[idx+len(sep):], true
-}

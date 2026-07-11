@@ -45,9 +45,6 @@ type Descriptor struct {
 
 // Title returns the org.opencontainers.image.title annotation, if any.
 func (d Descriptor) Title() string {
-	if d.Annotations == nil {
-		return ""
-	}
 	return d.Annotations[AnnotationTitle]
 }
 

@@ -54,17 +54,41 @@ var (
 // +kubebuilder:validation:Enum=clone;run
 type AgentMode string
 
+// IsValid reports whether m is a recognized AgentMode value.
+func (m AgentMode) IsValid() bool { return slices.Contains(agentModeValid, m) }
+
+// Default returns m when set, otherwise AgentModeClone.
+func (m AgentMode) Default() AgentMode { return cmp.Or(m, AgentModeClone) }
+
 // ToolboxMode defines the mode of a toolbox VM.
 // +kubebuilder:validation:Enum=run;clone;static
 type ToolboxMode string
+
+// IsValid reports whether m is a recognized ToolboxMode value.
+func (m ToolboxMode) IsValid() bool { return slices.Contains(toolboxModeValid, m) }
+
+// Default returns m when set, otherwise ToolboxModeRun.
+func (m ToolboxMode) Default() ToolboxMode { return cmp.Or(m, ToolboxModeRun) }
 
 // OSType defines the guest operating system type.
 // +kubebuilder:validation:Enum=linux;windows;android;macos
 type OSType string
 
+// IsValid reports whether o is a recognized OSType value.
+func (o OSType) IsValid() bool { return slices.Contains(osTypeValid, o) }
+
+// Default returns o when set, otherwise OSLinux.
+func (o OSType) Default() OSType { return cmp.Or(o, OSLinux) }
+
 // SnapshotPolicy defines when VM snapshots are taken.
 // +kubebuilder:validation:Enum=always;main-only;never
 type SnapshotPolicy string
+
+// IsValid reports whether p is a recognized SnapshotPolicy value.
+func (p SnapshotPolicy) IsValid() bool { return slices.Contains(snapshotPolicyValid, p) }
+
+// Default returns p when set, otherwise SnapshotPolicyAlways.
+func (p SnapshotPolicy) Default() SnapshotPolicy { return cmp.Or(p, SnapshotPolicyAlways) }
 
 // CocoonSetPhase represents the lifecycle phase of a CocoonSet.
 // +kubebuilder:validation:Enum=Pending;Running;Scaling;Suspending;Suspended;Migrating;Failed
@@ -76,37 +100,6 @@ type CocoonSetPhase string
 // +kubebuilder:validation:Enum=ssh;rdp;vnc;adb
 type ConnType string
 
-// Backend selects the hypervisor backend used to run a VM.
-// Firecracker uses direct kernel boot and only supports OCI VM images
-// (cloudimg URLs and Windows are rejected); the webhook and vk-cocoon
-// enforce these constraints at admission and run time.
-// +kubebuilder:validation:Enum=cloud-hypervisor;firecracker
-type Backend string
-
-// IsValid reports whether m is a recognized AgentMode value.
-func (m AgentMode) IsValid() bool { return slices.Contains(agentModeValid, m) }
-
-// Default returns m when set, otherwise AgentModeClone.
-func (m AgentMode) Default() AgentMode { return cmp.Or(m, AgentModeClone) }
-
-// IsValid reports whether m is a recognized ToolboxMode value.
-func (m ToolboxMode) IsValid() bool { return slices.Contains(toolboxModeValid, m) }
-
-// Default returns m when set, otherwise ToolboxModeRun.
-func (m ToolboxMode) Default() ToolboxMode { return cmp.Or(m, ToolboxModeRun) }
-
-// IsValid reports whether o is a recognized OSType value.
-func (o OSType) IsValid() bool { return slices.Contains(osTypeValid, o) }
-
-// Default returns o when set, otherwise OSLinux.
-func (o OSType) Default() OSType { return cmp.Or(o, OSLinux) }
-
-// IsValid reports whether p is a recognized SnapshotPolicy value.
-func (p SnapshotPolicy) IsValid() bool { return slices.Contains(snapshotPolicyValid, p) }
-
-// Default returns p when set, otherwise SnapshotPolicyAlways.
-func (p SnapshotPolicy) Default() SnapshotPolicy { return cmp.Or(p, SnapshotPolicyAlways) }
-
 // IsValid reports whether c is a recognized ConnType value.
 func (c ConnType) IsValid() bool { return slices.Contains(connTypeValid, c) }
 
@@ -114,6 +107,13 @@ func (c ConnType) IsValid() bool { return slices.Contains(connTypeValid, c) }
 // static default: an empty value signals "infer from OS and runtime"
 // (see meta.ConnectionType), so this method exists only for API symmetry.
 func (c ConnType) Default() ConnType { return c }
+
+// Backend selects the hypervisor backend used to run a VM.
+// Firecracker uses direct kernel boot and only supports OCI VM images
+// (cloudimg URLs and Windows are rejected); the webhook and vk-cocoon
+// enforce these constraints at admission and run time.
+// +kubebuilder:validation:Enum=cloud-hypervisor;firecracker
+type Backend string
 
 // IsValid reports whether b is a recognized Backend value.
 func (b Backend) IsValid() bool { return slices.Contains(backendValid, b) }
