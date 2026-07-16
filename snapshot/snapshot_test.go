@@ -155,7 +155,7 @@ func TestPushOmitsBaseImageAnnotationWhenEmpty(t *testing.T) {
 	}
 }
 
-func TestPullReassemblesTarFromOCISnapshot(t *testing.T) {
+func TestStreamReassemblesTarFromOCISnapshot(t *testing.T) {
 	files := map[string][]byte{
 		"config.json":   []byte(`{"cpu":2}`),
 		"state.json":    []byte(`{"state":"saved"}`),
@@ -184,18 +184,16 @@ func TestPullReassemblesTarFromOCISnapshot(t *testing.T) {
 		t.Fatalf("seed push: %v", err)
 	}
 
-	pullCocoon := &fakeCocoon{}
-	puller := &Puller{Downloader: uploader, Cocoon: pullCocoon}
-
-	if err := puller.Pull(t.Context(), PullOptions{Name: "myvm", Tag: "v1", LocalName: "myvm-restored"}); err != nil {
-		t.Fatalf("Pull: %v", err)
+	raw, _, err := uploader.GetManifest(t.Context(), "myvm", "v1")
+	if err != nil {
+		t.Fatalf("get manifest: %v", err)
+	}
+	var importPayload bytes.Buffer
+	if err := Stream(t.Context(), raw, uploader, StreamOptions{Name: "myvm", LocalName: "myvm-restored", Writer: &importPayload}); err != nil {
+		t.Fatalf("Stream: %v", err)
 	}
 
-	if pullCocoon.importOpts.Name != "myvm-restored" {
-		t.Errorf("import name = %q, want myvm-restored", pullCocoon.importOpts.Name)
-	}
-
-	tr := tar.NewReader(&pullCocoon.importPayload)
+	tr := tar.NewReader(&importPayload)
 	gotFiles := map[string][]byte{}
 	var gotEnvelope *snapshotExportEnvelope
 	for {
@@ -252,7 +250,7 @@ func TestPullReassemblesTarFromOCISnapshot(t *testing.T) {
 	}
 }
 
-func TestPullPreservesSparseTarMetadata(t *testing.T) {
+func TestStreamPreservesSparseTarMetadata(t *testing.T) {
 	sparseMap := `[{"o":0,"l":4},{"o":12,"l":4}]`
 	entries := map[string]exportTarEntry{
 		"config.json": {data: []byte(`{"cpu":2}`), mode: 0o640},
@@ -278,13 +276,16 @@ func TestPullPreservesSparseTarMetadata(t *testing.T) {
 		t.Fatalf("seed push: %v", err)
 	}
 
-	pullCocoon := &fakeCocoon{}
-	puller := &Puller{Downloader: uploader, Cocoon: pullCocoon}
-	if err := puller.Pull(t.Context(), PullOptions{Name: "mysparse", Tag: "latest", LocalName: "mysparse-restored"}); err != nil {
-		t.Fatalf("Pull: %v", err)
+	raw, _, err := uploader.GetManifest(t.Context(), "mysparse", "latest")
+	if err != nil {
+		t.Fatalf("get manifest: %v", err)
+	}
+	var importPayload bytes.Buffer
+	if err := Stream(t.Context(), raw, uploader, StreamOptions{Name: "mysparse", LocalName: "mysparse-restored", Writer: &importPayload}); err != nil {
+		t.Fatalf("Stream: %v", err)
 	}
 
-	tr := tar.NewReader(&pullCocoon.importPayload)
+	tr := tar.NewReader(&importPayload)
 	for {
 		hdr, err := tr.Next()
 		if errors.Is(err, io.EOF) {
@@ -315,21 +316,15 @@ func TestPullPreservesSparseTarMetadata(t *testing.T) {
 	t.Fatal("memory-ranges entry not found")
 }
 
-func TestPullRejectsNonSnapshotManifest(t *testing.T) {
-	uploader := newFakeUploader()
+func TestStreamRejectsNonSnapshotManifest(t *testing.T) {
 	containerManifest := []byte(`{
 		"schemaVersion": 2,
 		"mediaType": "application/vnd.oci.image.manifest.v1+json",
 		"config": {"mediaType":"application/vnd.oci.image.config.v1+json","digest":"sha256:00","size":1},
 		"layers": []
 	}`)
-	uploader.manifests["foo:latest"] = fakeManifestUpload{
-		bytes:       containerManifest,
-		contentType: manifest.MediaTypeOCIManifest,
-	}
 
-	puller := &Puller{Downloader: uploader, Cocoon: &fakeCocoon{}}
-	err := puller.Pull(t.Context(), PullOptions{Name: "foo", Tag: "latest"})
+	err := Stream(t.Context(), containerManifest, newFakeUploader(), StreamOptions{Name: "foo", Writer: io.Discard})
 	if err == nil {
 		t.Fatal("expected error pulling container manifest as snapshot")
 	}
@@ -471,27 +466,14 @@ func (f *fakeUploader) GetBlob(_ context.Context, _, digest string) (io.ReadClos
 	return io.NopCloser(bytes.NewReader(data)), nil
 }
 
-// fakeCocoon serves a deterministic snapshot tar from Export and captures
-// the bytes Import receives so tests can assert pull-side reassembly.
+// fakeCocoon serves a deterministic snapshot tar from Export.
 type fakeCocoon struct {
-	exportTar     []byte
-	importPayload bytes.Buffer
-	importOpts    ImportOptions
+	exportTar []byte
 }
 
 func (f *fakeCocoon) Export(_ context.Context, _ string) (io.ReadCloser, func() error, error) {
 	return io.NopCloser(bytes.NewReader(f.exportTar)), func() error { return nil }, nil
 }
-
-func (f *fakeCocoon) Import(_ context.Context, opts ImportOptions) (io.WriteCloser, func() error, error) {
-	f.importOpts = opts
-	return &nopWriteCloser{w: &f.importPayload}, func() error { return nil }, nil
-}
-
-type nopWriteCloser struct{ w io.Writer }
-
-func (n *nopWriteCloser) Write(p []byte) (int, error) { return n.w.Write(p) }
-func (n *nopWriteCloser) Close() error                { return nil }
 
 type exportTarEntry struct {
 	data []byte

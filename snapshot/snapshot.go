@@ -1,20 +1,16 @@
 // Package snapshot pushes and pulls cocoon VM snapshots as OCI artifacts.
-// Push streams from `cocoon snapshot export`; pull writes to `cocoon snapshot import`.
+// Push reads a `cocoon snapshot export` stream; Stream assembles a
+// `cocoon snapshot import` tar into a caller-supplied writer.
 package snapshot
 
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io"
-	"os/exec"
-	"strings"
 	"time"
 )
 
 const (
-	// CocoonBinaryEnv is the env var that overrides the cocoon binary path.
-	CocoonBinaryEnv  = "COCOON_BINARY"
 	snapshotJSONName = "snapshot.json"
 
 	// cocoon uses custom PAX keys for sparse files; the stream preserves them.
@@ -41,99 +37,9 @@ type Downloader interface {
 	GetBlob(ctx context.Context, name, digest string) (io.ReadCloser, error)
 }
 
-// CocoonRunner abstracts the local `cocoon` CLI. Default is ExecCocoon; tests substitute a fake.
+// CocoonRunner abstracts the `cocoon snapshot export` source Pusher reads from.
 type CocoonRunner interface {
 	Export(ctx context.Context, name string) (io.ReadCloser, func() error, error)
-	Import(ctx context.Context, opts ImportOptions) (io.WriteCloser, func() error, error)
-}
-
-// ImportOptions configures a cocoon snapshot import invocation.
-type ImportOptions struct {
-	Name        string
-	Description string
-}
-
-var _ CocoonRunner = (*ExecCocoon)(nil)
-
-// ExecCocoon runs the cocoon binary as a subprocess.
-type ExecCocoon struct {
-	Binary string
-	Stderr io.Writer
-}
-
-// Export streams a snapshot out of cocoon via `cocoon snapshot export`.
-func (e *ExecCocoon) Export(ctx context.Context, name string) (io.ReadCloser, func() error, error) {
-	// cocoon CLI is the authoritative implementation for snapshot export; no Go library equivalent exists.
-	cmd := exec.CommandContext(ctx, e.Binary, "snapshot", "export", name, "-o", "-") //nolint:gosec // Binary was validated by ResolveCocoonBinary
-	cmd.Stderr = e.stderr()
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return nil, nil, fmt.Errorf("stdout pipe: %w", err)
-	}
-	if err := cmd.Start(); err != nil {
-		return nil, nil, fmt.Errorf("start cocoon snapshot export: %w", err)
-	}
-	return stdout, func() error {
-		if waitErr := cmd.Wait(); waitErr != nil {
-			return fmt.Errorf("cocoon snapshot export: %w", waitErr)
-		}
-		return nil
-	}, nil
-}
-
-// Import starts a `cocoon snapshot import` subprocess accepting tar on stdin.
-func (e *ExecCocoon) Import(ctx context.Context, opts ImportOptions) (io.WriteCloser, func() error, error) {
-	args := []string{"snapshot", "import", "--name", opts.Name}
-	if opts.Description != "" {
-		args = append(args, "--description", opts.Description)
-	}
-	return e.startWithStdinPipe(ctx, args, "cocoon snapshot import")
-}
-
-// ImportImage starts a `cocoon image import` subprocess accepting data on stdin.
-func (e *ExecCocoon) ImportImage(ctx context.Context, name string) (io.WriteCloser, func() error, error) {
-	return e.startWithStdinPipe(ctx, []string{"image", "import", name}, "cocoon image import")
-}
-
-func (e *ExecCocoon) startWithStdinPipe(ctx context.Context, args []string, label string) (io.WriteCloser, func() error, error) {
-	// cocoon CLI is the authoritative implementation for snapshot/image import; no Go library equivalent exists.
-	cmd := exec.CommandContext(ctx, e.Binary, args...) //nolint:gosec // Binary was validated by ResolveCocoonBinary
-	cmd.Stdout = e.stderr()
-	cmd.Stderr = e.stderr()
-	stdin, err := cmd.StdinPipe()
-	if err != nil {
-		return nil, nil, fmt.Errorf("stdin pipe: %w", err)
-	}
-	if err := cmd.Start(); err != nil {
-		_ = stdin.Close()
-		return nil, nil, fmt.Errorf("start %s: %w", label, err)
-	}
-	return stdin, func() error {
-		if waitErr := cmd.Wait(); waitErr != nil {
-			return fmt.Errorf("%s: %w", label, waitErr)
-		}
-		return nil
-	}, nil
-}
-
-func (e *ExecCocoon) stderr() io.Writer {
-	if e.Stderr == nil {
-		return io.Discard
-	}
-	return e.Stderr
-}
-
-// ResolveCocoonBinary finds the cocoon binary on PATH.
-func ResolveCocoonBinary(envValue string) (string, error) {
-	bin := strings.TrimSpace(envValue)
-	if bin == "" {
-		bin = "cocoon"
-	}
-	resolved, err := exec.LookPath(bin)
-	if err != nil {
-		return "", fmt.Errorf("locate cocoon binary %q: %w", bin, err)
-	}
-	return resolved, nil
 }
 
 type snapshotExportEnvelope struct {

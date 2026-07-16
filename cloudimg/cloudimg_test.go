@@ -111,34 +111,6 @@ func TestDiskLayersFiltersAndSorts(t *testing.T) {
 	}
 }
 
-func TestPullerPipesAssembledDiskToCocoonImport(t *testing.T) {
-	dl := &fakeDownloader{
-		manifest:    []byte(winManifest),
-		contentType: manifest.MediaTypeOCIManifest,
-		blobs: map[string][]byte{
-			digestA:     []byte(diskBlobA),
-			digestB:     []byte(diskBlobB),
-			"sha256:cc": []byte("ignored"),
-		},
-	}
-	cocoon := &fakeCocoon{}
-	puller := &Puller{Downloader: dl, Cocoon: cocoon}
-
-	if err := puller.Pull(t.Context(), PullOptions{
-		Name:      "windows/win11",
-		Tag:       "25h2",
-		LocalName: "win11",
-	}); err != nil {
-		t.Fatalf("Pull: %v", err)
-	}
-	if cocoon.importName != "win11" {
-		t.Errorf("import name = %q, want win11", cocoon.importName)
-	}
-	if got, want := cocoon.importPayload.String(), "AAAABBBB"; got != want {
-		t.Errorf("import payload = %q, want %q", got, want)
-	}
-}
-
 // fakeBlobs is a tiny in-memory BlobReader for tests.
 type fakeBlobs map[string][]byte
 
@@ -150,38 +122,3 @@ func (f fakeBlobs) ReadBlob(_ context.Context, digest string) (io.ReadCloser, er
 	return io.NopCloser(bytes.NewReader(data)), nil
 }
 
-// fakeCocoon captures the cocoon image import stdin payload so puller tests
-// can assert what cocoon would have received.
-type fakeCocoon struct {
-	importPayload bytes.Buffer
-	importName    string
-}
-
-func (f *fakeCocoon) ImportImage(_ context.Context, name string) (io.WriteCloser, func() error, error) {
-	f.importName = name
-	return nopCloser{w: &f.importPayload}, func() error { return nil }, nil
-}
-
-type nopCloser struct{ w io.Writer }
-
-func (n nopCloser) Write(p []byte) (int, error) { return n.w.Write(p) }
-func (n nopCloser) Close() error                { return nil }
-
-// fakeDownloader serves Puller's Downloader from a static manifest + blob map.
-type fakeDownloader struct {
-	manifest    []byte
-	contentType string
-	blobs       map[string][]byte
-}
-
-func (f *fakeDownloader) GetManifest(_ context.Context, _, _ string) ([]byte, string, error) {
-	return f.manifest, f.contentType, nil
-}
-
-func (f *fakeDownloader) GetBlob(_ context.Context, _, digest string) (io.ReadCloser, error) {
-	data, ok := f.blobs[digest]
-	if !ok {
-		return nil, errors.New("blob not found: " + digest)
-	}
-	return io.NopCloser(bytes.NewReader(data)), nil
-}

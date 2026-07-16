@@ -20,73 +20,12 @@ import (
 // Real configs hit ~1.4 MB on fragmented Windows VMs; 64 MiB leaves headroom while bounding pathological reads.
 const maxSnapshotConfigSize = 64 << 20
 
-// PullOptions configures a snapshot pull operation.
-type PullOptions struct {
-	Name        string
-	Tag         string
-	LocalName   string // overrides cocoon-side snapshot name; empty = use Name
-	Description string
-	Progress    func(string)
-}
-
 // StreamOptions configures snapshot tar stream assembly.
 type StreamOptions struct {
 	Name      string
 	LocalName string // empty = use Name
 	Writer    io.Writer
 	Progress  func(string)
-}
-
-// Puller downloads snapshot artifacts and pipes them into cocoon snapshot import.
-type Puller struct {
-	Downloader Downloader
-	Cocoon     CocoonRunner
-}
-
-// Pull downloads a snapshot artifact and feeds it to `cocoon snapshot import`.
-func (p *Puller) Pull(ctx context.Context, opts PullOptions) error {
-	if opts.Name == "" {
-		return errors.New("snapshot pull: name is required")
-	}
-	if opts.Tag == "" {
-		opts.Tag = "latest"
-	}
-	localName := opts.LocalName
-	if localName == "" {
-		localName = opts.Name
-	}
-
-	raw, _, err := p.Downloader.GetManifest(ctx, opts.Name, opts.Tag)
-	if err != nil {
-		return fmt.Errorf("get manifest %s:%s: %w", opts.Name, opts.Tag, err)
-	}
-
-	stdin, wait, err := p.Cocoon.Import(ctx, ImportOptions{
-		Name:        localName,
-		Description: opts.Description,
-	})
-	if err != nil {
-		return fmt.Errorf("start cocoon snapshot import: %w", err)
-	}
-
-	streamErr := Stream(ctx, raw, p.Downloader, StreamOptions{
-		Name:      opts.Name,
-		LocalName: localName,
-		Writer:    stdin,
-		Progress:  opts.Progress,
-	})
-	closeErr := stdin.Close()
-	waitErr := wait()
-
-	switch {
-	case streamErr != nil:
-		return fmt.Errorf("stream snapshot: %w", streamErr)
-	case closeErr != nil:
-		return fmt.Errorf("close cocoon stdin: %w", closeErr)
-	case waitErr != nil:
-		return fmt.Errorf("cocoon snapshot import: %w", waitErr)
-	}
-	return nil
 }
 
 // Stream reassembles a snapshot manifest into a cocoon-import tar stream.
