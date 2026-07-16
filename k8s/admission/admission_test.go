@@ -97,4 +97,3 @@ func TestServeRejectsMissingRequest(t *testing.T) {
 		t.Errorf("handler should not be invoked when Request is nil")
 	}
 }
-

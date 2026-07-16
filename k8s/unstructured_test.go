@@ -30,4 +30,3 @@ func TestDecodeUnstructured(t *testing.T) {
 		t.Fatalf("decoded name mismatch: got %q", got.Spec.Name)
 	}
 }
-

@@ -161,7 +161,6 @@ if err != nil {
 sess, ok := auth.VerifySession(cookie, hmacKey)
 
 // Generate a random state parameter for OAuth flows.
-// Panics if crypto/rand fails (treated as fatal per platform contract).
 state := auth.RandomState()
 ```
 

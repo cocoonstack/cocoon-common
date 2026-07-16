@@ -1,4 +1,4 @@
-// Package admission provides shared admission-webhook helpers: decode/dispatch/encode, allow/deny builders, and JSON patch utilities.
+// Package admission provides shared admission-webhook helpers: decode/dispatch/encode and allow/deny builders.
 package admission
 
 import (

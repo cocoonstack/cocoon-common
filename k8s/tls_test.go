@@ -11,6 +11,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 	"time"
 )
@@ -30,13 +31,7 @@ func TestGenerateSelfSignedCertIsParseable(t *testing.T) {
 	if parsed.Subject.CommonName != "testhost" {
 		t.Errorf("CN = %q", parsed.Subject.CommonName)
 	}
-	found := false
-	for _, ip := range parsed.IPAddresses {
-		if ip.String() == "10.0.0.1" {
-			found = true
-		}
-	}
-	if !found {
+	if !slices.ContainsFunc(parsed.IPAddresses, func(ip net.IP) bool { return ip.String() == "10.0.0.1" }) {
 		t.Errorf("SAN IP 10.0.0.1 missing from cert: %v", parsed.IPAddresses)
 	}
 }
