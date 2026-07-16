@@ -39,12 +39,6 @@ func ExtractAgentSlot(namespace, cocoonSet, vmName string) int {
 	return n
 }
 
-// MainAgentVMNameFor returns the VM name of the main (slot 0) agent
-// for (namespace, cocoonSet).
-func MainAgentVMNameFor(namespace, cocoonSet string) string {
-	return VMNameForDeployment(namespace, cocoonSet, 0)
-}
-
 // InferRoleFromAgentSlot returns RoleMain for slot 0, RoleSubAgent for
 // positive slots, RoleToolbox for slot < 0.
 func InferRoleFromAgentSlot(slot int) string {

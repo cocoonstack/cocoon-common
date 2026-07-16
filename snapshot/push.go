@@ -3,6 +3,7 @@ package snapshot
 import (
 	"archive/tar"
 	"bytes"
+	"cmp"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -49,9 +50,7 @@ func (p *Pusher) Push(ctx context.Context, opts PushOptions) (*PushResult, error
 	if opts.Name == "" {
 		return nil, errors.New("snapshot push: name is required")
 	}
-	if opts.Tag == "" {
-		opts.Tag = "latest"
-	}
+	opts.Tag = cmp.Or(opts.Tag, "latest")
 
 	stream, wait, err := p.Cocoon.Export(ctx, opts.Name)
 	if err != nil {

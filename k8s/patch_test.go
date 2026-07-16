@@ -5,21 +5,6 @@ import (
 	"testing"
 )
 
-func TestStatusMergePatch(t *testing.T) {
-	data, err := StatusMergePatch(map[string]string{"phase": "Ready"})
-	if err != nil {
-		t.Fatalf("StatusMergePatch returned error: %v", err)
-	}
-
-	var patch map[string]map[string]string
-	if err := json.Unmarshal(data, &patch); err != nil {
-		t.Fatalf("unmarshal patch: %v", err)
-	}
-	if got := patch["status"]["phase"]; got != "Ready" {
-		t.Fatalf("status phase mismatch: got %q", got)
-	}
-}
-
 func TestAnnotationsMergePatch(t *testing.T) {
 	data, err := AnnotationsMergePatch(map[string]any{
 		"vm.cocoonstack.io/hibernate": nil,

@@ -2,7 +2,6 @@ package meta
 
 import (
 	"strconv"
-	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -37,13 +36,4 @@ func formatPort(port int32) string {
 		return ""
 	}
 	return strconv.FormatInt(int64(port), 10)
-}
-
-// lastCut is like strings.Cut but splits at the last occurrence of sep.
-func lastCut(s, sep string) (before, after string, found bool) {
-	idx := strings.LastIndex(s, sep)
-	if idx < 0 {
-		return s, "", false
-	}
-	return s[:idx], s[idx+len(sep):], true
 }

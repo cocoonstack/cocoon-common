@@ -31,17 +31,3 @@ func CocoonSetOwnerName(ownerRefs []metav1.OwnerReference) string {
 	}
 	return ""
 }
-
-// OwnerDeploymentName extracts the deployment name from a ReplicaSet
-// owner reference. Returns ok=false when absent or unparseable.
-func OwnerDeploymentName(ownerRefs []metav1.OwnerReference) (string, bool) {
-	for _, ref := range ownerRefs {
-		if ref.Kind != "ReplicaSet" {
-			continue
-		}
-		if before, _, ok := lastCut(ref.Name, "-"); ok {
-			return before, true
-		}
-	}
-	return "", false
-}

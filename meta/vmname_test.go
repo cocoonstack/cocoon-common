@@ -86,12 +86,6 @@ func TestExtractAgentSlot(t *testing.T) {
 	}
 }
 
-func TestMainAgentVMNameFor(t *testing.T) {
-	if got := MainAgentVMNameFor("prod", "demo"); got != "vk-prod-demo-0" {
-		t.Errorf("got %q, want %q", got, "vk-prod-demo-0")
-	}
-}
-
 func TestInferRoleFromAgentSlot(t *testing.T) {
 	if got := InferRoleFromAgentSlot(0); got != RoleMain {
 		t.Errorf("slot 0 = %q, want %q", got, RoleMain)

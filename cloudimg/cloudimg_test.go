@@ -121,4 +121,3 @@ func (f fakeBlobs) ReadBlob(_ context.Context, digest string) (io.ReadCloser, er
 	}
 	return io.NopCloser(bytes.NewReader(data)), nil
 }
-

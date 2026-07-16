@@ -4,10 +4,9 @@ import "strings"
 
 const (
 	// OCI / Docker manifest envelopes.
-	MediaTypeOCIManifest    = "application/vnd.oci.image.manifest.v1+json"
-	MediaTypeOCIIndex       = "application/vnd.oci.image.index.v1+json"
-	MediaTypeDockerManifest = "application/vnd.docker.distribution.manifest.v2+json"
-	MediaTypeDockerIndex    = "application/vnd.docker.distribution.manifest.list.v2+json"
+	MediaTypeOCIManifest = "application/vnd.oci.image.manifest.v1+json"
+	MediaTypeOCIIndex    = "application/vnd.oci.image.index.v1+json"
+	MediaTypeDockerIndex = "application/vnd.docker.distribution.manifest.list.v2+json"
 
 	// OCI / Docker config blob types.
 	MediaTypeOCIImageConfig = "application/vnd.oci.image.config.v1+json"
@@ -43,14 +42,12 @@ const (
 	MediaTypeTar     = "application/x-tar"
 
 	// OCI standard annotation keys.
-	AnnotationTitle       = "org.opencontainers.image.title"
-	AnnotationCreated     = "org.opencontainers.image.created"
-	AnnotationSource      = "org.opencontainers.image.source"
-	AnnotationRevision    = "org.opencontainers.image.revision"
-	AnnotationDescription = "org.opencontainers.image.description"
+	AnnotationTitle    = "org.opencontainers.image.title"
+	AnnotationCreated  = "org.opencontainers.image.created"
+	AnnotationSource   = "org.opencontainers.image.source"
+	AnnotationRevision = "org.opencontainers.image.revision"
 
 	// Cocoonstack annotation keys.
-	AnnotationSnapshotID        = "cocoonstack.snapshot.id"
 	AnnotationSnapshotBaseImage = "cocoonstack.snapshot.baseimage"
 )
 

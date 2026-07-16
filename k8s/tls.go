@@ -98,9 +98,6 @@ func tryLoadDiskCert(ctx context.Context, certPath, keyPath string) (tls.Certifi
 // Parse failures are warned and treated as "not expired".
 func isCertExpired(ctx context.Context, cert tls.Certificate, certPath string) bool {
 	logger := log.WithFunc("k8s.isCertExpired")
-	if len(cert.Certificate) == 0 {
-		return false
-	}
 	parsed, err := x509.ParseCertificate(cert.Certificate[0])
 	if err != nil {
 		logger.Warnf(ctx, "parse disk cert %s: %v (keeping cert)", certPath, err)

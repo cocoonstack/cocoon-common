@@ -132,18 +132,6 @@ type SnapshotConfig struct {
 	CreatedAt     time.Time               `json:"createdAt,omitzero"`
 }
 
-// Catalog is the global index of all repositories and their tags.
-type Catalog struct {
-	Repositories map[string]*Repository `json:"repositories"`
-	UpdatedAt    time.Time              `json:"updatedAt,omitzero"`
-}
-
-// Repository maps tag names to their manifest keys in the object store.
-type Repository struct {
-	Tags      map[string]string `json:"tags"`
-	UpdatedAt time.Time         `json:"updatedAt,omitzero"`
-}
-
 func classifyFields(artifactType, configMediaType, topMediaType string) Kind {
 	switch artifactType {
 	case ArtifactTypeOSImage, ArtifactTypeWindowsImage:

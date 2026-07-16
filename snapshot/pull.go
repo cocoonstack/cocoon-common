@@ -3,6 +3,7 @@ package snapshot
 import (
 	"archive/tar"
 	"bufio"
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -75,10 +76,7 @@ func StreamParsed(ctx context.Context, m *manifest.OCIManifest, dl Downloader, o
 	if opts.Writer == nil {
 		return errors.New("snapshot stream: writer is required")
 	}
-	localName := opts.LocalName
-	if localName == "" {
-		localName = opts.Name
-	}
+	localName := cmp.Or(opts.LocalName, opts.Name)
 
 	cfg, err := FetchSnapshotConfig(ctx, dl, opts.Name, m.Config)
 	if err != nil {
