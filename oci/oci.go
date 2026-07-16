@@ -120,13 +120,15 @@ func (r *OCIRegistry) PutManifest(ctx context.Context, repo, tag string, data []
 }
 
 // DeleteManifest removes the manifest at repo:reference (tag or digest).
+// A 404 is success: every caller wants ensure-absent, and GC paths would
+// otherwise log errors for tags that were never pushed.
 func (r *OCIRegistry) DeleteManifest(ctx context.Context, repo, reference string) error {
 	ref, err := r.parseRef(repo, reference)
 	if err != nil {
 		return err
 	}
 	if err := remote.Delete(ref, r.callOpts(ctx)...); err != nil {
-		return fmt.Errorf("delete manifest %s: %w", reference, err)
+		return ignoreNotFound(err, "delete manifest "+reference)
 	}
 	return nil
 }

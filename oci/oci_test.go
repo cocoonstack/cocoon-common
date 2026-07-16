@@ -85,6 +85,9 @@ func TestOCIRegistryRoundTrip(t *testing.T) {
 	if _, _, err := r.GetManifest(ctx, "myvm", "hibernate"); err == nil {
 		t.Fatal("GetManifest after delete: want error, got nil")
 	}
+	if err := r.DeleteManifest(ctx, "myvm", "hibernate"); err != nil {
+		t.Fatalf("DeleteManifest of absent tag must be nil (ensure-absent), got %v", err)
+	}
 }
 
 // TestGetManifestByDigest confirms GetManifest addresses a sha256:... reference
