@@ -6,7 +6,13 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"regexp"
 	"strings"
+)
+
+var (
+	relRepo = regexp.MustCompile(`^[a-z0-9]+(?:(?:[._]|__|-+)[a-z0-9]+)*(?:/[a-z0-9]+(?:(?:[._]|__|-+)[a-z0-9]+)*)*$`)
+	relTag  = regexp.MustCompile(`^[A-Za-z0-9_][A-Za-z0-9._-]{0,127}$`)
 )
 
 // SHA256Hex returns the hex-encoded SHA-256 digest of data.
@@ -39,10 +45,18 @@ func CopyBlobExact(dst io.Writer, body io.Reader, digest string, size int64) err
 	return nil
 }
 
-// ParseRef splits "name:tag" into name and tag; defaults tag to "latest".
+// ParseRef splits a registry-relative "repo[:tag]" at its first colon,
+// defaulting tag to "latest"; IsRelativeRef guards the domain.
 func ParseRef(ref string) (string, string) {
 	if name, tag, ok := strings.Cut(ref, ":"); ok && name != "" {
 		return name, tag
 	}
 	return ref, "latest"
+}
+
+// IsRelativeRef reports whether ref is a registry-relative repo[:tag], the
+// only form ParseRef splits correctly (ports and digests carry extra colons).
+func IsRelativeRef(ref string) bool {
+	repo, tag := ParseRef(ref)
+	return relRepo.MatchString(repo) && relTag.MatchString(tag)
 }
