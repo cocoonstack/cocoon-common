@@ -5,9 +5,9 @@ Shared Go packages for [cocoonstack](https://github.com/cocoonstack) services.
 ## Overview
 
 - `apis/v1` -- typed CocoonSet and CocoonHibernation CRD Go types and generated CRD YAML manifests
-- `meta` -- shared CRD identifiers, annotation/label/toleration keys, VM naming helpers, the typed `VMSpec` / `VMRuntime` / `HibernateState` / `LifecycleStatus` annotation contract, and pod-state helpers (`IsPodReady`, `IsPodTerminal`, `IsContainerRunning`, `IsWindowsPod`, `PodKey`, `PodNodePool`) every cocoon component shares
+- `meta` -- shared CRD identifiers, annotation/label/toleration keys, VM naming helpers, the typed `VMSpec` / `VMRuntime` / `HibernateState` / `LifecycleStatus` annotation contract, and pod-state helpers (`IsPodReady`, `IsPodTerminal`, `IsContainerRunning`, `PodKey`, `PodNodePool`) every cocoon component shares
 - `k8s` -- Kubernetes client config bootstrap with the standard kubeconfig fallback chain, merge-patch helpers, env/duration/sleep helpers (`EnvOrDefault`, `EnvDuration`, `EnvBool`, `SleepCtx`), unstructured decoder, and TLS helpers (`LoadOrGenerateCert`, `GenerateSelfSignedCert`, `DetectNodeIP`)
-- `k8s/admission` -- shared admission-webhook scaffolding (`Allow` / `Deny` responses, `Decode` / `Serve` request loop, RFC 6902 `JSONPatchOp` + `EscapeJSONPointer` helpers) used by `cocoon-webhook` and reusable by any future cocoonstack admission handler
+- `k8s/admission` -- shared admission-webhook scaffolding (`Allow` / `Deny` responses, `Decode` / `Serve` request loop) used by `cocoon-webhook` and reusable by any future cocoonstack admission handler
 - `auth` -- shared HMAC-signed session helpers (sign/verify cookies, random state generation) used by glance and epoch for SSO cookie management
 - `log` -- common log setup for cocoonstack binaries using `projecteru2/core/log`
 
@@ -143,8 +143,6 @@ mux.HandleFunc("/mutate", func(w http.ResponseWriter, r *http.Request) {
     })
 })
 ```
-
-`commonadmission.JSONPatchOp`, `commonadmission.MarshalPatch`, and `commonadmission.EscapeJSONPointer` cover the RFC 6902 patch flow for mutating webhooks.
 
 ### `auth`
 

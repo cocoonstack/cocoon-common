@@ -98,32 +98,3 @@ func TestServeRejectsMissingRequest(t *testing.T) {
 	}
 }
 
-func TestMarshalPatch(t *testing.T) {
-	raw, err := MarshalPatch([]JSONPatchOp{
-		{Op: "add", Path: "/metadata/annotations/x", Value: "y"},
-	})
-	if err != nil {
-		t.Fatalf("marshal: %v", err)
-	}
-	var ops []map[string]any
-	if err := json.Unmarshal(raw, &ops); err != nil {
-		t.Fatalf("unmarshal: %v", err)
-	}
-	if len(ops) != 1 || ops[0]["op"] != "add" || ops[0]["value"] != "y" {
-		t.Errorf("patch ops round trip: %v", ops)
-	}
-}
-
-func TestEscapeJSONPointer(t *testing.T) {
-	cases := map[string]string{
-		"plain":                  "plain",
-		"foo/bar":                "foo~1bar",
-		"foo~bar":                "foo~0bar",
-		"cocoonset.io/hibernate": "cocoonset.io~1hibernate",
-	}
-	for in, want := range cases {
-		if got := EscapeJSONPointer(in); got != want {
-			t.Errorf("EscapeJSONPointer(%q) = %q, want %q", in, got, want)
-		}
-	}
-}

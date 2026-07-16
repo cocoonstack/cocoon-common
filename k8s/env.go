@@ -14,26 +14,22 @@ func EnvOrDefault(key, fallback string) string {
 
 // EnvDuration parses a duration env var, falling back to fallback when unset or invalid.
 func EnvDuration(key string, fallback time.Duration) time.Duration {
-	v := os.Getenv(key)
-	if v == "" {
-		return fallback
-	}
-	d, err := time.ParseDuration(v)
-	if err != nil {
-		return fallback
-	}
-	return d
+	return envParse(key, fallback, time.ParseDuration)
 }
 
 // EnvBool parses a boolean env var, falling back to fallback when unset or invalid.
 func EnvBool(key string, fallback bool) bool {
+	return envParse(key, fallback, strconv.ParseBool)
+}
+
+func envParse[T any](key string, fallback T, parse func(string) (T, error)) T {
 	v := os.Getenv(key)
 	if v == "" {
 		return fallback
 	}
-	b, err := strconv.ParseBool(v)
+	t, err := parse(v)
 	if err != nil {
 		return fallback
 	}
-	return b
+	return t
 }

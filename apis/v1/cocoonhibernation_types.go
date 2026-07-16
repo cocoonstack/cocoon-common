@@ -34,6 +34,7 @@ type HibernationPodRef struct {
 // CocoonHibernationSpec defines the desired state of a CocoonHibernation.
 type CocoonHibernationSpec struct {
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec.podRef is immutable"
 	PodRef HibernationPodRef `json:"podRef"`
 
 	// +kubebuilder:validation:Required

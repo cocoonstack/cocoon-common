@@ -147,7 +147,6 @@ func TestRunStartsAllSpecs(t *testing.T) {
 		runErrCh <- Run(ctx, time.Second, mkSpec(), mkSpec(), mkSpec())
 	}()
 
-	time.Sleep(50 * time.Millisecond)
 	cancel()
 
 	select {

@@ -61,6 +61,9 @@ func InferRoleFromAgentSlot(slot int) string {
 // RoleForPod derives a pod's role (RoleMain, RoleSubAgent, RoleToolbox)
 // from its CocoonSet owner and VM name.
 func RoleForPod(pod *corev1.Pod, vmName string) string {
+	if pod == nil {
+		return RoleToolbox
+	}
 	cocoonSet := CocoonSetOwnerName(pod.OwnerReferences)
 	return InferRoleFromAgentSlot(ExtractAgentSlot(pod.Namespace, cocoonSet, vmName))
 }

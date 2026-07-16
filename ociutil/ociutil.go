@@ -39,20 +39,6 @@ func CopyBlobExact(dst io.Writer, body io.Reader, digest string, size int64) err
 	return nil
 }
 
-// HumanSize formats a byte count as a human-readable string (e.g. "1.2G").
-func HumanSize(b int64) string {
-	switch {
-	case b >= 1<<30:
-		return fmt.Sprintf("%.1fG", float64(b)/(1<<30))
-	case b >= 1<<20:
-		return fmt.Sprintf("%.1fM", float64(b)/(1<<20))
-	case b >= 1<<10:
-		return fmt.Sprintf("%.1fK", float64(b)/(1<<10))
-	default:
-		return fmt.Sprintf("%dB", b)
-	}
-}
-
 // ParseRef splits "name:tag" into name and tag; defaults tag to "latest".
 func ParseRef(ref string) (string, string) {
 	if name, tag, ok := strings.Cut(ref, ":"); ok && name != "" {
