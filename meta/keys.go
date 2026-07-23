@@ -1,8 +1,6 @@
 package meta
 
 const (
-	// APIVersion is the apiVersion string for CocoonSet resources.
-	APIVersion = "cocoonset.cocoonstack.io/v1"
 	// KindCocoonSet is the kind string for CocoonSet resources.
 	KindCocoonSet = "CocoonSet"
 
