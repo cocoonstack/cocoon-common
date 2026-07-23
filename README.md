@@ -6,9 +6,8 @@ Shared Go packages for [cocoonstack](https://github.com/cocoonstack) services.
 
 - `apis/v1` -- typed CocoonSet and CocoonHibernation CRD Go types and generated CRD YAML manifests
 - `meta` -- shared CRD identifiers, annotation/label/toleration keys, VM naming helpers, the typed `VMSpec` / `VMRuntime` / `HibernateState` / `LifecycleStatus` annotation contract, and pod-state helpers (`IsPodReady`, `IsPodTerminal`, `IsContainerRunning`, `PodKey`, `PodNodePool`) every cocoon component shares
-- `k8s` -- Kubernetes client config bootstrap with the standard kubeconfig fallback chain, merge-patch helpers, env/duration/sleep helpers (`EnvOrDefault`, `EnvDuration`, `EnvBool`, `SleepCtx`), unstructured decoder, and TLS helpers (`LoadOrGenerateCert`, `GenerateSelfSignedCert`, `DetectNodeIP`)
+- `k8s` -- Kubernetes client config bootstrap with the standard kubeconfig fallback chain, merge-patch helpers, env/sleep helpers (`EnvOrDefault`, `EnvBool`, `SleepCtx`), unstructured decoder, and TLS helpers (`LoadOrGenerateCert`, `GenerateSelfSignedCert`, `DetectNodeIP`)
 - `k8s/admission` -- shared admission-webhook scaffolding (`Allow` / `Deny` responses, `Decode` / `Serve` request loop) used by `cocoon-webhook` and reusable by any future cocoonstack admission handler
-- `auth` -- shared HMAC-signed session helpers (sign/verify cookies, random state generation) used by glance and epoch for SSO cookie management
 - `log` -- common log setup for cocoonstack binaries using `projecteru2/core/log`
 
 This repository keeps cross-project contracts in one place instead of re-exporting them from `cocoon-operator`. `cocoon-operator`, `cocoon-webhook`, and `vk-cocoon` all consume the same package set directly.
@@ -119,7 +118,7 @@ Use `k8s.LoadConfig()` to resolve cluster configuration from:
 
 Other helpers in this package:
 
-- `k8s.EnvOrDefault`, `k8s.EnvDuration`, `k8s.EnvBool` -- lenient env-var parsing that falls back to the supplied default on unset / malformed values.
+- `k8s.EnvOrDefault`, `k8s.EnvBool` -- lenient env-var parsing that falls back to the supplied default on unset / malformed values.
 - `k8s.SleepCtx(ctx, d)` -- context-aware sleep; returns `false` when the context fires first so callers can exit retry loops without a second `select`.
 - `k8s.LoadOrGenerateCert` / `k8s.GenerateSelfSignedCert` / `k8s.DetectNodeIP` -- TLS bring-up helpers used by `vk-cocoon` and reusable by any cocoonstack HTTP server that needs a dev-time self-signed fallback. `DetectNodeIP` returns `(string, error)`.
 - `k8s.StatusMergePatch` / `k8s.AnnotationsMergePatch` -- merge-patch builders used by reconcilers that prefer the JSON merge-patch encoding over `client.MergeFrom`.
@@ -142,26 +141,6 @@ mux.HandleFunc("/mutate", func(w http.ResponseWriter, r *http.Request) {
         return commonadmission.Allow()
     })
 })
-```
-
-### `auth`
-
-Shared HMAC-signed session helpers for SSO cookie management:
-
-```go
-import "github.com/cocoonstack/cocoon-common/auth"
-
-// Sign a session into a cookie value. Returns an error if HMAC signing fails.
-cookie, err := auth.SignSession(auth.Session{User: "alice", Email: "alice@example.com", Exp: exp}, hmacKey)
-if err != nil {
-    // handle signing failure
-}
-
-// Verify and decode. Exp is enforced internally — ok=false when expired.
-sess, ok := auth.VerifySession(cookie, hmacKey)
-
-// Generate a random state parameter for OAuth flows.
-state := auth.RandomState()
 ```
 
 ### `log`
@@ -189,7 +168,6 @@ After any change to `apis/v1/*_types.go`, run `make generate manifests` and comm
 |---|---|
 | [cocoon-operator](https://github.com/cocoonstack/cocoon-operator) | CocoonSet and Hibernation controllers |
 | [cocoon-webhook](https://github.com/cocoonstack/cocoon-webhook) | Admission webhook for sticky scheduling |
-| [epoch](https://github.com/cocoonstack/epoch) | Snapshot registry and storage backend |
 | [vk-cocoon](https://github.com/cocoonstack/vk-cocoon) | Virtual kubelet provider |
 
 ## License

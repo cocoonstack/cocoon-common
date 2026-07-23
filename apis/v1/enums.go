@@ -103,11 +103,6 @@ type ConnType string
 // IsValid reports whether c is a recognized ConnType value.
 func (c ConnType) IsValid() bool { return slices.Contains(connTypeValid, c) }
 
-// Default returns c unchanged. Unlike the other enums, ConnType has no
-// static default: an empty value signals "infer from OS and runtime"
-// (see meta.ConnectionType), so this method exists only for API symmetry.
-func (c ConnType) Default() ConnType { return c }
-
 // Backend selects the hypervisor backend used to run a VM.
 // Firecracker uses direct kernel boot and only supports OCI VM images
 // (cloudimg URLs and Windows are rejected); the webhook and vk-cocoon

@@ -10,29 +10,19 @@ import (
 	"time"
 )
 
-// DefaultReadHeaderTimeout is the conservative default for
-// http.Server.ReadHeaderTimeout. 10s is what every cocoonstack
-// consumer was already using and mitigates Slowloris attacks
-// (gosec G112) by capping how long a client may take to send headers.
+// DefaultReadHeaderTimeout caps client header send time to mitigate Slowloris attacks (gosec G112).
 const DefaultReadHeaderTimeout = 10 * time.Second
 
-// StartFunc is the listen-and-serve entry point for a single server,
-// invoked in its own goroutine by Run. Typical implementations are
-// (*http.Server).ListenAndServe or (*http.Server).ListenAndServeTLS.
+// StartFunc is a server's listen-and-serve entry point, invoked in its own goroutine by Run.
 type StartFunc func() error
 
-// ServerSpec pairs an http.Server with the StartFunc that boots it.
-// Start is called in a goroutine; Server is what Run calls Shutdown on
-// when the parent context is canceled.
+// ServerSpec pairs an http.Server with the StartFunc that boots it; Run calls Shutdown on Server when ctx is canceled.
 type ServerSpec struct {
 	Server *http.Server
 	Start  StartFunc
 }
 
-// NewServer returns an *http.Server with Addr, Handler, and the safe
-// ReadHeaderTimeout default set. Use this in preference to composing an
-// http.Server literal so every server in the stack carries the same
-// Slowloris-mitigation timeout.
+// NewServer returns an *http.Server with Addr, Handler, and DefaultReadHeaderTimeout set.
 func NewServer(addr string, handler http.Handler) *http.Server {
 	return &http.Server{
 		Addr:              addr,
@@ -49,10 +39,7 @@ func HTTPServerSpec(srv *http.Server) ServerSpec {
 	}
 }
 
-// HTTPSServerSpec wraps srv with srv.ListenAndServeTLS(cert, key) as its
-// StartFunc. If cert and key are empty, the server is expected to have
-// its TLSConfig.Certificates populated and srv.ListenAndServeTLS("", "")
-// will still work.
+// HTTPSServerSpec wraps srv with srv.ListenAndServeTLS(cert, key); empty cert and key require srv.TLSConfig.Certificates to be populated.
 func HTTPSServerSpec(srv *http.Server, cert, key string) ServerSpec {
 	return ServerSpec{
 		Server: srv,
@@ -62,13 +49,7 @@ func HTTPSServerSpec(srv *http.Server, cert, key string) ServerSpec {
 	}
 }
 
-// Run starts every spec in its own goroutine and blocks until ctx is
-// canceled or any spec's Start returns a non-ErrServerClosed error. On
-// exit it calls Shutdown on each server using a fresh timeout context
-// that is *not* derived from the canceled parent (shutdown must outlive
-// the signal-derived ctx). Errors from both serve and shutdown are
-// aggregated with errors.Join. http.ErrServerClosed is treated as a
-// clean shutdown and never returned.
+// Run starts every spec, waits for ctx cancellation or a Start failure, then shuts down all servers and joins the errors.
 func Run(ctx context.Context, shutdownTimeout time.Duration, specs ...ServerSpec) error {
 	if len(specs) == 0 {
 		return nil
@@ -77,14 +58,10 @@ func Run(ctx context.Context, shutdownTimeout time.Duration, specs ...ServerSpec
 	serveErrs := make([]error, len(specs))
 	var wg sync.WaitGroup
 
-	// Capture a ctx-independent parent for shutdown so that when the
-	// caller's signal-derived ctx is canceled we still have a live
-	// parent to derive WithTimeout from.
+	// shutdownParent must outlive ctx cancellation so shutdown can still run.
 	shutdownParent := context.WithoutCancel(ctx)
 
-	// runCtx lets any Start failure trigger the shutdown path without
-	// waiting for the caller's ctx to be canceled — otherwise a bind/TLS
-	// error on startup would leave Run blocked until SIGTERM.
+	// runCtx trips shutdown on a Start failure, so a bind/TLS error at startup doesn't hang until SIGTERM.
 	runCtx, cancelRun := context.WithCancel(ctx)
 	defer cancelRun()
 
@@ -113,8 +90,7 @@ func Run(ctx context.Context, shutdownTimeout time.Duration, specs ...ServerSpec
 	}
 	shutdownWG.Wait()
 
-	// Wait for serve goroutines to return after Shutdown so we collect
-	// any ListenAndServe errors produced during the shutdown window.
+	// Wait after Shutdown so ListenAndServe errors from the shutdown window are collected too.
 	wg.Wait()
 
 	return errors.Join(append(serveErrs, shutdownErrs...)...)

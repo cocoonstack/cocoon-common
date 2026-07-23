@@ -17,21 +17,6 @@ func TestEnvOrDefault(t *testing.T) {
 	}
 }
 
-func TestEnvDuration(t *testing.T) {
-	t.Setenv("COCOON_TEST_DUR", "5s")
-	if got := EnvDuration("COCOON_TEST_DUR", time.Second); got != 5*time.Second {
-		t.Errorf("parsed: %v", got)
-	}
-	t.Setenv("COCOON_TEST_DUR", "not-a-dur")
-	if got := EnvDuration("COCOON_TEST_DUR", 2*time.Second); got != 2*time.Second {
-		t.Errorf("bad input fallback: %v", got)
-	}
-	t.Setenv("COCOON_TEST_DUR", "")
-	if got := EnvDuration("COCOON_TEST_DUR", 3*time.Second); got != 3*time.Second {
-		t.Errorf("empty fallback: %v", got)
-	}
-}
-
 func TestEnvBool(t *testing.T) {
 	t.Setenv("COCOON_TEST_BOOL", "true")
 	if !EnvBool("COCOON_TEST_BOOL", false) {
