@@ -4,17 +4,11 @@ import (
 	"cmp"
 	"os"
 	"strconv"
-	"time"
 )
 
 // EnvOrDefault returns os.Getenv(key), falling back to fallback when unset or empty.
 func EnvOrDefault(key, fallback string) string {
 	return cmp.Or(os.Getenv(key), fallback)
-}
-
-// EnvDuration parses a duration env var, falling back to fallback when unset or invalid.
-func EnvDuration(key string, fallback time.Duration) time.Duration {
-	return envParse(key, fallback, time.ParseDuration)
 }
 
 // EnvBool parses a boolean env var, falling back to fallback when unset or invalid.
