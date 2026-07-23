@@ -7,6 +7,7 @@ import (
 )
 
 // CocoonSetSpec defines the desired state of a CocoonSet.
+// +kubebuilder:validation:XValidation:rule="!has(self.hibernatePolicy) || self.hibernatePolicy != 'release' || ((!has(self.agent.replicas) || self.agent.replicas == 0) && (!has(self.toolboxes) || size(self.toolboxes) == 0))",message="hibernatePolicy=release requires agent.replicas=0 and no toolboxes"
 type CocoonSetSpec struct {
 	// +optional
 	Suspend bool `json:"suspend,omitempty"`
@@ -14,6 +15,13 @@ type CocoonSetSpec struct {
 	// +optional
 	// +kubebuilder:default=always
 	SnapshotPolicy SnapshotPolicy `json:"snapshotPolicy,omitempty"`
+
+	// HibernatePolicy sells or keeps the VM's seat while suspended (see the
+	// HibernatePolicy type). Only main-only sets (replicas=0, no toolboxes)
+	// may use release until sub-agent/toolbox restore intent is extended.
+	// +optional
+	// +kubebuilder:default=retain
+	HibernatePolicy HibernatePolicy `json:"hibernatePolicy,omitempty"`
 
 	// +optional
 	// +kubebuilder:default=default

@@ -248,6 +248,16 @@ spec:
                 required:
                 - image
                 type: object
+              hibernatePolicy:
+                default: retain
+                description: |-
+                  HibernatePolicy sells or keeps the VM's seat while suspended (see the
+                  HibernatePolicy type). Only main-only sets (replicas=0, no toolboxes)
+                  may use release until sub-agent/toolbox restore intent is extended.
+                enum:
+                - retain
+                - release
+                type: string
               nodeName:
                 description: |-
                   NodeName pins the VM to a node (cross-node migrate). Empty = let the
@@ -421,6 +431,11 @@ spec:
             required:
             - agent
             type: object
+            x-kubernetes-validations:
+            - message: hibernatePolicy=release requires agent.replicas=0 and no toolboxes
+              rule: '!has(self.hibernatePolicy) || self.hibernatePolicy != ''release''
+                || ((!has(self.agent.replicas) || self.agent.replicas == 0) && (!has(self.toolboxes)
+                || size(self.toolboxes) == 0))'
           status:
             description: CocoonSetStatus represents the observed state of a CocoonSet.
             properties:
@@ -530,6 +545,7 @@ spec:
                 - Scaling
                 - Suspending
                 - Suspended
+                - Waking
                 - Migrating
                 - Failed
                 type: string
