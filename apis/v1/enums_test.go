@@ -73,6 +73,23 @@ func TestSnapshotPolicyIsValid(t *testing.T) {
 	}
 }
 
+func TestHibernatePolicyIsValid(t *testing.T) {
+	cases := []struct {
+		in   HibernatePolicy
+		want bool
+	}{
+		{HibernatePolicyRetain, true},
+		{HibernatePolicyRelease, true},
+		{"", false},
+		{"relase", false},
+	}
+	for _, c := range cases {
+		if got := c.in.IsValid(); got != c.want {
+			t.Errorf("HibernatePolicy(%q).IsValid() = %v, want %v", c.in, got, c.want)
+		}
+	}
+}
+
 func TestConnTypeIsValid(t *testing.T) {
 	cases := []struct {
 		in   ConnType
@@ -139,6 +156,14 @@ func TestEnumDefaults(t *testing.T) {
 			t.Errorf("empty default = %q, want %q", got, SnapshotPolicyAlways)
 		}
 		if got := SnapshotPolicyNever.Default(); got != SnapshotPolicyNever {
+			t.Errorf("set value should pass through, got %q", got)
+		}
+	})
+	t.Run("HibernatePolicy", func(t *testing.T) {
+		if got := HibernatePolicy("").Default(); got != HibernatePolicyRetain {
+			t.Errorf("empty default = %q, want %q", got, HibernatePolicyRetain)
+		}
+		if got := HibernatePolicyRelease.Default(); got != HibernatePolicyRelease {
 			t.Errorf("set value should pass through, got %q", got)
 		}
 	})
