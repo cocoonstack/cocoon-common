@@ -54,6 +54,14 @@ const (
 	zstdSuffix = "+zstd"
 )
 
+var snapshotFilenameMediaType = map[string]string{
+	"config.json":   MediaTypeVMConfig,
+	"state.json":    MediaTypeVMState,
+	"memory-ranges": MediaTypeVMMemory,
+	"cidata.img":    MediaTypeVMCidata,
+	"overlay.qcow2": MediaTypeDiskQcow2,
+}
+
 // ZstdMediaType returns the mediaType for the zstd-compressed variant of mt.
 func ZstdMediaType(mt string) string {
 	return mt + zstdSuffix
@@ -79,14 +87,6 @@ func IsSnapshotLayerMediaType(mt string) bool {
 		return true
 	}
 	return false
-}
-
-var snapshotFilenameMediaType = map[string]string{
-	"config.json":   MediaTypeVMConfig,
-	"state.json":    MediaTypeVMState,
-	"memory-ranges": MediaTypeVMMemory,
-	"cidata.img":    MediaTypeVMCidata,
-	"overlay.qcow2": MediaTypeDiskQcow2,
 }
 
 // MediaTypeForCocoonFile returns the layer mediaType for a cocoon snapshot tar file.

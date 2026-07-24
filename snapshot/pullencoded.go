@@ -16,6 +16,10 @@ import (
 	"github.com/cocoonstack/cocoon-common/ociutil"
 )
 
+// pullPrefetchBudget caps the bytes held by in-flight prefetched chunks; the
+// window shrinks below the configured concurrency when chunks are large.
+const pullPrefetchBudget = 4 << 30
+
 // writeEncodedImportTar is the v2 assembly, selected by StreamParsed for
 // ArtifactTypeSnapshotV2 manifests: layers may be zstd-compressed and/or split
 // across chunk blobs; small raw layers pass through like v1. Layers were
@@ -137,10 +141,6 @@ func streamEncodedFile(ctx context.Context, dl Downloader, name, title string, d
 	}
 	return nil
 }
-
-// pullPrefetchBudget caps the bytes held by in-flight prefetched chunks; the
-// window shrinks below the configured concurrency when chunks are large.
-const pullPrefetchBudget = 4 << 30
 
 // prefetchWindow bounds the prefetch depth so the buffered chunks fit the
 // budget, always allowing at least one in flight.

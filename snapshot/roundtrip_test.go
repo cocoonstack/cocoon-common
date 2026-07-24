@@ -18,6 +18,16 @@ import (
 	"github.com/cocoonstack/cocoon-common/ociutil"
 )
 
+var v2OptionMatrix = []struct {
+	name string
+	opts PushOptions
+}{
+	{"compressed", PushOptions{ZstdLevel: 3}},
+	{"chunked", PushOptions{ChunkSizeMiB: 1}},
+	{"both", PushOptions{ZstdLevel: 3, ChunkSizeMiB: 1}},
+	{"both-k2", PushOptions{ZstdLevel: 3, ChunkSizeMiB: 1, Concurrency: 2}},
+}
+
 // v2Corpus exercises every codec branch: empty, small-raw, exactly-at-chunk-size,
 // one-byte-over, multi-chunk sparse, and an unknown-name generic layer.
 func v2Corpus(t *testing.T) []byte {
@@ -139,16 +149,6 @@ func roundTrip(t *testing.T, corpus []byte, opts PushOptions) []byte {
 	uploader := newFakeUploader()
 	pushCorpus(t, uploader, corpus, opts)
 	return pullTar(t, uploader, StreamOptions{})
-}
-
-var v2OptionMatrix = []struct {
-	name string
-	opts PushOptions
-}{
-	{"compressed", PushOptions{ZstdLevel: 3}},
-	{"chunked", PushOptions{ChunkSizeMiB: 1}},
-	{"both", PushOptions{ZstdLevel: 3, ChunkSizeMiB: 1}},
-	{"both-k2", PushOptions{ZstdLevel: 3, ChunkSizeMiB: 1, Concurrency: 2}},
 }
 
 // Invariant 2: the v2 pipeline must be invisible at the tar layer — its output
