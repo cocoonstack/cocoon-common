@@ -22,11 +22,15 @@ const (
 	SnapshotPolicyMainOnly SnapshotPolicy = "main-only"
 	SnapshotPolicyNever    SnapshotPolicy = "never"
 
+	HibernatePolicyRetain  HibernatePolicy = "retain"
+	HibernatePolicyRelease HibernatePolicy = "release"
+
 	CocoonSetPhasePending    CocoonSetPhase = "Pending"
 	CocoonSetPhaseRunning    CocoonSetPhase = "Running"
 	CocoonSetPhaseScaling    CocoonSetPhase = "Scaling"
 	CocoonSetPhaseSuspending CocoonSetPhase = "Suspending"
 	CocoonSetPhaseSuspended  CocoonSetPhase = "Suspended"
+	CocoonSetPhaseWaking     CocoonSetPhase = "Waking"
 	CocoonSetPhaseMigrating  CocoonSetPhase = "Migrating"
 	CocoonSetPhaseFailed     CocoonSetPhase = "Failed"
 
@@ -40,12 +44,13 @@ const (
 )
 
 var (
-	agentModeValid      = []AgentMode{AgentModeClone, AgentModeRun}
-	toolboxModeValid    = []ToolboxMode{ToolboxModeRun, ToolboxModeClone, ToolboxModeStatic}
-	osTypeValid         = []OSType{OSLinux, OSWindows, OSAndroid, OSMacos}
-	snapshotPolicyValid = []SnapshotPolicy{SnapshotPolicyAlways, SnapshotPolicyMainOnly, SnapshotPolicyNever}
-	connTypeValid       = []ConnType{ConnTypeSSH, ConnTypeRDP, ConnTypeVNC, ConnTypeADB}
-	backendValid        = []Backend{BackendCloudHypervisor, BackendFirecracker}
+	agentModeValid       = []AgentMode{AgentModeClone, AgentModeRun}
+	toolboxModeValid     = []ToolboxMode{ToolboxModeRun, ToolboxModeClone, ToolboxModeStatic}
+	osTypeValid          = []OSType{OSLinux, OSWindows, OSAndroid, OSMacos}
+	snapshotPolicyValid  = []SnapshotPolicy{SnapshotPolicyAlways, SnapshotPolicyMainOnly, SnapshotPolicyNever}
+	hibernatePolicyValid = []HibernatePolicy{HibernatePolicyRetain, HibernatePolicyRelease}
+	connTypeValid        = []ConnType{ConnTypeSSH, ConnTypeRDP, ConnTypeVNC, ConnTypeADB}
+	backendValid         = []Backend{BackendCloudHypervisor, BackendFirecracker}
 )
 
 // AgentMode defines the mode of an agent VM.
@@ -88,8 +93,22 @@ func (p SnapshotPolicy) IsValid() bool { return slices.Contains(snapshotPolicyVa
 // Default returns p when set, otherwise SnapshotPolicyAlways.
 func (p SnapshotPolicy) Default() SnapshotPolicy { return cmp.Or(p, SnapshotPolicyAlways) }
 
+// HibernatePolicy selects the scheduling-seat semantics of a suspended
+// CocoonSet: retain keeps the placeholder pod bound to its node so wake is
+// same-node and guaranteed; release deletes the pods once the hibernate
+// snapshot is verified in the registry, freeing capacity — wake then
+// reschedules anywhere in the node pool and may wait on a free seat.
+// +kubebuilder:validation:Enum=retain;release
+type HibernatePolicy string
+
+// IsValid reports whether p is a recognized HibernatePolicy value.
+func (p HibernatePolicy) IsValid() bool { return slices.Contains(hibernatePolicyValid, p) }
+
+// Default returns p when set, otherwise HibernatePolicyRetain.
+func (p HibernatePolicy) Default() HibernatePolicy { return cmp.Or(p, HibernatePolicyRetain) }
+
 // CocoonSetPhase represents the lifecycle phase of a CocoonSet.
-// +kubebuilder:validation:Enum=Pending;Running;Scaling;Suspending;Suspended;Migrating;Failed
+// +kubebuilder:validation:Enum=Pending;Running;Scaling;Suspending;Suspended;Waking;Migrating;Failed
 type CocoonSetPhase string
 
 // ConnType is the connection protocol advertised for a VM. Empty
