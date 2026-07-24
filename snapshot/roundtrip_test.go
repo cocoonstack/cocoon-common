@@ -498,6 +498,87 @@ func TestReaderConsumesFrozenV1Manifest(t *testing.T) {
 	t.Fatal("memory-ranges entry not reconstructed")
 }
 
+// Negative Concurrency used to zero out the buffer pools (permanent block) or
+// panic on channel construction; it must sanitize to the default instead.
+func TestPushSanitizesNegativeConcurrency(t *testing.T) {
+	pinClock(t)
+	corpus := v2Corpus(t)
+	want := roundTrip(t, corpus, PushOptions{})
+	for _, opts := range []PushOptions{
+		{ChunkSizeMiB: 1, Concurrency: -1},
+		{ZstdLevel: 3, ChunkSizeMiB: 1, Concurrency: -5},
+		{ZstdLevel: 3, ChunkSizeMiB: 1, MemoryBudgetMiB: -100},
+	} {
+		if got := roundTrip(t, corpus, opts); !bytes.Equal(want, got) {
+			t.Fatalf("opts %+v: output differs from v1", opts)
+		}
+	}
+}
+
+func TestPushRejectsChunkLargerThanBudget(t *testing.T) {
+	pinClock(t)
+	uploader := newFakeUploader()
+	pusher := &Pusher{Uploader: uploader, Cocoon: &fakeCocoon{exportTar: v2Corpus(t)}}
+	_, err := pusher.Push(t.Context(), PushOptions{Name: "myvm", ChunkSizeMiB: 8192, MemoryBudgetMiB: 1024})
+	if err == nil || !strings.Contains(err.Error(), "memory budget") {
+		t.Fatalf("err = %v, want memory-budget rejection", err)
+	}
+}
+
+func TestPullRejectsNegativeLayerSize(t *testing.T) {
+	pinClock(t)
+	uploader := newFakeUploader()
+	pushCorpus(t, uploader, v2Corpus(t), PushOptions{})
+	raw, _, err := uploader.GetManifest(t.Context(), "myvm", "v2test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	parsed, err := manifest.Parse(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	parsed.Layers[2].Size = -1
+	mutated, err := json.Marshal(parsed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = Stream(t.Context(), mutated, uploader, StreamOptions{Name: "myvm", Writer: io.Discard})
+	if err == nil || !strings.Contains(err.Error(), "negative size") {
+		t.Fatalf("err = %v, want negative-size rejection (not a panic)", err)
+	}
+}
+
+// chunkStream (the O(1)-memory path for single/oversized blobs) must enforce
+// the CopyBlobExact contract itself: digest match, exact size, no trailing
+// bytes. Driven directly so the zstd decoder can't mask the checks.
+func TestChunkStreamVerifiesBlobs(t *testing.T) {
+	body := []byte("chunk stream body bytes")
+	digest := "sha256:" + ociutil.SHA256Hex(body)
+	uploader := newFakeUploader()
+	uploader.blobs[digest] = body
+
+	read := func(descs []manifest.Descriptor) error {
+		s := &chunkStream{ctx: t.Context(), dl: uploader, name: "myvm", descs: descs}
+		_, err := io.Copy(io.Discard, s)
+		return err
+	}
+
+	if err := read([]manifest.Descriptor{{Digest: digest, Size: int64(len(body))}}); err != nil {
+		t.Fatalf("clean blob: %v", err)
+	}
+	wrongDigest := "sha256:" + ociutil.SHA256Hex([]byte("other"))
+	uploader.blobs[wrongDigest] = body
+	if err := read([]manifest.Descriptor{{Digest: wrongDigest, Size: int64(len(body))}}); err == nil || !strings.Contains(err.Error(), "digest mismatch") {
+		t.Fatalf("err = %v, want digest mismatch", err)
+	}
+	if err := read([]manifest.Descriptor{{Digest: digest, Size: int64(len(body)) + 5}}); err == nil || !strings.Contains(err.Error(), "shorter than") {
+		t.Fatalf("err = %v, want shorter-than-size", err)
+	}
+	if err := read([]manifest.Descriptor{{Digest: digest, Size: int64(len(body)) - 5}}); err == nil || !strings.Contains(err.Error(), "longer than") {
+		t.Fatalf("err = %v, want longer-than-size", err)
+	}
+}
+
 type countingUploader struct {
 	*fakeUploader
 	putBlobCalls atomic.Int64

@@ -91,7 +91,10 @@ func StreamParsed(ctx context.Context, m *manifest.OCIManifest, dl Downloader, o
 
 	switch m.ArtifactType {
 	case manifest.ArtifactTypeSnapshotV2:
-		prefetch := cmp.Or(opts.Concurrency, defaultTransferConcurrency)
+		prefetch := opts.Concurrency
+		if prefetch <= 0 {
+			prefetch = defaultTransferConcurrency
+		}
 		return writeEncodedImportTar(ctx, dl, opts.Name, localName, cfg, m.Layers, opts.Writer, opts.Progress, prefetch)
 	default:
 		return writeImportTar(ctx, dl, opts.Name, localName, cfg, m.Layers, opts.Writer, opts.Progress)
@@ -105,6 +108,9 @@ func StreamParsed(ctx context.Context, m *manifest.OCIManifest, dl Downloader, o
 func validateSnapshotLayers(m *manifest.OCIManifest, cfg *manifest.SnapshotConfig) error {
 	encoded := m.ArtifactType == manifest.ArtifactTypeSnapshotV2
 	for _, layer := range m.Layers {
+		if layer.Size < 0 {
+			return fmt.Errorf("layer %s has negative size %d", layer.Digest, layer.Size)
+		}
 		if !manifest.IsSnapshotLayerMediaType(layer.MediaType) {
 			return fmt.Errorf("layer %s has unsupported mediaType %q (snapshot needs a newer reader)", layer.Digest, layer.MediaType)
 		}

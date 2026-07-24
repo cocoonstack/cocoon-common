@@ -5,9 +5,13 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"hash"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/klauspost/compress/zstd"
@@ -16,9 +20,15 @@ import (
 	"github.com/cocoonstack/cocoon-common/ociutil"
 )
 
-// pullPrefetchBudget caps the bytes held by in-flight prefetched chunks; the
-// window shrinks below the configured concurrency when chunks are large.
-const pullPrefetchBudget = 4 << 30
+const (
+	// pullPrefetchBudget caps the bytes held by in-flight prefetched chunks; the
+	// window shrinks below the configured concurrency when chunks are large.
+	pullPrefetchBudget = 4 << 30
+	// maxBufferedChunkBytes bounds a single buffered chunk: anything larger —
+	// including whole-file single blobs from compress-only pushes — streams
+	// sequentially instead of being read into memory.
+	maxBufferedChunkBytes = 1 << 30
+)
 
 // writeEncodedImportTar is the v2 assembly, selected by StreamParsed for
 // ArtifactTypeSnapshotV2 manifests: layers may be zstd-compressed and/or split
@@ -122,7 +132,12 @@ func streamEncodedFile(ctx context.Context, dl Downloader, name, title string, d
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	var body io.Reader = newChunkSource(ctx, dl, name, descs, prefetchWindow(descs, prefetch))
+	var body io.Reader
+	if bufferedPrefetchOK(descs) {
+		body = newChunkSource(ctx, dl, name, descs, prefetchWindow(descs, prefetch))
+	} else {
+		body = &chunkStream{ctx: ctx, dl: dl, name: name, descs: descs}
+	}
 	if compressed {
 		dec, decErr := zstd.NewReader(body)
 		if decErr != nil {
@@ -214,6 +229,9 @@ func (s *chunkSource) Read(p []byte) (int, error) {
 }
 
 func fetchChunk(ctx context.Context, dl Downloader, name string, desc manifest.Descriptor) ([]byte, error) {
+	if desc.Size < 0 || desc.Size > maxBufferedChunkBytes {
+		return nil, fmt.Errorf("blob %s size %d outside bufferable range", desc.Digest, desc.Size)
+	}
 	body, err := dl.GetBlob(ctx, name, desc.Digest)
 	if err != nil {
 		return nil, fmt.Errorf("get blob %s: %w", desc.Digest, err)
@@ -224,4 +242,89 @@ func fetchChunk(ctx context.Context, dl Downloader, name string, desc manifest.D
 		return nil, err
 	}
 	return buf.Bytes(), nil
+}
+
+// bufferedPrefetchOK gates the parallel prefetch path: it buffers whole chunks
+// in memory, so it only applies to multi-chunk files whose chunks are small
+// enough to hold. Everything else streams through chunkStream.
+func bufferedPrefetchOK(descs []manifest.Descriptor) bool {
+	if len(descs) < 2 {
+		return false
+	}
+	for _, d := range descs {
+		if d.Size > maxBufferedChunkBytes {
+			return false
+		}
+	}
+	return true
+}
+
+// chunkStream reads chunks one at a time straight off the registry stream,
+// verifying digest and size at each chunk boundary, with O(1) memory.
+type chunkStream struct {
+	ctx   context.Context
+	dl    Downloader
+	name  string
+	descs []manifest.Descriptor
+	i     int
+	cur   io.ReadCloser
+	lim   *io.LimitedReader
+	hash  hash.Hash
+}
+
+func (s *chunkStream) Read(p []byte) (int, error) {
+	for {
+		if s.cur == nil {
+			if s.i >= len(s.descs) {
+				return 0, io.EOF
+			}
+			desc := s.descs[s.i]
+			body, err := s.dl.GetBlob(s.ctx, s.name, desc.Digest)
+			if err != nil {
+				return 0, fmt.Errorf("get blob %s: %w", desc.Digest, err)
+			}
+			s.cur = body
+			s.hash = sha256.New()
+			s.lim = &io.LimitedReader{R: io.TeeReader(body, s.hash), N: desc.Size}
+		}
+		n, err := s.lim.Read(p)
+		if err != nil && !errors.Is(err, io.EOF) {
+			return n, err
+		}
+		if !errors.Is(err, io.EOF) {
+			return n, nil
+		}
+		if finErr := s.finishChunk(); finErr != nil {
+			return n, finErr
+		}
+		if n > 0 {
+			return n, nil
+		}
+	}
+}
+
+// finishChunk enforces the same contract as ociutil.CopyBlobExact — exact
+// size, no trailing bytes, digest match — at a chunk boundary.
+func (s *chunkStream) finishChunk() error {
+	desc := s.descs[s.i]
+	var probe [1]byte
+	extra, _ := s.cur.Read(probe[:])
+	_ = s.cur.Close()
+	if extra > 0 {
+		return fmt.Errorf("blob %s longer than manifest size %d", desc.Digest, desc.Size)
+	}
+	if s.lim.N > 0 {
+		return fmt.Errorf("blob %s shorter than manifest size %d (missing %d)", desc.Digest, desc.Size, s.lim.N)
+	}
+	got := "sha256:" + hex.EncodeToString(s.hash.Sum(nil))
+	want := desc.Digest
+	if !strings.HasPrefix(want, "sha256:") {
+		want = "sha256:" + want
+	}
+	if got != want {
+		return fmt.Errorf("blob %s digest mismatch: got %s", desc.Digest, got)
+	}
+	s.cur, s.lim, s.hash = nil, nil, nil
+	s.i++
+	return nil
 }

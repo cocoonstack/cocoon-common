@@ -3,7 +3,6 @@ package snapshot
 import (
 	"archive/tar"
 	"bytes"
-	"cmp"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -24,9 +23,11 @@ import (
 const (
 	// Below this, compression is not worth the mediaType churn; the entry stays raw.
 	compressMinBytes = 1 << 20
-	// Default PushOptions.MemoryBudgetMiB: with 512 MiB chunks this admits the
-	// default 8 workers (each in-flight chunk buffers raw + compressed ≈ 2× chunk).
-	defaultPushMemoryBudgetMiB = 8192
+	// Default PushOptions.MemoryBudgetMiB: exactly 2×(K+1)×512 MiB — the raw and
+	// compressed pools each hold workers+1 buffers, so the default budget admits
+	// the default 8 workers at 512 MiB chunks. zstd encoder state (a few MiB per
+	// worker at level 3) is outside the accounting.
+	defaultPushMemoryBudgetMiB = 9216
 )
 
 // chunkGroup is one tar entry's descriptors: len>1 means the file is chunked.
@@ -50,12 +51,35 @@ type pushPipeline struct {
 	report  func(format string, args ...any)
 }
 
+// pipelineParams sanitizes the concurrency knobs and enforces the memory
+// budget: the raw and compressed pools each hold workers+1 buffers, so the
+// worker count solves 2(w+1)×chunk ≤ budget. Non-positive knobs take defaults.
+func pipelineParams(opts PushOptions) (int, int64, error) {
+	workers := opts.Concurrency
+	if workers <= 0 {
+		workers = defaultTransferConcurrency
+	}
+	chunkSize := int64(max(opts.ChunkSizeMiB, 0)) << 20
+	if chunkSize == 0 {
+		return workers, 0, nil
+	}
+	budget := int64(opts.MemoryBudgetMiB) << 20
+	if budget <= 0 {
+		budget = defaultPushMemoryBudgetMiB << 20
+	}
+	if 2*chunkSize > budget {
+		return 0, 0, fmt.Errorf(
+			"snapshot push: chunk size %d MiB does not fit the %d MiB memory budget (2 buffers per in-flight chunk)",
+			opts.ChunkSizeMiB, budget>>20,
+		)
+	}
+	return min(workers, max(1, int(budget/(2*chunkSize))-1)), chunkSize, nil
+}
+
 func (p *Pusher) readAndUploadEntriesPipelined(ctx context.Context, opts PushOptions, r io.Reader) (*snapshotExportConfig, map[string]manifest.SnapshotFile, []manifest.Descriptor, bool, error) {
-	workers := cmp.Or(opts.Concurrency, defaultTransferConcurrency)
-	chunkSize := int64(opts.ChunkSizeMiB) << 20
-	if chunkSize > 0 {
-		budget := int64(cmp.Or(opts.MemoryBudgetMiB, defaultPushMemoryBudgetMiB)) << 20
-		workers = min(workers, max(1, int(budget/(2*chunkSize))))
+	workers, chunkSize, err := pipelineParams(opts)
+	if err != nil {
+		return nil, nil, nil, false, err
 	}
 
 	var enc *zstd.Encoder
