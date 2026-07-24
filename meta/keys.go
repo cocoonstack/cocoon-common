@@ -37,6 +37,9 @@ const (
 	AnnotationForcePull = "cocoonset.cocoonstack.io/force-pull"
 	// AnnotationCocoonSetGeneration carries the CocoonSet generation stamped at scheduling time.
 	AnnotationCocoonSetGeneration = "cocoonset.cocoonstack.io/generation"
+	// AnnotationHibernatedOnNode records the main agent's node at release-policy
+	// suspend; wake uses it as a preferred-affinity hint for a warm restore.
+	AnnotationHibernatedOnNode = "cocoonset.cocoonstack.io/hibernated-on-node"
 
 	// AnnotationVMID carries the runtime VM identifier vk-cocoon assigns after creation.
 	AnnotationVMID = "vm.cocoonstack.io/id"
