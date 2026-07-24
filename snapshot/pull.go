@@ -28,6 +28,10 @@ type StreamOptions struct {
 	Writer      io.Writer
 	Progress    func(string)
 	Concurrency int // parallel chunk prefetch for encoded layers (default 8)
+	// MemoryBudgetMiB caps the bytes buffered by the prefetch window of one
+	// Stream call (default 4096). Callers running concurrent pulls should
+	// divide their node budget across them.
+	MemoryBudgetMiB int
 }
 
 // Stream reassembles a snapshot manifest into a cocoon-import tar stream.
@@ -95,7 +99,11 @@ func StreamParsed(ctx context.Context, m *manifest.OCIManifest, dl Downloader, o
 		if prefetch <= 0 {
 			prefetch = defaultTransferConcurrency
 		}
-		return writeEncodedImportTar(ctx, dl, opts.Name, localName, cfg, m.Layers, opts.Writer, opts.Progress, prefetch)
+		budget := int64(opts.MemoryBudgetMiB) << 20
+		if budget <= 0 {
+			budget = defaultPullPrefetchBudget
+		}
+		return writeEncodedImportTar(ctx, dl, opts.Name, localName, cfg, m.Layers, opts.Writer, opts.Progress, prefetch, budget)
 	default:
 		return writeImportTar(ctx, dl, opts.Name, localName, cfg, m.Layers, opts.Writer, opts.Progress)
 	}

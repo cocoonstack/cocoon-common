@@ -21,9 +21,9 @@ import (
 )
 
 const (
-	// pullPrefetchBudget caps the bytes held by in-flight prefetched chunks; the
-	// window shrinks below the configured concurrency when chunks are large.
-	pullPrefetchBudget = 4 << 30
+	// defaultPullPrefetchBudget caps the bytes held by in-flight prefetched
+	// chunks of one Stream call; StreamOptions.MemoryBudgetMiB overrides it.
+	defaultPullPrefetchBudget = 4 << 30
 	// maxBufferedChunkBytes bounds a single buffered chunk: anything larger —
 	// including whole-file single blobs from compress-only pushes — streams
 	// sequentially instead of being read into memory.
@@ -34,7 +34,7 @@ const (
 // ArtifactTypeSnapshotV2 manifests: layers may be zstd-compressed and/or split
 // across chunk blobs; small raw layers pass through like v1. Layers were
 // already validated by validateSnapshotLayers.
-func writeEncodedImportTar(ctx context.Context, dl Downloader, name, localName string, cfg *manifest.SnapshotConfig, layers []manifest.Descriptor, w io.Writer, progress func(string), prefetch int) error {
+func writeEncodedImportTar(ctx context.Context, dl Downloader, name, localName string, cfg *manifest.SnapshotConfig, layers []manifest.Descriptor, w io.Writer, progress func(string), prefetch int, budget int64) error {
 	bw := bufio.NewWriterSize(w, 256<<10)
 	tw := tar.NewWriter(bw)
 
@@ -81,7 +81,7 @@ func writeEncodedImportTar(ctx context.Context, dl Downloader, name, localName s
 		// The decode decision comes from this file's own layer, not from the
 		// resolved descriptors: a dedup winner may carry another file's mediaType.
 		compressed := manifest.IsZstdMediaType(layer.MediaType)
-		if err := streamEncodedFile(ctx, dl, name, title, descs, fileMeta, compressed, tw, now, prefetch); err != nil {
+		if err := streamEncodedFile(ctx, dl, name, title, descs, fileMeta, compressed, tw, now, prefetch, budget); err != nil {
 			return err
 		}
 	}
@@ -121,7 +121,7 @@ func resolveEncodedFile(layer manifest.Descriptor, fileMeta manifest.SnapshotFil
 // streamEncodedFile reconstructs one encoded file into a single tar entry.
 // Chunks are independent zstd frames cut at fixed uncompressed offsets, so
 // their in-order concatenation is one valid zstd stream.
-func streamEncodedFile(ctx context.Context, dl Downloader, name, title string, descs []manifest.Descriptor, fileMeta manifest.SnapshotFile, compressed bool, tw *tar.Writer, modTime time.Time, prefetch int) error {
+func streamEncodedFile(ctx context.Context, dl Downloader, name, title string, descs []manifest.Descriptor, fileMeta manifest.SnapshotFile, compressed bool, tw *tar.Writer, modTime time.Time, prefetch int, budget int64) error {
 	hdr, err := layerHeader(title, fileMeta.Size, fileMeta, modTime)
 	if err != nil {
 		return err
@@ -134,7 +134,7 @@ func streamEncodedFile(ctx context.Context, dl Downloader, name, title string, d
 	defer cancel()
 	var body io.Reader
 	if bufferedPrefetchOK(descs) {
-		body = newChunkSource(ctx, dl, name, descs, prefetchWindow(descs, prefetch))
+		body = newChunkSource(ctx, dl, name, descs, prefetchWindow(descs, prefetch, budget))
 	} else {
 		body = &chunkStream{ctx: ctx, dl: dl, name: name, descs: descs}
 	}
@@ -159,10 +159,10 @@ func streamEncodedFile(ctx context.Context, dl Downloader, name, title string, d
 
 // prefetchWindow bounds the prefetch depth so the buffered chunks fit the
 // budget, always allowing at least one in flight.
-func prefetchWindow(descs []manifest.Descriptor, prefetch int) int {
+func prefetchWindow(descs []manifest.Descriptor, prefetch int, budget int64) int {
 	window, held := 0, int64(0)
 	for _, d := range descs {
-		if window >= prefetch || (window > 0 && held+d.Size > pullPrefetchBudget) {
+		if window >= prefetch || (window > 0 && held+d.Size > budget) {
 			break
 		}
 		window++
