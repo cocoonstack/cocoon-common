@@ -518,22 +518,24 @@ func TestPushSanitizesNegativeConcurrency(t *testing.T) {
 func TestPushRejectsChunkLargerThanBudget(t *testing.T) {
 	pinClock(t)
 	// One worker needs 2 pools × 2 buffers = 4×chunk; below that, reject.
+	// Above maxChunkSizeMiB, reject before any budget math.
 	for _, tc := range []struct {
 		chunkMiB, budgetMiB int
-		ok                  bool
+		wantErr             string
 	}{
-		{8192, 1024, false},
-		{512, 1024, false}, // 2×chunk fits but 4×chunk does not
-		{512, 2048, true},  // exactly one worker's floor
+		{8192, 1024, "maximum"},
+		{1 << 50, 0, "maximum"},      // would overflow the byte shift
+		{512, 1024, "memory budget"}, // 2×chunk fits but 4×chunk does not
+		{512, 2048, ""},              // exactly one worker's floor
 	} {
 		uploader := newFakeUploader()
 		pusher := &Pusher{Uploader: uploader, Cocoon: &fakeCocoon{exportTar: v2Corpus(t)}}
 		_, err := pusher.Push(t.Context(), PushOptions{Name: "myvm", ChunkSizeMiB: tc.chunkMiB, MemoryBudgetMiB: tc.budgetMiB})
-		if tc.ok && err != nil {
+		if tc.wantErr == "" && err != nil {
 			t.Errorf("chunk %d budget %d: unexpected error %v", tc.chunkMiB, tc.budgetMiB, err)
 		}
-		if !tc.ok && (err == nil || !strings.Contains(err.Error(), "memory budget")) {
-			t.Errorf("chunk %d budget %d: err = %v, want memory-budget rejection", tc.chunkMiB, tc.budgetMiB, err)
+		if tc.wantErr != "" && (err == nil || !strings.Contains(err.Error(), tc.wantErr)) {
+			t.Errorf("chunk %d budget %d: err = %v, want %q", tc.chunkMiB, tc.budgetMiB, err, tc.wantErr)
 		}
 	}
 }

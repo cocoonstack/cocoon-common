@@ -23,6 +23,9 @@ import (
 const (
 	// Below this, compression is not worth the mediaType churn; the entry stays raw.
 	compressMinBytes = 1 << 20
+	// maxChunkSizeMiB keeps ChunkSizeMiB in a sane range: beyond it the byte
+	// shift can overflow, and no real deployment wants multi-GiB chunks.
+	maxChunkSizeMiB = 4096
 	// Default PushOptions.MemoryBudgetMiB: exactly 2×(K+1)×512 MiB — the raw and
 	// compressed pools each hold workers+1 buffers, so the default budget admits
 	// the default 8 workers at 512 MiB chunks. zstd encoder state (a few MiB per
@@ -58,6 +61,9 @@ func pipelineParams(opts PushOptions) (int, int64, error) {
 	workers := opts.Concurrency
 	if workers <= 0 {
 		workers = defaultTransferConcurrency
+	}
+	if opts.ChunkSizeMiB > maxChunkSizeMiB {
+		return 0, 0, fmt.Errorf("snapshot push: chunk size %d MiB exceeds the %d MiB maximum", opts.ChunkSizeMiB, maxChunkSizeMiB)
 	}
 	chunkSize := int64(max(opts.ChunkSizeMiB, 0)) << 20
 	if chunkSize == 0 {
@@ -254,6 +260,10 @@ func (pl *pushPipeline) enqueueChunks(ctx context.Context, tr *tar.Reader, hdr *
 	descs := make([]manifest.Descriptor, count)
 	remaining := hdr.Size
 	for i := range count {
+		// A failed worker cancels ctx; stop cutting the rest of the file.
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return nil, ctxErr
+		}
 		want := min(chunkSize, remaining)
 		remaining -= want
 		buf := pl.rawBufs.take(chunkSize)

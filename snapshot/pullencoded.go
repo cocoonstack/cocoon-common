@@ -5,13 +5,9 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
-	"hash"
 	"io"
-	"strings"
 	"time"
 
 	"github.com/klauspost/compress/zstd"
@@ -136,14 +132,12 @@ func streamEncodedFile(ctx context.Context, dl Downloader, name, title string, d
 	// Buffered prefetch only pays for itself with ≥2 chunks in the window;
 	// anything else (single blobs, oversized chunks, budgets below two
 	// chunks) streams with O(1) memory instead of buffering.
-	window := 0
-	if bufferedPrefetchOK(descs) {
-		window = prefetchWindow(descs, prefetch, budget)
-	}
-	if window >= 2 {
+	if window := prefetchWindow(descs, prefetch, budget); window >= 2 {
 		body = newChunkSource(ctx, dl, name, descs, window)
 	} else {
-		body = &chunkStream{ctx: ctx, dl: dl, name: name, descs: descs}
+		cs := &chunkStream{ctx: ctx, dl: dl, name: name, descs: descs}
+		defer func() { _ = cs.Close() }()
+		body = cs
 	}
 	if compressed {
 		dec, decErr := zstd.NewReader(body)
@@ -164,9 +158,19 @@ func streamEncodedFile(ctx context.Context, dl Downloader, name, title string, d
 	return nil
 }
 
-// prefetchWindow bounds the prefetch depth so the buffered chunks fit the
-// budget, always allowing at least one in flight.
+// prefetchWindow returns how many chunks the buffered-prefetch path may hold
+// — capped by the prefetch depth and the byte budget — or 0 when buffering is
+// not worth it: fewer than two chunks, or any chunk too large to buffer
+// (fetchChunk would otherwise reject it mid-pull).
 func prefetchWindow(descs []manifest.Descriptor, prefetch int, budget int64) int {
+	if len(descs) < 2 {
+		return 0
+	}
+	for _, d := range descs {
+		if d.Size > maxBufferedChunkBytes {
+			return 0
+		}
+	}
 	window, held := 0, int64(0)
 	for _, d := range descs {
 		if window >= prefetch || (window > 0 && held+d.Size > budget) {
@@ -175,7 +179,7 @@ func prefetchWindow(descs []manifest.Descriptor, prefetch int, budget int64) int
 		window++
 		held += d.Size
 	}
-	return max(window, 1)
+	return window
 }
 
 type chunkFetch struct {
@@ -255,32 +259,17 @@ func fetchChunk(ctx context.Context, dl Downloader, name string, desc manifest.D
 	return buf.Bytes(), nil
 }
 
-// bufferedPrefetchOK gates the parallel prefetch path: it buffers whole chunks
-// in memory, so it only applies to multi-chunk files whose chunks are small
-// enough to hold. Everything else streams through chunkStream.
-func bufferedPrefetchOK(descs []manifest.Descriptor) bool {
-	if len(descs) < 2 {
-		return false
-	}
-	for _, d := range descs {
-		if d.Size > maxBufferedChunkBytes {
-			return false
-		}
-	}
-	return true
-}
-
-// chunkStream reads chunks one at a time straight off the registry stream,
-// verifying digest and size at each chunk boundary, with O(1) memory.
+// chunkStream reads chunks one at a time straight off the registry stream
+// with O(1) memory; ociutil.BlobVerifier enforces the blob contract at each
+// chunk boundary (its Read only returns io.EOF after the checks pass).
 type chunkStream struct {
 	ctx   context.Context
 	dl    Downloader
 	name  string
 	descs []manifest.Descriptor
 	i     int
-	cur   io.ReadCloser
-	lim   *io.LimitedReader
-	hash  hash.Hash
+	body  io.ReadCloser
+	cur   io.Reader
 }
 
 func (s *chunkStream) Read(p []byte) (int, error) {
@@ -294,48 +283,29 @@ func (s *chunkStream) Read(p []byte) (int, error) {
 			if err != nil {
 				return 0, fmt.Errorf("get blob %s: %w", desc.Digest, err)
 			}
-			s.cur = body
-			s.hash = sha256.New()
-			s.lim = &io.LimitedReader{R: io.TeeReader(body, s.hash), N: desc.Size}
+			s.body = body
+			s.cur = ociutil.NewBlobVerifier(body, desc.Digest, desc.Size)
 		}
-		n, err := s.lim.Read(p)
-		if err != nil && !errors.Is(err, io.EOF) {
-			return n, err
+		n, err := s.cur.Read(p)
+		if errors.Is(err, io.EOF) {
+			_ = s.body.Close()
+			s.cur, s.body = nil, nil
+			s.i++
+			if n > 0 {
+				return n, nil
+			}
+			continue
 		}
-		if !errors.Is(err, io.EOF) {
-			return n, nil
-		}
-		if finErr := s.finishChunk(); finErr != nil {
-			return n, finErr
-		}
-		if n > 0 {
-			return n, nil
-		}
+		return n, err
 	}
 }
 
-// finishChunk enforces the same contract as ociutil.CopyBlobExact — exact
-// size, no trailing bytes, digest match — at a chunk boundary.
-func (s *chunkStream) finishChunk() error {
-	desc := s.descs[s.i]
-	var probe [1]byte
-	extra, _ := s.cur.Read(probe[:])
-	_ = s.cur.Close()
-	if extra > 0 {
-		return fmt.Errorf("blob %s longer than manifest size %d", desc.Digest, desc.Size)
+// Close releases the in-flight blob body after an aborted read (decode or
+// tar-write failure mid-chunk); the context cancel is only a backstop.
+func (s *chunkStream) Close() error {
+	if s.body != nil {
+		_ = s.body.Close()
+		s.cur, s.body = nil, nil
 	}
-	if s.lim.N > 0 {
-		return fmt.Errorf("blob %s shorter than manifest size %d (missing %d)", desc.Digest, desc.Size, s.lim.N)
-	}
-	got := "sha256:" + hex.EncodeToString(s.hash.Sum(nil))
-	want := desc.Digest
-	if !strings.HasPrefix(want, "sha256:") {
-		want = "sha256:" + want
-	}
-	if got != want {
-		return fmt.Errorf("blob %s digest mismatch: got %s", desc.Digest, got)
-	}
-	s.cur, s.lim, s.hash = nil, nil, nil
-	s.i++
 	return nil
 }
