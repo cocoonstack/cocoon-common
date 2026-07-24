@@ -16,6 +16,10 @@ const (
 	// cocoon uses custom PAX keys for sparse files; the stream preserves them.
 	sparsePAXMap  = "COCOON.sparse.map"
 	sparsePAXSize = "COCOON.sparse.size"
+
+	// Default for PushOptions.Concurrency and StreamOptions.Concurrency:
+	// parallel blob transfers (and, on push, aggregate encoder threads).
+	defaultTransferConcurrency = 8
 )
 
 var (

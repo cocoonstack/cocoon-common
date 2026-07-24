@@ -4,7 +4,9 @@ package ociutil
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"hash"
 	"io"
 	"regexp"
 	"strings"
@@ -23,24 +25,64 @@ func SHA256Hex(data []byte) string {
 
 // CopyBlobExact copies exactly size bytes and verifies both length and sha256 digest.
 func CopyBlobExact(dst io.Writer, body io.Reader, digest string, size int64) error {
-	h := sha256.New()
-	written, err := io.CopyN(io.MultiWriter(dst, h), body, size)
-	if err != nil {
-		return fmt.Errorf("copy blob %s: %w", digest, err)
+	_, err := io.Copy(dst, NewBlobVerifier(body, digest, size))
+	return err
+}
+
+// BlobVerifier wraps a blob body and enforces the manifest contract while it
+// is read: exactly size bytes, no trailing data, matching sha256 digest. Read
+// returns io.EOF only after every check passed; violations surface as errors.
+type BlobVerifier struct {
+	body   io.Reader
+	digest string
+	size   int64
+	lim    io.LimitedReader
+	hash   hash.Hash
+	done   bool
+}
+
+func NewBlobVerifier(body io.Reader, digest string, size int64) *BlobVerifier {
+	v := &BlobVerifier{body: body, digest: digest, size: size, hash: sha256.New()}
+	v.lim = io.LimitedReader{R: io.TeeReader(body, v.hash), N: size}
+	return v
+}
+
+func (v *BlobVerifier) Read(p []byte) (int, error) {
+	if v.done {
+		return 0, io.EOF
 	}
-	if extra, _ := io.Copy(io.Discard, body); extra > 0 {
-		return fmt.Errorf("blob %s longer than manifest size %d (got %d extra)", digest, size, extra)
+	n, err := v.lim.Read(p)
+	if err != nil && !errors.Is(err, io.EOF) {
+		return n, err
 	}
-	if written != size {
-		return fmt.Errorf("blob %s shorter than manifest size %d (got %d)", digest, size, written)
+	if !errors.Is(err, io.EOF) {
+		return n, nil
 	}
-	got := "sha256:" + hex.EncodeToString(h.Sum(nil))
-	want := digest
+	if finErr := v.finish(); finErr != nil {
+		return n, finErr
+	}
+	v.done = true
+	if n > 0 {
+		return n, nil
+	}
+	return 0, io.EOF
+}
+
+func (v *BlobVerifier) finish() error {
+	if v.lim.N > 0 {
+		return fmt.Errorf("blob %s shorter than manifest size %d (missing %d)", v.digest, v.size, v.lim.N)
+	}
+	var probe [1]byte
+	if extra, _ := v.body.Read(probe[:]); extra > 0 {
+		return fmt.Errorf("blob %s longer than manifest size %d", v.digest, v.size)
+	}
+	got := "sha256:" + hex.EncodeToString(v.hash.Sum(nil))
+	want := v.digest
 	if !strings.HasPrefix(want, "sha256:") {
 		want = "sha256:" + want
 	}
 	if got != want {
-		return fmt.Errorf("blob %s digest mismatch: got %s", digest, got)
+		return fmt.Errorf("blob %s digest mismatch: got %s", v.digest, got)
 	}
 	return nil
 }

@@ -27,6 +27,15 @@ type PushOptions struct {
 	Source    string
 	Revision  string
 	Progress  func(string)
+
+	// v2 wire-format knobs. All-zero values reproduce the v1 writer exactly.
+	ZstdLevel    int // >0: zstd-compress layers ≥ 1 MiB at this level
+	ChunkSizeMiB int // >0: split files into per-blob chunks of this many uncompressed MiB
+	Concurrency  int // parallel chunk uploads and aggregate encoder threads (default 8; v2 paths only)
+	// MemoryBudgetMiB caps the pipeline's buffered bytes (each in-flight chunk
+	// holds ~2× chunk size: raw + compressed). Effective workers =
+	// min(Concurrency, budget/(2×chunk)). 0 = 8192 MiB.
+	MemoryBudgetMiB int
 }
 
 // PushResult contains the outcome of a successful push.
@@ -57,7 +66,18 @@ func (p *Pusher) Push(ctx context.Context, opts PushOptions) (*PushResult, error
 		return nil, fmt.Errorf("cocoon export %s: %w", opts.Name, err)
 	}
 
-	cfg, files, layers, readErr := p.readAndUploadEntries(ctx, opts.Name, stream, opts.Progress)
+	var (
+		cfg     *snapshotExportConfig
+		files   map[string]manifest.SnapshotFile
+		layers  []manifest.Descriptor
+		encoded bool
+		readErr error
+	)
+	if opts.ZstdLevel > 0 || opts.ChunkSizeMiB > 0 {
+		cfg, files, layers, encoded, readErr = p.readAndUploadEntriesPipelined(ctx, opts, stream)
+	} else {
+		cfg, files, layers, readErr = p.readAndUploadEntries(ctx, opts.Name, stream, opts.Progress)
+	}
 	// Close before wait so mid-tar failures unblock the subprocess.
 	_ = stream.Close()
 	waitErr := wait()
@@ -71,12 +91,12 @@ func (p *Pusher) Push(ctx context.Context, opts PushOptions) (*PushResult, error
 		return nil, errMissingSnapshotJSON
 	}
 
-	configDescriptor, err := p.uploadSnapshotConfig(ctx, opts.Name, cfg, files)
+	configDescriptor, err := p.uploadSnapshotConfig(ctx, opts.Name, cfg, files, encoded)
 	if err != nil {
 		return nil, fmt.Errorf("upload snapshot config: %w", err)
 	}
 
-	manifestBytes, err := buildSnapshotManifest(configDescriptor, layers, opts)
+	manifestBytes, err := buildSnapshotManifest(configDescriptor, layers, opts, encoded)
 	if err != nil {
 		return nil, fmt.Errorf("build manifest: %w", err)
 	}
@@ -136,7 +156,11 @@ func (p *Pusher) readAndUploadEntries(ctx context.Context, name string, r io.Rea
 			return nil, nil, nil, fmt.Errorf("tar entry %s has negative size %d", hdr.Name, hdr.Size)
 		}
 
-		desc, fileMeta, uploadErr := p.uploadTarEntry(ctx, name, hdr, tr)
+		fileMeta, metaErr := sparseFileMeta(hdr)
+		if metaErr != nil {
+			return nil, nil, nil, metaErr
+		}
+		desc, uploadErr := p.uploadTarEntry(ctx, name, hdr, tr)
 		if uploadErr != nil {
 			return nil, nil, nil, fmt.Errorf("upload %s: %w", hdr.Name, uploadErr)
 		}
@@ -150,10 +174,10 @@ func (p *Pusher) readAndUploadEntries(ctx context.Context, name string, r io.Rea
 	return cfg, files, layers, nil
 }
 
-func (p *Pusher) uploadTarEntry(ctx context.Context, name string, hdr *tar.Header, body io.Reader) (manifest.Descriptor, manifest.SnapshotFile, error) {
+func (p *Pusher) uploadTarEntry(ctx context.Context, name string, hdr *tar.Header, body io.Reader) (manifest.Descriptor, error) {
 	tmp, err := os.CreateTemp("", "cocoon-snapshot-*")
 	if err != nil {
-		return manifest.Descriptor{}, manifest.SnapshotFile{}, fmt.Errorf("create temp: %w", err)
+		return manifest.Descriptor{}, fmt.Errorf("create temp: %w", err)
 	}
 	defer func() {
 		_ = tmp.Close()
@@ -163,7 +187,7 @@ func (p *Pusher) uploadTarEntry(ctx context.Context, name string, hdr *tar.Heade
 	h := sha256.New()
 	written, err := io.Copy(io.MultiWriter(tmp, h), io.LimitReader(body, hdr.Size))
 	if err != nil {
-		return manifest.Descriptor{}, manifest.SnapshotFile{}, fmt.Errorf("buffer entry: %w", err)
+		return manifest.Descriptor{}, fmt.Errorf("buffer entry: %w", err)
 	}
 
 	digestHex := hex.EncodeToString(h.Sum(nil))
@@ -171,30 +195,15 @@ func (p *Pusher) uploadTarEntry(ctx context.Context, name string, hdr *tar.Heade
 
 	exists, existsErr := p.Uploader.HasBlob(ctx, name, digest)
 	if existsErr != nil {
-		return manifest.Descriptor{}, manifest.SnapshotFile{}, fmt.Errorf("check blob %s: %w", digest, existsErr)
+		return manifest.Descriptor{}, fmt.Errorf("check blob %s: %w", digest, existsErr)
 	}
 	if !exists {
 		if _, seekErr := tmp.Seek(0, io.SeekStart); seekErr != nil {
-			return manifest.Descriptor{}, manifest.SnapshotFile{}, fmt.Errorf("seek temp: %w", seekErr)
+			return manifest.Descriptor{}, fmt.Errorf("seek temp: %w", seekErr)
 		}
 		if err := p.Uploader.PutBlob(ctx, name, digest, tmp, written); err != nil {
-			return manifest.Descriptor{}, manifest.SnapshotFile{}, fmt.Errorf("put blob %s: %w", digest, err)
+			return manifest.Descriptor{}, fmt.Errorf("put blob %s: %w", digest, err)
 		}
-	}
-
-	fileMeta := manifest.SnapshotFile{Mode: hdr.Mode}
-	sparseMap, ok := hdr.PAXRecords[sparsePAXMap]
-	if ok {
-		fileMeta.SparseMap = sparseMap
-		rawSize, ok := hdr.PAXRecords[sparsePAXSize]
-		if !ok {
-			return manifest.Descriptor{}, manifest.SnapshotFile{}, fmt.Errorf("sparse entry %s missing %s", hdr.Name, sparsePAXSize)
-		}
-		sparseSize, parseErr := strconv.ParseInt(rawSize, 10, 64)
-		if parseErr != nil {
-			return manifest.Descriptor{}, manifest.SnapshotFile{}, fmt.Errorf("parse sparse size for %s: %w", hdr.Name, parseErr)
-		}
-		fileMeta.SparseSize = sparseSize
 	}
 
 	return manifest.Descriptor{
@@ -202,12 +211,35 @@ func (p *Pusher) uploadTarEntry(ctx context.Context, name string, hdr *tar.Heade
 		Digest:      digest,
 		Size:        written,
 		Annotations: map[string]string{manifest.AnnotationTitle: hdr.Name},
-	}, fileMeta, nil
+	}, nil
 }
 
-func (p *Pusher) uploadSnapshotConfig(ctx context.Context, name string, cfg *snapshotExportConfig, files map[string]manifest.SnapshotFile) (manifest.Descriptor, error) {
+func sparseFileMeta(hdr *tar.Header) (manifest.SnapshotFile, error) {
+	fileMeta := manifest.SnapshotFile{Mode: hdr.Mode}
+	sparseMap, ok := hdr.PAXRecords[sparsePAXMap]
+	if !ok {
+		return fileMeta, nil
+	}
+	fileMeta.SparseMap = sparseMap
+	rawSize, ok := hdr.PAXRecords[sparsePAXSize]
+	if !ok {
+		return fileMeta, fmt.Errorf("sparse entry %s missing %s", hdr.Name, sparsePAXSize)
+	}
+	sparseSize, parseErr := strconv.ParseInt(rawSize, 10, 64)
+	if parseErr != nil {
+		return fileMeta, fmt.Errorf("parse sparse size for %s: %w", hdr.Name, parseErr)
+	}
+	fileMeta.SparseSize = sparseSize
+	return fileMeta, nil
+}
+
+func (p *Pusher) uploadSnapshotConfig(ctx context.Context, name string, cfg *snapshotExportConfig, files map[string]manifest.SnapshotFile, encoded bool) (manifest.Descriptor, error) {
+	schemaVersion := "v1"
+	if encoded {
+		schemaVersion = "v2"
+	}
 	cfgBlob := manifest.SnapshotConfig{
-		SchemaVersion: "v1",
+		SchemaVersion: schemaVersion,
 		SnapshotID:    cfg.ID,
 		Description:   cfg.Description,
 		Image:         cfg.Image,
@@ -246,7 +278,7 @@ func (p *Pusher) uploadSnapshotConfig(ctx context.Context, name string, cfg *sna
 	}, nil
 }
 
-func buildSnapshotManifest(config manifest.Descriptor, layers []manifest.Descriptor, opts PushOptions) ([]byte, error) {
+func buildSnapshotManifest(config manifest.Descriptor, layers []manifest.Descriptor, opts PushOptions, encoded bool) ([]byte, error) {
 	annotations := map[string]string{
 		manifest.AnnotationCreated: nowFunc().UTC().Format(time.RFC3339),
 	}
@@ -260,10 +292,14 @@ func buildSnapshotManifest(config manifest.Descriptor, layers []manifest.Descrip
 		annotations[manifest.AnnotationRevision] = opts.Revision
 	}
 
+	artifactType := manifest.ArtifactTypeSnapshot
+	if encoded {
+		artifactType = manifest.ArtifactTypeSnapshotV2
+	}
 	m := manifest.OCIManifest{
 		SchemaVersion: 2,
 		MediaType:     manifest.MediaTypeOCIManifest,
-		ArtifactType:  manifest.ArtifactTypeSnapshot,
+		ArtifactType:  artifactType,
 		Config:        config,
 		Layers:        layers,
 		Annotations:   annotations,
