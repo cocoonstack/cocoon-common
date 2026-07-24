@@ -174,7 +174,7 @@ func TestHTTPServerSpecUsesListenAndServe(t *testing.T) {
 
 func TestHTTPSServerSpecUsesListenAndServeTLS(t *testing.T) {
 	srv := NewServer(":0", http.NotFoundHandler())
-	spec := HTTPSServerSpec(srv, "cert.pem", "key.pem")
+	spec := HTTPSServerSpec(srv)
 	if spec.Server != srv {
 		t.Errorf("server mismatch")
 	}

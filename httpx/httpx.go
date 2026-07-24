@@ -39,12 +39,12 @@ func HTTPServerSpec(srv *http.Server) ServerSpec {
 	}
 }
 
-// HTTPSServerSpec wraps srv with srv.ListenAndServeTLS(cert, key); empty cert and key require srv.TLSConfig.Certificates to be populated.
-func HTTPSServerSpec(srv *http.Server, cert, key string) ServerSpec {
+// HTTPSServerSpec wraps srv with srv.ListenAndServeTLS; srv.TLSConfig must supply the certificate.
+func HTTPSServerSpec(srv *http.Server) ServerSpec {
 	return ServerSpec{
 		Server: srv,
 		Start: func() error {
-			return srv.ListenAndServeTLS(cert, key)
+			return srv.ListenAndServeTLS("", "")
 		},
 	}
 }

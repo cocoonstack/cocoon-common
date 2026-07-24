@@ -130,12 +130,6 @@ func TestRoleForPod(t *testing.T) {
 			vmName: "vk-ns-cs-0",
 			want:   RoleToolbox,
 		},
-		{
-			name:   "nil pod is toolbox",
-			pod:    nil,
-			vmName: "vk-ns-cs-0",
-			want:   RoleToolbox,
-		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {

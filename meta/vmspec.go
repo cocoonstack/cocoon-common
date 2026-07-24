@@ -27,9 +27,6 @@ type VMSpec struct {
 // Apply writes VMSpec into pod annotations. Empty fields are skipped (cannot clear existing values).
 func (s VMSpec) Apply(pod *corev1.Pod) {
 	a := ensurePodAnnotations(pod)
-	if a == nil {
-		return
-	}
 	setIfNotEmpty(a, AnnotationVMName, s.VMName)
 	setIfNotEmpty(a, AnnotationImage, s.Image)
 	setIfNotEmpty(a, AnnotationMode, s.Mode)
@@ -52,11 +49,8 @@ func (s VMSpec) Apply(pod *corev1.Pod) {
 	setIfNotEmpty(a, AnnotationProbePort, s.ProbePort)
 }
 
-// ParseVMSpec extracts a VMSpec from pod annotations. Nil pods are tolerated.
+// ParseVMSpec extracts a VMSpec from pod annotations.
 func ParseVMSpec(pod *corev1.Pod) VMSpec {
-	if pod == nil {
-		return VMSpec{}
-	}
 	a := pod.Annotations
 	return VMSpec{
 		VMName:         a[AnnotationVMName],
@@ -78,40 +72,33 @@ func ParseVMSpec(pod *corev1.Pod) VMSpec {
 
 // FromAgentSpec builds a VMSpec from an AgentSpec. Agent VMs are always managed.
 func FromAgentSpec(spec cocoonv1.AgentSpec, vmName string, snapshotPolicy cocoonv1.SnapshotPolicy, forkFrom string) VMSpec {
-	return VMSpec{
-		VMName:         vmName,
-		Image:          spec.Image,
-		Mode:           string(spec.Mode.Default()),
-		OS:             string(spec.OS.Default()),
-		Storage:        QuantityString(spec.Storage),
-		Network:        spec.Network,
-		SnapshotPolicy: string(snapshotPolicy.Default()),
-		ForkFrom:       forkFrom,
-		Managed:        true,
-		ForcePull:      spec.ForcePull,
-		NoDirectIO:     spec.NoDirectIO,
-		ConnType:       string(spec.ConnType),
-		Backend:        string(spec.Backend.Default()),
-		ProbePort:      formatPort(spec.ProbePort),
-	}
+	s := fromVMOptions(spec.VMOptions, vmName, spec.Image, string(spec.Mode.Default()), snapshotPolicy)
+	s.ForkFrom = forkFrom
+	s.Managed = true
+	return s
 }
 
 // FromToolboxSpec builds a VMSpec from a ToolboxSpec. Static-mode toolboxes are unmanaged.
 func FromToolboxSpec(spec cocoonv1.ToolboxSpec, vmName string, snapshotPolicy cocoonv1.SnapshotPolicy) VMSpec {
+	s := fromVMOptions(spec.VMOptions, vmName, spec.Image, string(spec.Mode.Default()), snapshotPolicy)
+	s.Managed = spec.Mode != cocoonv1.ToolboxModeStatic
+	return s
+}
+
+func fromVMOptions(o cocoonv1.VMOptions, vmName, image, mode string, snapshotPolicy cocoonv1.SnapshotPolicy) VMSpec {
 	return VMSpec{
 		VMName:         vmName,
-		Image:          spec.Image,
-		Mode:           string(spec.Mode.Default()),
-		OS:             string(spec.OS.Default()),
-		Storage:        QuantityString(spec.Storage),
-		Network:        spec.Network,
+		Image:          image,
+		Mode:           mode,
+		OS:             string(o.OS.Default()),
+		Storage:        QuantityString(o.Storage),
+		Network:        o.Network,
 		SnapshotPolicy: string(snapshotPolicy.Default()),
-		Managed:        spec.Mode != cocoonv1.ToolboxModeStatic,
-		ForcePull:      spec.ForcePull,
-		NoDirectIO:     spec.NoDirectIO,
-		ConnType:       string(spec.ConnType),
-		Backend:        string(spec.Backend.Default()),
-		ProbePort:      formatPort(spec.ProbePort),
+		ForcePull:      o.ForcePull,
+		NoDirectIO:     o.NoDirectIO,
+		ConnType:       string(o.ConnType),
+		Backend:        string(o.Backend.Default()),
+		ProbePort:      formatPort(o.ProbePort),
 	}
 }
 

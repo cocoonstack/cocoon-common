@@ -13,17 +13,9 @@ func EnvOrDefault(key, fallback string) string {
 
 // EnvBool parses a boolean env var, falling back to fallback when unset or invalid.
 func EnvBool(key string, fallback bool) bool {
-	return envParse(key, fallback, strconv.ParseBool)
-}
-
-func envParse[T any](key string, fallback T, parse func(string) (T, error)) T {
-	v := os.Getenv(key)
-	if v == "" {
-		return fallback
-	}
-	t, err := parse(v)
+	b, err := strconv.ParseBool(os.Getenv(key))
 	if err != nil {
 		return fallback
 	}
-	return t
+	return b
 }

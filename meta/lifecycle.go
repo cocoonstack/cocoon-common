@@ -56,9 +56,6 @@ func (s LifecycleStatus) Annotations() map[string]any {
 // the annotation so a stale failure reason cannot tail into the next
 // lifecycle.
 func (s LifecycleStatus) Apply(pod *corev1.Pod) {
-	if pod == nil {
-		return
-	}
 	a := ensurePodAnnotations(pod)
 	a[AnnotationLifecycleState] = string(s.State)
 	a[AnnotationLifecycleObservedGeneration] = strconv.FormatInt(s.ObservedGeneration, 10)
@@ -77,9 +74,6 @@ func (s LifecycleStatus) Snapshot() string {
 
 // ReadLifecycleStatus reads the triple from pod annotations.
 func ReadLifecycleStatus(pod *corev1.Pod) LifecycleStatus {
-	if pod == nil {
-		return LifecycleStatus{}
-	}
 	return LifecycleStatus{
 		State:              LifecycleState(pod.Annotations[AnnotationLifecycleState]),
 		ObservedGeneration: ReadLifecycleObservedGeneration(pod),
@@ -89,9 +83,6 @@ func ReadLifecycleStatus(pod *corev1.Pod) LifecycleStatus {
 
 // ReadLifecycleState reads the lifecycle-state annotation, "" when missing.
 func ReadLifecycleState(pod *corev1.Pod) LifecycleState {
-	if pod == nil {
-		return ""
-	}
 	return LifecycleState(pod.Annotations[AnnotationLifecycleState])
 }
 
@@ -109,17 +100,11 @@ func ReadCocoonSetGeneration(pod *corev1.Pod) int64 {
 
 // StampCocoonSetGeneration writes the CocoonSet generation onto the pod.
 func StampCocoonSetGeneration(pod *corev1.Pod, generation int64) {
-	if pod == nil {
-		return
-	}
 	a := ensurePodAnnotations(pod)
 	a[AnnotationCocoonSetGeneration] = strconv.FormatInt(generation, 10)
 }
 
 func readInt64Annotation(pod *corev1.Pod, key string) int64 {
-	if pod == nil {
-		return 0
-	}
 	raw := pod.Annotations[key]
 	if raw == "" {
 		return 0

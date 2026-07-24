@@ -13,7 +13,6 @@ func TestIsPodReady(t *testing.T) {
 		pod  *corev1.Pod
 		want bool
 	}{
-		{"nil", nil, false},
 		{"no conditions", &corev1.Pod{}, false},
 		{"ready true", &corev1.Pod{Status: corev1.PodStatus{
 			Conditions: []corev1.PodCondition{{Type: corev1.PodReady, Status: corev1.ConditionTrue}},
@@ -35,9 +34,6 @@ func TestIsPodReady(t *testing.T) {
 }
 
 func TestIsPodTerminal(t *testing.T) {
-	if IsPodTerminal(nil) {
-		t.Errorf("nil pod must not be terminal")
-	}
 	if !IsPodTerminal(&corev1.Pod{Status: corev1.PodStatus{Phase: corev1.PodFailed}}) {
 		t.Errorf("PodFailed should be terminal")
 	}
@@ -50,9 +46,6 @@ func TestIsPodTerminal(t *testing.T) {
 }
 
 func TestIsContainerRunning(t *testing.T) {
-	if IsContainerRunning(nil) {
-		t.Errorf("nil pod must not be running")
-	}
 	running := &corev1.Pod{Status: corev1.PodStatus{
 		ContainerStatuses: []corev1.ContainerStatus{{
 			State: corev1.ContainerState{Running: &corev1.ContainerStateRunning{}},
@@ -83,7 +76,6 @@ func TestPodNodePool(t *testing.T) {
 		pod  *corev1.Pod
 		want string
 	}{
-		{"nil", nil, DefaultNodePool},
 		{"none set", &corev1.Pod{}, DefaultNodePool},
 		{"nodeSelector wins", &corev1.Pod{
 			Spec: corev1.PodSpec{NodeSelector: map[string]string{LabelNodePool: "sel"}},

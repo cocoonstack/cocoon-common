@@ -81,11 +81,6 @@ func TestLifecycleStatusApply(t *testing.T) {
 	}
 }
 
-func TestLifecycleStatusApplyNilPod(t *testing.T) {
-	t.Parallel()
-	LifecycleStatus{State: LifecycleStateReady}.Apply(nil)
-}
-
 func TestLifecycleStatusAnnotations(t *testing.T) {
 	t.Parallel()
 
@@ -166,7 +161,6 @@ func TestReadLifecycleStatus(t *testing.T) {
 		pod  *corev1.Pod
 		want LifecycleStatus
 	}{
-		{"nil pod", nil, LifecycleStatus{}},
 		{"empty pod", &corev1.Pod{}, LifecycleStatus{}},
 		{
 			"populated",
@@ -195,7 +189,6 @@ func TestReadLifecycleState(t *testing.T) {
 		pod  *corev1.Pod
 		want LifecycleState
 	}{
-		{"nil pod", nil, ""},
 		{"missing annotation", &corev1.Pod{}, ""},
 		{
 			"set",
@@ -222,7 +215,6 @@ func TestReadLifecycleObservedGeneration(t *testing.T) {
 		pod  *corev1.Pod
 		want int64
 	}{
-		{"nil pod", nil, 0},
 		{"missing", &corev1.Pod{}, 0},
 		{
 			"valid",
@@ -256,7 +248,6 @@ func TestReadCocoonSetGeneration(t *testing.T) {
 		pod  *corev1.Pod
 		want int64
 	}{
-		{"nil pod", nil, 0},
 		{"missing", &corev1.Pod{}, 0},
 		{
 			"valid",
@@ -283,5 +274,4 @@ func TestStampCocoonSetGeneration(t *testing.T) {
 	if got := pod.Annotations[AnnotationCocoonSetGeneration]; got != "42" {
 		t.Errorf("annotation = %q, want %q", got, "42")
 	}
-	StampCocoonSetGeneration(nil, 1) // must not panic
 }

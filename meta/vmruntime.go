@@ -16,19 +16,13 @@ type VMRuntime struct {
 // Apply writes VMRuntime into pod annotations. Zero VNCPort is not emitted.
 func (r VMRuntime) Apply(pod *corev1.Pod) {
 	a := ensurePodAnnotations(pod)
-	if a == nil {
-		return
-	}
 	setIfNotEmpty(a, AnnotationVMID, r.VMID)
 	setIfNotEmpty(a, AnnotationIP, r.IP)
 	setIfNotEmpty(a, AnnotationVNCPort, formatPort(r.VNCPort))
 }
 
-// ParseVMRuntime extracts a VMRuntime from pod annotations. Nil pods are tolerated.
+// ParseVMRuntime extracts a VMRuntime from pod annotations.
 func ParseVMRuntime(pod *corev1.Pod) VMRuntime {
-	if pod == nil {
-		return VMRuntime{}
-	}
 	a := pod.Annotations
 	r := VMRuntime{
 		VMID: a[AnnotationVMID],

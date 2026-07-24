@@ -16,9 +16,6 @@ func QuantityString(q *resource.Quantity) string {
 }
 
 func ensurePodAnnotations(pod *corev1.Pod) map[string]string {
-	if pod == nil {
-		return nil
-	}
 	if pod.Annotations == nil {
 		pod.Annotations = map[string]string{}
 	}

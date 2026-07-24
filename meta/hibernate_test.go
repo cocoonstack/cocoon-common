@@ -24,10 +24,6 @@ func TestHibernateStateApplyFalseOnNilAnnotations(t *testing.T) {
 	}
 }
 
-func TestHibernateStateApplyFalseNilPod(t *testing.T) {
-	HibernateState(false).Apply(nil) // must not panic
-}
-
 func TestHibernateStateApplyFalseRemoves(t *testing.T) {
 	pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{
 		AnnotationHibernate: "true",
@@ -59,12 +55,6 @@ func TestReadHibernateState(t *testing.T) {
 	}
 }
 
-func TestReadHibernateStateNilPod(t *testing.T) {
-	if got := ReadHibernateState(nil); got {
-		t.Errorf("ReadHibernateState(nil) = true, want false")
-	}
-}
-
 func TestMarkRestoreFromHibernate(t *testing.T) {
 	pod := &corev1.Pod{}
 	if ReadRestoreFromHibernate(pod) {
@@ -74,10 +64,6 @@ func TestMarkRestoreFromHibernate(t *testing.T) {
 	if !ReadRestoreFromHibernate(pod) {
 		t.Errorf("MarkRestoreFromHibernate should round-trip through ReadRestoreFromHibernate")
 	}
-}
-
-func TestMarkRestoreFromHibernateNilPod(t *testing.T) {
-	MarkRestoreFromHibernate(nil) // must not panic
 }
 
 func TestHibernateSnapshotTagConstant(t *testing.T) {

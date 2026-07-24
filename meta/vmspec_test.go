@@ -162,10 +162,6 @@ func TestFromToolboxSpecManagedByMode(t *testing.T) {
 	}
 }
 
-func TestVMSpecApplyNilPod(t *testing.T) {
-	VMSpec{VMName: "x"}.Apply(nil) // must not panic
-}
-
 func TestVMSpecApplySkipsEmptyFields(t *testing.T) {
 	pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{
 		AnnotationImage: "preset",
@@ -195,12 +191,6 @@ func TestVMSpecApplyManagedFlag(t *testing.T) {
 	VMSpec{Managed: false}.Apply(pod2)
 	if _, ok := pod2.Annotations[AnnotationManaged]; ok {
 		t.Errorf("Managed=false should leave %s unset", AnnotationManaged)
-	}
-}
-
-func TestParseVMSpecNilPod(t *testing.T) {
-	if got := ParseVMSpec(nil); got != (VMSpec{}) {
-		t.Errorf("ParseVMSpec(nil) = %+v, want zero", got)
 	}
 }
 
