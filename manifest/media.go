@@ -14,6 +14,8 @@ const (
 	// ArtifactTypeWindowsImage is the legacy name; both are recognized.
 	ArtifactTypeWindowsImage = "application/vnd.cocoonstack.windows-image.v1+json"
 	ArtifactTypeSnapshot     = "application/vnd.cocoonstack.snapshot.v1+json"
+	// V2 = compressed and/or chunked layers; pre-v2 readers fail closed at classify.
+	ArtifactTypeSnapshotV2 = "application/vnd.cocoonstack.snapshot.v2+json"
 
 	MediaTypeSnapshotConfig = "application/vnd.cocoonstack.snapshot.config.v1+json"
 
@@ -42,6 +44,12 @@ const (
 	AnnotationRevision = "org.opencontainers.image.revision"
 
 	AnnotationSnapshotBaseImage = "cocoonstack.snapshot.baseimage"
+
+	// Debugging aids; SnapshotConfig.Files[].Chunks is the authoritative order.
+	AnnotationChunkIndex = "cocoonstack.chunk.index"
+	AnnotationChunkCount = "cocoonstack.chunk.count"
+
+	zstdSuffix = "+zstd"
 )
 
 var snapshotFilenameMediaType = map[string]string{
@@ -50,6 +58,32 @@ var snapshotFilenameMediaType = map[string]string{
 	"memory-ranges": MediaTypeVMMemory,
 	"cidata.img":    MediaTypeVMCidata,
 	"overlay.qcow2": MediaTypeDiskQcow2,
+}
+
+// ZstdMediaType returns the mediaType for the zstd-compressed variant of mt.
+func ZstdMediaType(mt string) string {
+	return mt + zstdSuffix
+}
+
+// IsZstdMediaType reports whether mt denotes a zstd-compressed layer.
+func IsZstdMediaType(mt string) bool {
+	return strings.HasSuffix(mt, zstdSuffix)
+}
+
+// StripZstd returns mt without a trailing +zstd suffix, if present.
+func StripZstd(mt string) string {
+	return strings.TrimSuffix(mt, zstdSuffix)
+}
+
+// IsSnapshotLayerMediaType reports whether the reader can decode mt (a known
+// raw layer type or its +zstd variant); unknown types must fail the pull.
+func IsSnapshotLayerMediaType(mt string) bool {
+	switch StripZstd(mt) {
+	case MediaTypeVMConfig, MediaTypeVMState, MediaTypeVMMemory, MediaTypeVMCidata,
+		MediaTypeDiskQcow2, MediaTypeDiskRaw, MediaTypeGeneric:
+		return true
+	}
+	return false
 }
 
 // MediaTypeForCocoonFile returns the layer mediaType for a cocoon snapshot tar file.

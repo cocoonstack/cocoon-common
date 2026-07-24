@@ -106,10 +106,14 @@ func ClassifyParsed(m *OCIManifest) Kind {
 }
 
 // SnapshotFile holds per-file metadata stored in the snapshot config blob.
+// v2: Size is the uncompressed size (descriptors describe stored bytes) and
+// Chunks is the authoritative ordered digest list of a split file.
 type SnapshotFile struct {
-	Mode       int64  `json:"mode,omitempty"`
-	SparseMap  string `json:"sparseMap,omitempty"`
-	SparseSize int64  `json:"sparseSize,omitempty"`
+	Mode       int64    `json:"mode,omitempty"`
+	SparseMap  string   `json:"sparseMap,omitempty"`
+	SparseSize int64    `json:"sparseSize,omitempty"`
+	Size       int64    `json:"size,omitempty"`
+	Chunks     []string `json:"chunks,omitempty"`
 }
 
 // SnapshotConfig is the OCI config blob for snapshot manifests.
@@ -136,7 +140,7 @@ func classifyFields(artifactType, configMediaType, topMediaType string) Kind {
 	switch artifactType {
 	case ArtifactTypeOSImage, ArtifactTypeWindowsImage:
 		return KindCloudImage
-	case ArtifactTypeSnapshot:
+	case ArtifactTypeSnapshot, ArtifactTypeSnapshotV2:
 		return KindSnapshot
 	}
 

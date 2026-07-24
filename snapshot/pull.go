@@ -23,10 +23,12 @@ const maxSnapshotConfigSize = 64 << 20
 
 // StreamOptions configures snapshot tar stream assembly.
 type StreamOptions struct {
-	Name      string
-	LocalName string // empty = use Name
-	Writer    io.Writer
-	Progress  func(string)
+	Name            string
+	LocalName       string // empty = use Name
+	Writer          io.Writer
+	Progress        func(string)
+	Concurrency     int // parallel chunk prefetch for encoded layers (default 8)
+	MemoryBudgetMiB int // prefetch-buffer cap for this Stream call (default 4096)
 }
 
 // Stream reassembles a snapshot manifest into a cocoon-import tar stream.
@@ -82,8 +84,19 @@ func StreamParsed(ctx context.Context, m *manifest.OCIManifest, dl Downloader, o
 	if err != nil {
 		return fmt.Errorf("fetch snapshot config: %w", err)
 	}
+	if err := validateSnapshotLayers(m, cfg); err != nil {
+		return err
+	}
 
-	return writeImportTar(ctx, dl, opts.Name, localName, cfg, m.Layers, opts.Writer, opts.Progress)
+	prefetch := opts.Concurrency
+	if prefetch <= 0 {
+		prefetch = defaultTransferConcurrency
+	}
+	budget := int64(opts.MemoryBudgetMiB) << 20
+	if budget <= 0 {
+		budget = defaultPullPrefetchBudget
+	}
+	return writeImportTar(ctx, dl, opts.Name, localName, cfg, m.Layers, opts.Writer, opts.Progress, prefetch, budget)
 }
 
 // FetchSnapshotConfig downloads and parses the snapshot config blob.
@@ -113,6 +126,34 @@ func FetchSnapshotConfig(ctx context.Context, dl Downloader, name string, desc m
 	return &cfg, nil
 }
 
+// validateSnapshotLayers fails closed before any byte is streamed: every layer
+// must be decodable here, and encoded layers may only appear in v2 manifests.
+func validateSnapshotLayers(m *manifest.OCIManifest, cfg *manifest.SnapshotConfig) error {
+	encoded := m.ArtifactType == manifest.ArtifactTypeSnapshotV2
+	for _, layer := range m.Layers {
+		if layer.Size < 0 {
+			return fmt.Errorf("layer %s has negative size %d", layer.Digest, layer.Size)
+		}
+		if !manifest.IsSnapshotLayerMediaType(layer.MediaType) {
+			return fmt.Errorf("layer %s has unsupported mediaType %q (snapshot needs a newer reader)", layer.Digest, layer.MediaType)
+		}
+		if layer.Title() == "" {
+			return fmt.Errorf("layer %s missing %s annotation", layer.Digest, manifest.AnnotationTitle)
+		}
+		if !encoded && manifest.IsZstdMediaType(layer.MediaType) {
+			return fmt.Errorf("layer %s is zstd-compressed but manifest is not %s", layer.Digest, manifest.ArtifactTypeSnapshotV2)
+		}
+	}
+	if !encoded {
+		for name, f := range cfg.Files {
+			if len(f.Chunks) > 0 {
+				return fmt.Errorf("file %s is chunked but manifest is not %s", name, manifest.ArtifactTypeSnapshotV2)
+			}
+		}
+	}
+	return nil
+}
+
 // pickIndexChild selects the linux/amd64 child from an OCI image-index and
 // falls back to the first non-attestation entry when no platform matches.
 func pickIndexChild(ctx context.Context, m *manifest.OCIManifest) (manifest.IndexManifest, error) {
@@ -135,11 +176,65 @@ func pickIndexChild(ctx context.Context, m *manifest.OCIManifest) (manifest.Inde
 	return manifest.IndexManifest{}, errors.New("image-index has no usable platform child")
 }
 
-func writeImportTar(ctx context.Context, dl Downloader, name, localName string, cfg *manifest.SnapshotConfig, layers []manifest.Descriptor, w io.Writer, progress func(string)) error {
+// writeImportTar assembles the import tar: raw layers (the whole v1 format)
+// stream straight through, encoded layers decode via pullencoded.go.
+func writeImportTar(ctx context.Context, dl Downloader, name, localName string, cfg *manifest.SnapshotConfig, layers []manifest.Descriptor, w io.Writer, progress func(string), prefetch int, budget int64) error {
 	bw := bufio.NewWriterSize(w, 256<<10)
 	tw := tar.NewWriter(bw)
 
 	now := nowFunc()
+	if err := writeSnapshotEnvelope(tw, cfg, localName, now); err != nil {
+		return err
+	}
+
+	byDigest := make(map[string]manifest.Descriptor, len(layers))
+	for _, layer := range layers {
+		byDigest[layer.Digest] = layer
+	}
+
+	emitted := map[string]bool{}
+	for _, layer := range layers {
+		title := layer.Title()
+		var fileMeta manifest.SnapshotFile
+		if cfg.Files != nil {
+			fileMeta = cfg.Files[title]
+		}
+
+		if len(fileMeta.Chunks) == 0 && !manifest.IsZstdMediaType(layer.MediaType) {
+			if progress != nil {
+				progress(fmt.Sprintf("  %s (%d bytes)", title, layer.Size))
+			}
+			if err := streamLayerToTar(ctx, dl, name, layer, fileMeta, tw, now); err != nil {
+				return err
+			}
+			continue
+		}
+
+		if emitted[title] {
+			continue // continuation chunk of a file already streamed
+		}
+		emitted[title] = true
+		descs, err := resolveEncodedFile(layer, fileMeta, byDigest)
+		if err != nil {
+			return err
+		}
+		if progress != nil {
+			progress(fmt.Sprintf("  %s (%d bytes, %d chunks)", title, fileMeta.Size, len(descs)))
+		}
+		// Decode by this file's own layer mediaType: a dedup winner may carry another file's.
+		compressed := manifest.IsZstdMediaType(layer.MediaType)
+		if err := streamEncodedFile(ctx, dl, name, title, descs, fileMeta, compressed, tw, now, prefetch, budget); err != nil {
+			return err
+		}
+	}
+
+	if err := tw.Close(); err != nil {
+		return fmt.Errorf("close tar: %w", err)
+	}
+	return bw.Flush()
+}
+
+func writeSnapshotEnvelope(tw *tar.Writer, cfg *manifest.SnapshotConfig, localName string, now time.Time) error {
 	envelope := snapshotExportEnvelope{
 		Version: 1,
 		Config: snapshotExportConfig{
@@ -168,51 +263,38 @@ func writeImportTar(ctx context.Context, dl Downloader, name, localName string, 
 	if err := writeTarFile(tw, snapshotJSONName, envelopeJSON, 0o644, now); err != nil {
 		return fmt.Errorf("write snapshot envelope: %w", err)
 	}
-
-	for _, layer := range layers {
-		title := layer.Title()
-		if title == "" {
-			return fmt.Errorf("layer %s missing %s annotation", layer.Digest, manifest.AnnotationTitle)
-		}
-		if progress != nil {
-			progress(fmt.Sprintf("  %s (%d bytes)", title, layer.Size))
-		}
-		var fileMeta manifest.SnapshotFile
-		if cfg.Files != nil {
-			fileMeta = cfg.Files[title]
-		}
-		if err := streamLayerToTar(ctx, dl, name, layer, fileMeta, tw, now); err != nil {
-			return err
-		}
-	}
-
-	if err := tw.Close(); err != nil {
-		return fmt.Errorf("close tar: %w", err)
-	}
-	return bw.Flush()
+	return nil
 }
 
-func streamLayerToTar(ctx context.Context, dl Downloader, name string, layer manifest.Descriptor, fileMeta manifest.SnapshotFile, tw *tar.Writer, modTime time.Time) error {
+func layerHeader(title string, size int64, fileMeta manifest.SnapshotFile, modTime time.Time) (*tar.Header, error) {
 	mode := fileMeta.Mode
 	if mode == 0 {
 		mode = 0o640
 	}
 	hdr := &tar.Header{
-		Name:    layer.Title(),
-		Size:    layer.Size,
+		Name:    title,
+		Size:    size,
 		Mode:    mode,
 		ModTime: modTime,
 	}
 	if fileMeta.SparseMap != "" {
 		if fileMeta.SparseSize <= 0 {
-			return fmt.Errorf("layer %s has sparse map without sparse size", layer.Digest)
+			return nil, fmt.Errorf("layer %s has sparse map without sparse size", title)
 		}
 		hdr.PAXRecords = map[string]string{
 			sparsePAXMap:  fileMeta.SparseMap,
 			sparsePAXSize: strconv.FormatInt(fileMeta.SparseSize, 10),
 		}
 	}
-	if err := tw.WriteHeader(hdr); err != nil {
+	return hdr, nil
+}
+
+func streamLayerToTar(ctx context.Context, dl Downloader, name string, layer manifest.Descriptor, fileMeta manifest.SnapshotFile, tw *tar.Writer, modTime time.Time) error {
+	hdr, err := layerHeader(layer.Title(), layer.Size, fileMeta, modTime)
+	if err != nil {
+		return err
+	}
+	if err = tw.WriteHeader(hdr); err != nil {
 		return fmt.Errorf("write tar header: %w", err)
 	}
 	body, err := dl.GetBlob(ctx, name, layer.Digest)

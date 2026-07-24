@@ -16,6 +16,8 @@ const (
 	// cocoon uses custom PAX keys for sparse files; the stream preserves them.
 	sparsePAXMap  = "COCOON.sparse.map"
 	sparsePAXSize = "COCOON.sparse.size"
+
+	defaultTransferConcurrency = 8
 )
 
 var (
