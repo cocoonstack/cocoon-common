@@ -23,10 +23,11 @@ const maxSnapshotConfigSize = 64 << 20
 
 // StreamOptions configures snapshot tar stream assembly.
 type StreamOptions struct {
-	Name      string
-	LocalName string // empty = use Name
-	Writer    io.Writer
-	Progress  func(string)
+	Name        string
+	LocalName   string // empty = use Name
+	Writer      io.Writer
+	Progress    func(string)
+	Concurrency int // parallel chunk prefetch for encoded layers (default 8)
 }
 
 // Stream reassembles a snapshot manifest into a cocoon-import tar stream.
@@ -68,7 +69,9 @@ func Stream(ctx context.Context, raw []byte, dl Downloader, opts StreamOptions) 
 	return StreamParsed(ctx, m, dl, opts)
 }
 
-// StreamParsed accepts an already-parsed manifest.
+// StreamParsed accepts an already-parsed manifest and dispatches on its
+// artifactType: v1 manifests take the original raw-blob path, v2 manifests the
+// encoded (zstd/chunked) path in pullencoded.go.
 func StreamParsed(ctx context.Context, m *manifest.OCIManifest, dl Downloader, opts StreamOptions) error {
 	if opts.Name == "" {
 		return errors.New("snapshot stream: name is required")
@@ -82,8 +85,44 @@ func StreamParsed(ctx context.Context, m *manifest.OCIManifest, dl Downloader, o
 	if err != nil {
 		return fmt.Errorf("fetch snapshot config: %w", err)
 	}
+	if err := validateSnapshotLayers(m, cfg); err != nil {
+		return err
+	}
 
-	return writeImportTar(ctx, dl, opts.Name, localName, cfg, m.Layers, opts.Writer, opts.Progress)
+	switch m.ArtifactType {
+	case manifest.ArtifactTypeSnapshotV2:
+		prefetch := cmp.Or(opts.Concurrency, defaultTransferConcurrency)
+		return writeEncodedImportTar(ctx, dl, opts.Name, localName, cfg, m.Layers, opts.Writer, opts.Progress, prefetch)
+	default:
+		return writeImportTar(ctx, dl, opts.Name, localName, cfg, m.Layers, opts.Writer, opts.Progress)
+	}
+}
+
+// validateSnapshotLayers fails closed before any byte is streamed: every layer
+// must be decodable by this reader, and encoded layers may only appear in
+// manifests marked ArtifactTypeSnapshotV2. The alternative to failing here is
+// assembling a corrupt import tar that only fails at restore time.
+func validateSnapshotLayers(m *manifest.OCIManifest, cfg *manifest.SnapshotConfig) error {
+	encoded := m.ArtifactType == manifest.ArtifactTypeSnapshotV2
+	for _, layer := range m.Layers {
+		if !manifest.IsSnapshotLayerMediaType(layer.MediaType) {
+			return fmt.Errorf("layer %s has unsupported mediaType %q (snapshot needs a newer reader)", layer.Digest, layer.MediaType)
+		}
+		if layer.Title() == "" {
+			return fmt.Errorf("layer %s missing %s annotation", layer.Digest, manifest.AnnotationTitle)
+		}
+		if !encoded && manifest.IsZstdMediaType(layer.MediaType) {
+			return fmt.Errorf("layer %s is zstd-compressed but manifest is not %s", layer.Digest, manifest.ArtifactTypeSnapshotV2)
+		}
+	}
+	if !encoded {
+		for name, f := range cfg.Files {
+			if len(f.Chunks) > 0 {
+				return fmt.Errorf("file %s is chunked but manifest is not %s", name, manifest.ArtifactTypeSnapshotV2)
+			}
+		}
+	}
+	return nil
 }
 
 // FetchSnapshotConfig downloads and parses the snapshot config blob.
@@ -137,11 +176,41 @@ func pickIndexChild(ctx context.Context, m *manifest.OCIManifest) (manifest.Inde
 	return manifest.IndexManifest{}, errors.New("image-index has no usable platform child")
 }
 
+// writeImportTar is the original v1 assembly: every layer is one raw blob,
+// streamed straight into its tar entry.
 func writeImportTar(ctx context.Context, dl Downloader, name, localName string, cfg *manifest.SnapshotConfig, layers []manifest.Descriptor, w io.Writer, progress func(string)) error {
 	bw := bufio.NewWriterSize(w, 256<<10)
 	tw := tar.NewWriter(bw)
 
 	now := nowFunc()
+	if err := writeSnapshotEnvelope(tw, cfg, localName, now); err != nil {
+		return err
+	}
+
+	for _, layer := range layers {
+		title := layer.Title()
+		if title == "" {
+			return fmt.Errorf("layer %s missing %s annotation", layer.Digest, manifest.AnnotationTitle)
+		}
+		if progress != nil {
+			progress(fmt.Sprintf("  %s (%d bytes)", title, layer.Size))
+		}
+		var fileMeta manifest.SnapshotFile
+		if cfg.Files != nil {
+			fileMeta = cfg.Files[title]
+		}
+		if err := streamLayerToTar(ctx, dl, name, layer, fileMeta, tw, now); err != nil {
+			return err
+		}
+	}
+
+	if err := tw.Close(); err != nil {
+		return fmt.Errorf("close tar: %w", err)
+	}
+	return bw.Flush()
+}
+
+func writeSnapshotEnvelope(tw *tar.Writer, cfg *manifest.SnapshotConfig, localName string, now time.Time) error {
 	envelope := snapshotExportEnvelope{
 		Version: 1,
 		Config: snapshotExportConfig{
@@ -170,51 +239,38 @@ func writeImportTar(ctx context.Context, dl Downloader, name, localName string, 
 	if err := writeTarFile(tw, snapshotJSONName, envelopeJSON, 0o644, now); err != nil {
 		return fmt.Errorf("write snapshot envelope: %w", err)
 	}
-
-	for _, layer := range layers {
-		title := layer.Title()
-		if title == "" {
-			return fmt.Errorf("layer %s missing %s annotation", layer.Digest, manifest.AnnotationTitle)
-		}
-		if progress != nil {
-			progress(fmt.Sprintf("  %s (%d bytes)", title, layer.Size))
-		}
-		var fileMeta manifest.SnapshotFile
-		if cfg.Files != nil {
-			fileMeta = cfg.Files[title]
-		}
-		if err := streamLayerToTar(ctx, dl, name, layer, fileMeta, tw, now); err != nil {
-			return err
-		}
-	}
-
-	if err := tw.Close(); err != nil {
-		return fmt.Errorf("close tar: %w", err)
-	}
-	return bw.Flush()
+	return nil
 }
 
-func streamLayerToTar(ctx context.Context, dl Downloader, name string, layer manifest.Descriptor, fileMeta manifest.SnapshotFile, tw *tar.Writer, modTime time.Time) error {
+func layerHeader(title string, size int64, fileMeta manifest.SnapshotFile, modTime time.Time) (*tar.Header, error) {
 	mode := fileMeta.Mode
 	if mode == 0 {
 		mode = 0o640
 	}
 	hdr := &tar.Header{
-		Name:    layer.Title(),
-		Size:    layer.Size,
+		Name:    title,
+		Size:    size,
 		Mode:    mode,
 		ModTime: modTime,
 	}
 	if fileMeta.SparseMap != "" {
 		if fileMeta.SparseSize <= 0 {
-			return fmt.Errorf("layer %s has sparse map without sparse size", layer.Digest)
+			return nil, fmt.Errorf("layer %s has sparse map without sparse size", title)
 		}
 		hdr.PAXRecords = map[string]string{
 			sparsePAXMap:  fileMeta.SparseMap,
 			sparsePAXSize: strconv.FormatInt(fileMeta.SparseSize, 10),
 		}
 	}
-	if err := tw.WriteHeader(hdr); err != nil {
+	return hdr, nil
+}
+
+func streamLayerToTar(ctx context.Context, dl Downloader, name string, layer manifest.Descriptor, fileMeta manifest.SnapshotFile, tw *tar.Writer, modTime time.Time) error {
+	hdr, err := layerHeader(layer.Title(), layer.Size, fileMeta, modTime)
+	if err != nil {
+		return err
+	}
+	if err = tw.WriteHeader(hdr); err != nil {
 		return fmt.Errorf("write tar header: %w", err)
 	}
 	body, err := dl.GetBlob(ctx, name, layer.Digest)
