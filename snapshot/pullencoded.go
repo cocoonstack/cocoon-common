@@ -133,8 +133,15 @@ func streamEncodedFile(ctx context.Context, dl Downloader, name, title string, d
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	var body io.Reader
+	// Buffered prefetch only pays for itself with ≥2 chunks in the window;
+	// anything else (single blobs, oversized chunks, budgets below two
+	// chunks) streams with O(1) memory instead of buffering.
+	window := 0
 	if bufferedPrefetchOK(descs) {
-		body = newChunkSource(ctx, dl, name, descs, prefetchWindow(descs, prefetch, budget))
+		window = prefetchWindow(descs, prefetch, budget)
+	}
+	if window >= 2 {
+		body = newChunkSource(ctx, dl, name, descs, window)
 	} else {
 		body = &chunkStream{ctx: ctx, dl: dl, name: name, descs: descs}
 	}
@@ -176,8 +183,10 @@ type chunkFetch struct {
 	err  error
 }
 
-// chunkSource yields chunk bodies in order while up to ~window fetches run
-// ahead; every chunk is digest- and size-verified before it is consumed.
+// chunkSource yields chunk bodies in order with fetches running ahead;
+// futures enter the queue before their fetch spawns, so buffered chunks
+// (queued + the one being consumed) never exceed the window. Every chunk is
+// digest- and size-verified before it is consumed.
 type chunkSource struct {
 	futures chan chan chunkFetch
 	cur     *bytes.Reader
@@ -189,15 +198,17 @@ func newChunkSource(ctx context.Context, dl Downloader, name string, descs []man
 		defer close(futures)
 		for _, desc := range descs {
 			fut := make(chan chunkFetch, 1)
-			go func() {
-				data, err := fetchChunk(ctx, dl, name, desc)
-				fut <- chunkFetch{data: data, err: err}
-			}()
+			// Enqueue before spawning: a fetch blocked at the queue would
+			// otherwise already be buffering, making the real hold window+1.
 			select {
 			case futures <- fut:
 			case <-ctx.Done():
 				return
 			}
+			go func() {
+				data, err := fetchChunk(ctx, dl, name, desc)
+				fut <- chunkFetch{data: data, err: err}
+			}()
 		}
 	}()
 	return &chunkSource{futures: futures}

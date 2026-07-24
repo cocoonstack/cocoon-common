@@ -67,13 +67,14 @@ func pipelineParams(opts PushOptions) (int, int64, error) {
 	if budget <= 0 {
 		budget = defaultPushMemoryBudgetMiB << 20
 	}
-	if 2*chunkSize > budget {
+	// One worker already needs 2 pools × 2 buffers: 4×chunk is the floor.
+	if 4*chunkSize > budget {
 		return 0, 0, fmt.Errorf(
-			"snapshot push: chunk size %d MiB does not fit the %d MiB memory budget (2 buffers per in-flight chunk)",
-			opts.ChunkSizeMiB, budget>>20,
+			"snapshot push: chunk size %d MiB needs at least a %d MiB memory budget, got %d MiB",
+			opts.ChunkSizeMiB, (4*chunkSize)>>20, budget>>20,
 		)
 	}
-	return min(workers, max(1, int(budget/(2*chunkSize))-1)), chunkSize, nil
+	return min(workers, int(budget/(2*chunkSize))-1), chunkSize, nil
 }
 
 func (p *Pusher) readAndUploadEntriesPipelined(ctx context.Context, opts PushOptions, r io.Reader) (*snapshotExportConfig, map[string]manifest.SnapshotFile, []manifest.Descriptor, bool, error) {

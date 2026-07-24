@@ -517,11 +517,90 @@ func TestPushSanitizesNegativeConcurrency(t *testing.T) {
 
 func TestPushRejectsChunkLargerThanBudget(t *testing.T) {
 	pinClock(t)
+	// One worker needs 2 pools × 2 buffers = 4×chunk; below that, reject.
+	for _, tc := range []struct {
+		chunkMiB, budgetMiB int
+		ok                  bool
+	}{
+		{8192, 1024, false},
+		{512, 1024, false}, // 2×chunk fits but 4×chunk does not
+		{512, 2048, true},  // exactly one worker's floor
+	} {
+		uploader := newFakeUploader()
+		pusher := &Pusher{Uploader: uploader, Cocoon: &fakeCocoon{exportTar: v2Corpus(t)}}
+		_, err := pusher.Push(t.Context(), PushOptions{Name: "myvm", ChunkSizeMiB: tc.chunkMiB, MemoryBudgetMiB: tc.budgetMiB})
+		if tc.ok && err != nil {
+			t.Errorf("chunk %d budget %d: unexpected error %v", tc.chunkMiB, tc.budgetMiB, err)
+		}
+		if !tc.ok && (err == nil || !strings.Contains(err.Error(), "memory budget")) {
+			t.Errorf("chunk %d budget %d: err = %v, want memory-budget rejection", tc.chunkMiB, tc.budgetMiB, err)
+		}
+	}
+}
+
+// A budget below two chunks routes the pull to the O(1) streaming path; the
+// output must stay byte-identical.
+func TestPullTinyBudgetStreamsSequentially(t *testing.T) {
+	pinClock(t)
+	corpus := v2Corpus(t)
+	want := roundTrip(t, corpus, PushOptions{})
 	uploader := newFakeUploader()
-	pusher := &Pusher{Uploader: uploader, Cocoon: &fakeCocoon{exportTar: v2Corpus(t)}}
-	_, err := pusher.Push(t.Context(), PushOptions{Name: "myvm", ChunkSizeMiB: 8192, MemoryBudgetMiB: 1024})
-	if err == nil || !strings.Contains(err.Error(), "memory budget") {
-		t.Fatalf("err = %v, want memory-budget rejection", err)
+	pushCorpus(t, uploader, corpus, PushOptions{ZstdLevel: 3, ChunkSizeMiB: 1})
+	got := pullTar(t, uploader, StreamOptions{MemoryBudgetMiB: 1})
+	if !bytes.Equal(want, got) {
+		t.Fatal("tiny-budget pull differs from v1 output")
+	}
+}
+
+// gatedDownloader blocks every GetBlob until released and counts starts, so
+// tests can observe how many fetches the prefetcher launches.
+type gatedDownloader struct {
+	blobs   map[string][]byte
+	release chan struct{}
+	started atomic.Int64
+}
+
+func (g *gatedDownloader) GetManifest(context.Context, string, string) ([]byte, string, error) {
+	return nil, "", errors.New("unused")
+}
+
+func (g *gatedDownloader) GetBlob(_ context.Context, _, digest string) (io.ReadCloser, error) {
+	g.started.Add(1)
+	<-g.release
+	return io.NopCloser(bytes.NewReader(g.blobs[digest])), nil
+}
+
+// Futures must enter the queue before their fetch spawns: with window 2 and no
+// consumer yet, exactly one fetch may start (queue cap 1, second send blocks).
+// The old spawn-first ordering started window+1 fetches and overshot the budget.
+func TestChunkSourceSpawnsWithinWindow(t *testing.T) {
+	g := &gatedDownloader{blobs: map[string][]byte{}, release: make(chan struct{})}
+	var descs []manifest.Descriptor
+	var want []byte
+	for i := range 4 {
+		b := []byte{byte(i), byte(i + 1)}
+		d := "sha256:" + ociutil.SHA256Hex(b)
+		g.blobs[d] = b
+		descs = append(descs, manifest.Descriptor{Digest: d, Size: 2})
+		want = append(want, b...)
+	}
+	src := newChunkSource(t.Context(), g, "myvm", descs, 2)
+
+	deadline := time.Now().Add(2 * time.Second)
+	for g.started.Load() < 1 && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	time.Sleep(50 * time.Millisecond) // settle window for an over-spawning impl
+	if n := g.started.Load(); n != 1 {
+		t.Fatalf("fetches started before any consumption = %d, want 1", n)
+	}
+	close(g.release)
+	var out bytes.Buffer
+	if _, err := io.Copy(&out, src); err != nil {
+		t.Fatalf("drain: %v", err)
+	}
+	if !bytes.Equal(out.Bytes(), want) {
+		t.Fatalf("out = %v, want %v", out.Bytes(), want)
 	}
 }
 
