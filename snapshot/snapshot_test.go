@@ -489,41 +489,17 @@ func buildExportTar(t *testing.T, cfg snapshotExportConfig, files map[string][]b
 
 func buildExportTarEntries(t *testing.T, cfg snapshotExportConfig, files map[string]exportTarEntry) []byte {
 	t.Helper()
-	var buf bytes.Buffer
-	tw := tar.NewWriter(&buf)
-
-	envelope := snapshotExportEnvelope{Version: 1, Config: cfg}
-	envBytes, err := json.Marshal(envelope)
-	if err != nil {
-		t.Fatalf("marshal envelope: %v", err)
-	}
-	if err := tw.WriteHeader(&tar.Header{Name: snapshotJSONName, Size: int64(len(envBytes)), Mode: 0o644}); err != nil {
-		t.Fatalf("write envelope header: %v", err)
-	}
-	if _, err := tw.Write(envBytes); err != nil {
-		t.Fatalf("write envelope: %v", err)
-	}
-
+	var ordered []namedTarEntry
 	// Stable order so the layer order in the produced manifest is testable.
 	for _, name := range []string{"config.json", "state.json", "memory-ranges", "overlay.qcow2", "cidata.img"} {
 		entry, ok := files[name]
 		if !ok {
 			continue
 		}
-		mode := entry.mode
-		if mode == 0 {
-			mode = 0o640
+		if entry.mode == 0 {
+			entry.mode = 0o640
 		}
-		hdr := &tar.Header{Name: name, Size: int64(len(entry.data)), Mode: mode, PAXRecords: entry.pax}
-		if err := tw.WriteHeader(hdr); err != nil {
-			t.Fatalf("write %s header: %v", name, err)
-		}
-		if _, err := tw.Write(entry.data); err != nil {
-			t.Fatalf("write %s: %v", name, err)
-		}
+		ordered = append(ordered, namedTarEntry{name: name, entry: entry})
 	}
-	if err := tw.Close(); err != nil {
-		t.Fatalf("close tar: %v", err)
-	}
-	return buf.Bytes()
+	return buildOrderedExportTar(t, cfg, ordered)
 }
