@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/cocoonstack/cocoon-common/manifest"
+	"github.com/cocoonstack/cocoon-common/ociutil"
 )
 
 // v2Corpus exercises every codec branch: empty, small-raw, exactly-at-chunk-size,
@@ -431,6 +432,70 @@ func TestPullFailsClosedOnMissingChunkLayer(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "missing from manifest layers") {
 		t.Fatalf("err = %v, want missing from manifest layers", err)
 	}
+}
+
+// Identical chunks dedup across files into one blob whose manifest descriptor
+// carries only one file's annotations; reconstruction is content-addressed and
+// must not reject the other file's reference to it.
+func TestRoundTripSharedChunkAcrossFiles(t *testing.T) {
+	pinClock(t)
+	const chunk = 1 << 20
+	shared := fillBytes(chunk, 7)
+	corpus := buildOrderedExportTar(t, snapshotExportConfig{Name: "myvm"}, []namedTarEntry{
+		{"memory-ranges", exportTarEntry{data: append(fillBytes(chunk, 1), shared...), mode: 0o600}},
+		{"overlay.qcow2", exportTarEntry{data: append(fillBytes(chunk, 2), shared...), mode: 0o640}},
+	})
+	for _, tc := range v2OptionMatrix {
+		t.Run(tc.name, func(t *testing.T) {
+			want := roundTrip(t, corpus, PushOptions{})
+			got := roundTrip(t, corpus, tc.opts)
+			if !bytes.Equal(want, got) {
+				t.Fatalf("shared-chunk corpus: v2 (%s) differs from v1 output", tc.name)
+			}
+		})
+	}
+}
+
+// The v2 reader must keep consuming manifests with the literal v1 shape —
+// spelled out as strings, not the Go constants, so accidental constant or
+// writer drift cannot silently rewrite what "v1" means.
+func TestReaderConsumesFrozenV1Manifest(t *testing.T) {
+	pinClock(t)
+	uploader := newFakeUploader()
+
+	memBody := []byte("MEMBYTES")
+	cfgBlob := []byte(`{"schemaVersion":"v1","snapshotId":"snap-frozen","hypervisor":"cloud-hypervisor",` +
+		`"files":{"memory-ranges":{"mode":384,"sparseMap":"[{\"o\":0,\"l\":4}]","sparseSize":16}}}`)
+	memDigest := "sha256:" + ociutil.SHA256Hex(memBody)
+	cfgDigest := "sha256:" + ociutil.SHA256Hex(cfgBlob)
+	uploader.blobs[memDigest] = memBody
+	uploader.blobs[cfgDigest] = cfgBlob
+	raw := []byte(fmt.Sprintf(`{
+		"schemaVersion": 2,
+		"mediaType": "application/vnd.oci.image.manifest.v1+json",
+		"artifactType": "application/vnd.cocoonstack.snapshot.v1+json",
+		"config": {"mediaType": "application/vnd.cocoonstack.snapshot.config.v1+json", "digest": %q, "size": %d},
+		"layers": [{
+			"mediaType": "application/vnd.cocoonstack.vm.memory",
+			"digest": %q, "size": %d,
+			"annotations": {"org.opencontainers.image.title": "memory-ranges"}
+		}]
+	}`, cfgDigest, len(cfgBlob), memDigest, len(memBody)))
+
+	var buf bytes.Buffer
+	if err := Stream(t.Context(), raw, uploader, StreamOptions{Name: "myvm", Writer: &buf}); err != nil {
+		t.Fatalf("Stream frozen v1 manifest: %v", err)
+	}
+	for _, e := range readTarEntries(t, &buf) {
+		if e.name != "memory-ranges" {
+			continue
+		}
+		if !bytes.Equal(e.body, memBody) || e.mode != 0o600 || e.pax[sparsePAXMap] != `[{"o":0,"l":4}]` || e.pax[sparsePAXSize] != "16" {
+			t.Fatalf("frozen v1 reconstruction mismatch: %+v", e)
+		}
+		return
+	}
+	t.Fatal("memory-ranges entry not reconstructed")
 }
 
 type countingUploader struct {

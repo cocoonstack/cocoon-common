@@ -32,6 +32,10 @@ type PushOptions struct {
 	ZstdLevel    int // >0: zstd-compress layers ≥ 1 MiB at this level
 	ChunkSizeMiB int // >0: split files into per-blob chunks of this many uncompressed MiB
 	Concurrency  int // parallel chunk uploads and aggregate encoder threads (default 8; v2 paths only)
+	// MemoryBudgetMiB caps the pipeline's buffered bytes (each in-flight chunk
+	// holds ~2× chunk size: raw + compressed). Effective workers =
+	// min(Concurrency, budget/(2×chunk)). 0 = 8192 MiB.
+	MemoryBudgetMiB int
 }
 
 // PushResult contains the outcome of a successful push.

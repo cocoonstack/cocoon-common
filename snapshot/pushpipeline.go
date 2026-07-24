@@ -21,8 +21,13 @@ import (
 	"github.com/cocoonstack/cocoon-common/manifest"
 )
 
-// Below this, compression is not worth the mediaType churn; the entry stays raw.
-const compressMinBytes = 1 << 20
+const (
+	// Below this, compression is not worth the mediaType churn; the entry stays raw.
+	compressMinBytes = 1 << 20
+	// Default PushOptions.MemoryBudgetMiB: with 512 MiB chunks this admits the
+	// default 8 workers (each in-flight chunk buffers raw + compressed ≈ 2× chunk).
+	defaultPushMemoryBudgetMiB = 8192
+)
 
 // chunkGroup is one tar entry's descriptors: len>1 means the file is chunked.
 // Workers fill slots of a fixed-size slice, so the reader must never re-slice it.
@@ -32,12 +37,12 @@ type chunkGroup struct {
 }
 
 // pushPipeline is the writer strategy Push selects when compression or
-// chunking is enabled: a bounded worker pool plus
-// buffer free-lists that cap memory at ~(workers+1) chunk buffers.
+// chunking is enabled: a bounded worker pool plus two buffer free-lists (raw
+// and compressed), so peak memory ≈ 2×(workers+1)×chunk — kept under
+// PushOptions.MemoryBudgetMiB by clamping the worker count.
 type pushPipeline struct {
 	pusher  *Pusher
 	eg      *errgroup.Group
-	ctx     context.Context
 	enc     *zstd.Encoder
 	rawBufs *bufPool
 	outBufs *bufPool
@@ -48,6 +53,10 @@ type pushPipeline struct {
 func (p *Pusher) readAndUploadEntriesPipelined(ctx context.Context, opts PushOptions, r io.Reader) (*snapshotExportConfig, map[string]manifest.SnapshotFile, []manifest.Descriptor, bool, error) {
 	workers := cmp.Or(opts.Concurrency, defaultTransferConcurrency)
 	chunkSize := int64(opts.ChunkSizeMiB) << 20
+	if chunkSize > 0 {
+		budget := int64(cmp.Or(opts.MemoryBudgetMiB, defaultPushMemoryBudgetMiB)) << 20
+		workers = min(workers, max(1, int(budget/(2*chunkSize))))
+	}
 
 	var enc *zstd.Encoder
 	if opts.ZstdLevel > 0 {
@@ -68,7 +77,6 @@ func (p *Pusher) readAndUploadEntriesPipelined(ctx context.Context, opts PushOpt
 	pl := &pushPipeline{
 		pusher:  p,
 		eg:      eg,
-		ctx:     egCtx,
 		enc:     enc,
 		rawBufs: newBufPool(workers + 1),
 		outBufs: newBufPool(workers + 1),
@@ -140,7 +148,7 @@ readLoop:
 		switch {
 		case chunkSize > 0 && (compress || hdr.Size > chunkSize):
 			encoded = true
-			descs, chunkErr := pl.enqueueChunks(tr, hdr, chunkSize, compress)
+			descs, chunkErr := pl.enqueueChunks(egCtx, tr, hdr, chunkSize, compress)
 			if chunkErr != nil {
 				readErr = chunkErr
 				break readLoop
@@ -172,7 +180,12 @@ readLoop:
 	}
 
 	waitErr := pl.eg.Wait()
-	if readErr == nil {
+	switch {
+	case readErr == nil:
+		readErr = waitErr
+	case waitErr != nil && errors.Is(readErr, context.Canceled):
+		// The reader failed because a worker's error canceled egCtx; the
+		// worker error is the root cause, not the cancellation echo.
 		readErr = waitErr
 	}
 	if readErr == nil {
@@ -201,7 +214,7 @@ readLoop:
 // enqueueChunks cuts one tar entry at fixed uncompressed offsets and hands each
 // chunk to the worker pool. The returned slice is filled by workers; it is only
 // complete after eg.Wait.
-func (pl *pushPipeline) enqueueChunks(tr *tar.Reader, hdr *tar.Header, chunkSize int64, compress bool) ([]manifest.Descriptor, error) {
+func (pl *pushPipeline) enqueueChunks(ctx context.Context, tr *tar.Reader, hdr *tar.Header, chunkSize int64, compress bool) ([]manifest.Descriptor, error) {
 	count64 := (hdr.Size + chunkSize - 1) / chunkSize
 	if count64 > 1<<20 {
 		return nil, fmt.Errorf("%s: %d chunks exceeds sanity cap", hdr.Name, count64)
@@ -226,7 +239,7 @@ func (pl *pushPipeline) enqueueChunks(tr *tar.Reader, hdr *tar.Header, chunkSize
 		}
 		pl.eg.Go(func() error {
 			defer pl.rawBufs.put(buf)
-			desc, upErr := pl.uploadChunk(mediaType, title, i, count, data)
+			desc, upErr := pl.uploadChunk(ctx, mediaType, title, i, count, data)
 			if upErr != nil {
 				return fmt.Errorf("upload %s chunk %d: %w", title, i, upErr)
 			}
@@ -238,7 +251,7 @@ func (pl *pushPipeline) enqueueChunks(tr *tar.Reader, hdr *tar.Header, chunkSize
 	return descs, nil
 }
 
-func (pl *pushPipeline) uploadChunk(mediaType, title string, index, count int, raw []byte) (manifest.Descriptor, error) {
+func (pl *pushPipeline) uploadChunk(ctx context.Context, mediaType, title string, index, count int, raw []byte) (manifest.Descriptor, error) {
 	stored := raw
 	if manifest.IsZstdMediaType(mediaType) {
 		out := pl.outBufs.take(0)
@@ -248,12 +261,12 @@ func (pl *pushPipeline) uploadChunk(mediaType, title string, index, count int, r
 
 	sum := sha256.Sum256(stored)
 	digest := "sha256:" + hex.EncodeToString(sum[:])
-	exists, existsErr := pl.pusher.Uploader.HasBlob(pl.ctx, pl.name, digest)
+	exists, existsErr := pl.pusher.Uploader.HasBlob(ctx, pl.name, digest)
 	if existsErr != nil {
 		return manifest.Descriptor{}, fmt.Errorf("check blob %s: %w", digest, existsErr)
 	}
 	if !exists {
-		if err := pl.pusher.Uploader.PutBlob(pl.ctx, pl.name, digest, bytes.NewReader(stored), int64(len(stored))); err != nil {
+		if err := pl.pusher.Uploader.PutBlob(ctx, pl.name, digest, bytes.NewReader(stored), int64(len(stored))); err != nil {
 			return manifest.Descriptor{}, fmt.Errorf("put blob %s: %w", digest, err)
 		}
 	}
@@ -326,23 +339,23 @@ type bufPool struct {
 }
 
 func newBufPool(size int) *bufPool {
-	p := &bufPool{ch: make(chan []byte, size)}
+	bp := &bufPool{ch: make(chan []byte, size)}
 	for range size {
-		p.ch <- nil
+		bp.ch <- nil
 	}
-	return p
+	return bp
 }
 
-func (p *bufPool) take(capacity int64) []byte {
-	buf := <-p.ch
+func (bp *bufPool) take(capacity int64) []byte {
+	buf := <-bp.ch
 	if int64(cap(buf)) < capacity {
 		buf = make([]byte, capacity)
 	}
 	return buf
 }
 
-func (p *bufPool) put(buf []byte) {
-	p.ch <- buf
+func (bp *bufPool) put(buf []byte) {
+	bp.ch <- buf
 }
 
 type countingWriter struct {

@@ -64,7 +64,10 @@ func writeEncodedImportTar(ctx context.Context, dl Downloader, name, localName s
 		if progress != nil {
 			progress(fmt.Sprintf("  %s (%d bytes, %d chunks)", title, fileMeta.Size, len(descs)))
 		}
-		if err := streamEncodedFile(ctx, dl, name, title, descs, fileMeta, tw, now, prefetch); err != nil {
+		// The decode decision comes from this file's own layer, not from the
+		// resolved descriptors: a dedup winner may carry another file's mediaType.
+		compressed := manifest.IsZstdMediaType(layer.MediaType)
+		if err := streamEncodedFile(ctx, dl, name, title, descs, fileMeta, compressed, tw, now, prefetch); err != nil {
 			return err
 		}
 	}
@@ -77,7 +80,11 @@ func writeEncodedImportTar(ctx context.Context, dl Downloader, name, localName s
 
 // resolveEncodedFile returns the ordered blob descriptors of one encoded file.
 // SnapshotConfig.Files[].Chunks is the authoritative order; the manifest layer
-// list is only a lookup table.
+// list is only a content-addressed lookup table. A resolved descriptor may be
+// annotated for a different file: identical chunks dedup across files (e.g.
+// zeroed 512 MiB regions shared by memory-ranges and the overlay), so title
+// and mediaType annotations of the winner are irrelevant — digest+size
+// verification at fetch time is the correctness gate.
 func resolveEncodedFile(layer manifest.Descriptor, fileMeta manifest.SnapshotFile, byDigest map[string]manifest.Descriptor) ([]manifest.Descriptor, error) {
 	title := layer.Title()
 	if fileMeta.Size <= 0 {
@@ -92,12 +99,6 @@ func resolveEncodedFile(layer manifest.Descriptor, fileMeta manifest.SnapshotFil
 		if !ok {
 			return nil, fmt.Errorf("%s chunk %d (%s) missing from manifest layers", title, i, digest)
 		}
-		if desc.Title() != title {
-			return nil, fmt.Errorf("%s chunk %d (%s) is annotated for %q", title, i, digest, desc.Title())
-		}
-		if desc.MediaType != layer.MediaType {
-			return nil, fmt.Errorf("%s chunk %d mediaType %q differs from %q", title, i, desc.MediaType, layer.MediaType)
-		}
 		descs[i] = desc
 	}
 	return descs, nil
@@ -106,7 +107,7 @@ func resolveEncodedFile(layer manifest.Descriptor, fileMeta manifest.SnapshotFil
 // streamEncodedFile reconstructs one encoded file into a single tar entry.
 // Chunks are independent zstd frames cut at fixed uncompressed offsets, so
 // their in-order concatenation is one valid zstd stream.
-func streamEncodedFile(ctx context.Context, dl Downloader, name, title string, descs []manifest.Descriptor, fileMeta manifest.SnapshotFile, tw *tar.Writer, modTime time.Time, prefetch int) error {
+func streamEncodedFile(ctx context.Context, dl Downloader, name, title string, descs []manifest.Descriptor, fileMeta manifest.SnapshotFile, compressed bool, tw *tar.Writer, modTime time.Time, prefetch int) error {
 	hdr, err := layerHeader(title, fileMeta.Size, fileMeta, modTime)
 	if err != nil {
 		return err
@@ -117,8 +118,8 @@ func streamEncodedFile(ctx context.Context, dl Downloader, name, title string, d
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	var body io.Reader = newChunkSource(ctx, dl, name, descs, prefetch)
-	if manifest.IsZstdMediaType(descs[0].MediaType) {
+	var body io.Reader = newChunkSource(ctx, dl, name, descs, prefetchWindow(descs, prefetch))
+	if compressed {
 		dec, decErr := zstd.NewReader(body)
 		if decErr != nil {
 			return fmt.Errorf("init zstd decoder for %s: %w", title, decErr)
@@ -135,6 +136,24 @@ func streamEncodedFile(ctx context.Context, dl Downloader, name, title string, d
 		return fmt.Errorf("%s reconstructed to %d bytes, want %d", title, written, fileMeta.Size)
 	}
 	return nil
+}
+
+// pullPrefetchBudget caps the bytes held by in-flight prefetched chunks; the
+// window shrinks below the configured concurrency when chunks are large.
+const pullPrefetchBudget = 4 << 30
+
+// prefetchWindow bounds the prefetch depth so the buffered chunks fit the
+// budget, always allowing at least one in flight.
+func prefetchWindow(descs []manifest.Descriptor, prefetch int) int {
+	window, held := 0, int64(0)
+	for _, d := range descs {
+		if window >= prefetch || (window > 0 && held+d.Size > pullPrefetchBudget) {
+			break
+		}
+		window++
+		held += d.Size
+	}
+	return max(window, 1)
 }
 
 type chunkFetch struct {

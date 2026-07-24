@@ -50,9 +50,9 @@ const (
 	// is the authoritative chunk order.
 	AnnotationChunkIndex = "cocoonstack.chunk.index"
 	AnnotationChunkCount = "cocoonstack.chunk.count"
-)
 
-const zstdSuffix = "+zstd"
+	zstdSuffix = "+zstd"
+)
 
 // ZstdMediaType returns the mediaType for the zstd-compressed variant of mt.
 func ZstdMediaType(mt string) string {
