@@ -9,10 +9,7 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-// NewClientset returns a typed Kubernetes clientset using the rest.Config
-// produced by LoadConfig (KUBECONFIG env, ~/.kube/config, or in-cluster).
-// Errors are wrapped so callers can distinguish config-load failures from
-// client-build failures.
+// NewClientset returns a typed Kubernetes clientset built from LoadConfig.
 func NewClientset() (kubernetes.Interface, error) {
 	cfg, err := LoadConfig()
 	if err != nil {
@@ -21,9 +18,7 @@ func NewClientset() (kubernetes.Interface, error) {
 	return buildClientset(cfg)
 }
 
-// NewClientsetAndDynamic returns both a typed clientset and a dynamic
-// client built from the same rest.Config, so callers that need to talk
-// to CRDs alongside core resources don't call LoadConfig twice.
+// NewClientsetAndDynamic returns a typed clientset and a dynamic client built from one rest.Config.
 func NewClientsetAndDynamic() (kubernetes.Interface, dynamic.Interface, error) {
 	cfg, err := LoadConfig()
 	if err != nil {
@@ -40,7 +35,6 @@ func NewClientsetAndDynamic() (kubernetes.Interface, dynamic.Interface, error) {
 	return cs, dyn, nil
 }
 
-// buildClientset builds a typed clientset from cfg with a consistent error wrap.
 func buildClientset(cfg *rest.Config) (kubernetes.Interface, error) {
 	cs, err := kubernetes.NewForConfig(cfg)
 	if err != nil {

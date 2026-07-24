@@ -39,9 +39,7 @@ func TestExtractAgentSlot(t *testing.T) {
 			want:      3,
 		},
 		{
-			// A naive last-dash split would misread this as slot 2;
-			// ExtractAgentSlot rejects it because the suffix after the
-			// agent prefix contains a dash.
+			// A naive last-dash split would misread this as slot 2.
 			name:      "toolbox with trailing digit is not an agent slot",
 			ns:        "prod",
 			cocoonSet: "demo",

@@ -19,9 +19,6 @@ import (
 	"github.com/cocoonstack/cocoon-common/snapshot"
 )
 
-// TestOCIRegistryRoundTrip exercises the full Registry surface against an
-// in-memory OCI registry: a blob and a custom-artifactType manifest survive a
-// put -> exists -> get -> delete round trip.
 func TestOCIRegistryRoundTrip(t *testing.T) {
 	srv := httptest.NewServer(registry.New())
 	t.Cleanup(srv.Close)
@@ -121,10 +118,9 @@ func TestGetManifestByDigest(t *testing.T) {
 	}
 }
 
-// TestStreamResolvesIndexChildByDigest drives snapshot.Stream through the
-// image-index path against a live registry. The child snapshot manifest is
-// referenced only by digest, so the stream fails unless the OCIRegistry fetches
-// it via repo@digest — the regression this fix targets.
+// TestStreamResolvesIndexChildByDigest pins the image-index path: the child is
+// referenced only by digest, so the stream fails unless OCIRegistry fetches it
+// via repo@digest.
 func TestStreamResolvesIndexChildByDigest(t *testing.T) {
 	srv := httptest.NewServer(registry.New())
 	t.Cleanup(srv.Close)

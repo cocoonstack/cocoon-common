@@ -7,9 +7,6 @@ import (
 	"time"
 )
 
-// Kind identifies the artifact classification of an OCI manifest.
-type Kind int
-
 const (
 	KindUnknown Kind = iota
 	KindContainerImage
@@ -17,6 +14,9 @@ const (
 	KindSnapshot
 	KindImageIndex
 )
+
+// Kind identifies the artifact classification of an OCI manifest.
+type Kind int
 
 // String returns the human-readable name of the artifact kind.
 func (k Kind) String() string {

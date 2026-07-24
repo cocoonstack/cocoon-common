@@ -42,9 +42,7 @@ func TestPatchHibernateStateShortCircuitsNoOp(t *testing.T) {
 	meta.HibernateState(true).Apply(pod)
 	cli := newFakeClient(t, pod.DeepCopy())
 
-	// A second call with the same state should be a no-op: the fake
-	// client would error on Patch with an empty body, and our guard
-	// prevents that.
+	// The fake client errors on an empty-body Patch, so success proves the no-op guard.
 	if err := PatchHibernateState(t.Context(), cli, pod, true); err != nil {
 		t.Fatalf("no-op PatchHibernateState: %v", err)
 	}
@@ -109,8 +107,7 @@ func TestPatchCocoonSetGenerationShortCircuitsNoOp(t *testing.T) {
 	}}
 	cli := newFakeClient(t, pod.DeepCopy())
 
-	// Identical generation must be a true no-op: the fake client would
-	// error on Patch with an empty body, and the guard prevents that.
+	// The fake client errors on an empty-body Patch, so success proves the no-op guard.
 	if err := PatchCocoonSetGeneration(t.Context(), cli, pod, 7); err != nil {
 		t.Fatalf("no-op PatchCocoonSetGeneration: %v", err)
 	}

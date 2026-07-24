@@ -52,7 +52,6 @@ func TestPushProducesOCISnapshotManifest(t *testing.T) {
 		t.Fatalf("Push: %v", err)
 	}
 
-	// Manifest was uploaded with the right key + content type.
 	upload, ok := uploader.manifests["myvm:v1"]
 	if !ok {
 		t.Fatalf("manifest myvm:v1 not uploaded")
@@ -64,7 +63,6 @@ func TestPushProducesOCISnapshotManifest(t *testing.T) {
 		t.Errorf("PushResult.ManifestBytes does not match what was uploaded")
 	}
 
-	// Parse the manifest the pusher built and assert its OCI shape.
 	parsed, err := manifest.Parse(upload.bytes)
 	if err != nil {
 		t.Fatalf("parse manifest: %v", err)
@@ -82,8 +80,6 @@ func TestPushProducesOCISnapshotManifest(t *testing.T) {
 		t.Errorf("baseimage annotation missing: %v", parsed.Annotations)
 	}
 
-	// Layers must include all four files in tar order with the right
-	// mediaType and title annotation.
 	wantLayers := []struct {
 		title     string
 		mediaType string
@@ -109,7 +105,6 @@ func TestPushProducesOCISnapshotManifest(t *testing.T) {
 		}
 	}
 
-	// The config blob the pusher uploaded must round-trip into SnapshotConfig.
 	configBlob, ok := uploader.blobs[parsed.Config.Digest]
 	if !ok {
 		t.Fatalf("config blob %s not uploaded", parsed.Config.Digest)

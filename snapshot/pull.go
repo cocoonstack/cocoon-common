@@ -115,8 +115,6 @@ func FetchSnapshotConfig(ctx context.Context, dl Downloader, name string, desc m
 
 // pickIndexChild selects the linux/amd64 child from an OCI image-index and
 // falls back to the first non-attestation entry when no platform matches.
-// A fallback selection is logged at Warn so operators can see which child
-// was actually streamed instead of silently shipping a non-amd64 snapshot.
 func pickIndexChild(ctx context.Context, m *manifest.OCIManifest) (manifest.IndexManifest, error) {
 	var fallback *manifest.IndexManifest
 	for i := range m.Manifests {
@@ -129,8 +127,8 @@ func pickIndexChild(ctx context.Context, m *manifest.OCIManifest) (manifest.Inde
 		}
 	}
 	if fallback != nil {
-		log.WithFunc("snapshot.pickIndexChild").Warnf(ctx,
-			"image-index has no linux/amd64 child, falling back to %s/%s (%s)",
+		logger := log.WithFunc("snapshot.pickIndexChild")
+		logger.Warnf(ctx, "image-index has no linux/amd64 child, falling back to %s/%s (%s)",
 			fallback.Platform.OS, fallback.Platform.Architecture, fallback.Digest)
 		return *fallback, nil
 	}

@@ -71,9 +71,7 @@ func GenerateSelfSignedCert(hostname, ip string) (tls.Certificate, error) {
 	return tls.X509KeyPair(certPEM, keyPEM)
 }
 
-// tryLoadDiskCert returns ("", "", nil) when the caller should fall
-// back to self-signed (paths empty, cert missing, or expired) and an
-// error only when a configured keypair fails to load.
+// An empty source label means the caller should fall back to self-signed.
 func tryLoadDiskCert(ctx context.Context, certPath, keyPath string) (tls.Certificate, string, error) {
 	if certPath == "" || keyPath == "" {
 		return tls.Certificate{}, "", nil
@@ -94,8 +92,6 @@ func tryLoadDiskCert(ctx context.Context, certPath, keyPath string) (tls.Certifi
 	return cert, fmt.Sprintf("disk %s", certPath), nil
 }
 
-// isCertExpired returns true when the leaf cert is past NotAfter.
-// Parse failures are warned and treated as "not expired".
 func isCertExpired(ctx context.Context, cert tls.Certificate, certPath string) bool {
 	logger := log.WithFunc("k8s.isCertExpired")
 	parsed, err := x509.ParseCertificate(cert.Certificate[0])

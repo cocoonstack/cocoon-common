@@ -54,10 +54,7 @@ func TestLoadOrGenerateCertLoadsFromDisk(t *testing.T) {
 	certPath := filepath.Join(dir, "tls.crt")
 	keyPath := filepath.Join(dir, "tls.key")
 
-	// Mint a fresh keypair directly so we can persist matching PEM
-	// blocks — GenerateSelfSignedCert returns a tls.Certificate whose
-	// private key is already in memory, so there is no second
-	// roundtrip through PEM on disk to reuse.
+	// Mint the keypair directly: GenerateSelfSignedCert keeps the private key in memory and exposes no PEM to persist.
 	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		t.Fatalf("gen key: %v", err)
@@ -104,7 +101,6 @@ func TestLoadOrGenerateCertExpiredDiskCertFallsBack(t *testing.T) {
 	if err != nil {
 		t.Fatalf("gen key: %v", err)
 	}
-	// NotAfter in the past forces the expiry branch.
 	tmpl := x509.Certificate{
 		SerialNumber: big.NewInt(1),
 		Subject:      pkix.Name{CommonName: "host"},

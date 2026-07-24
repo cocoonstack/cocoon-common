@@ -16,7 +16,7 @@ func TestHibernateStateApplyTrue(t *testing.T) {
 }
 
 func TestHibernateStateApplyFalseOnNilAnnotations(t *testing.T) {
-	pod := &corev1.Pod{} // pod.Annotations is nil
+	pod := &corev1.Pod{}
 	// delete on a nil map must not panic.
 	HibernateState(false).Apply(pod)
 	if got, ok := pod.Annotations[AnnotationHibernate]; ok {

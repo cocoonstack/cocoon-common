@@ -3,9 +3,7 @@ package k8s
 import "testing"
 
 func TestDetectNodeIPReturnsSomething(t *testing.T) {
-	// CI hosts are expected to have at least one non-loopback IPv4
-	// interface; skip when none is present so the test reflects the
-	// environment rather than masking it as a pass.
+	// Skip rather than fail: a host without a non-loopback IPv4 is an environment gap, not a bug.
 	got, err := DetectNodeIP()
 	if err != nil {
 		t.Skipf("no non-loopback IPv4 on this host: %v", err)

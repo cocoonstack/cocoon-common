@@ -52,7 +52,6 @@ func TestRunShutsDownOnCtxCancel(t *testing.T) {
 		runErrCh <- Run(ctx, 2*time.Second, HTTPServerSpec(srv))
 	}()
 
-	// Poll the server until it's accepting connections.
 	waitForServer(t, addr)
 
 	resp, err := http.Get("http://" + addr + "/")
@@ -182,14 +181,10 @@ func TestHTTPSServerSpecUsesListenAndServeTLS(t *testing.T) {
 	if spec.Start == nil {
 		t.Errorf("start must be set")
 	}
-	// Don't invoke Start — it would try to load real files. We only
-	// verify wiring here; end-to-end TLS is covered implicitly by
-	// consumers that run real TLS servers.
+	// Don't invoke Start — it would try to load real cert files.
 }
 
-// waitForServer polls TCP connectivity to addr until successful or the
-// deadline hits. Without this the test races against ListenAndServe's
-// listener setup.
+// Without this the test races against ListenAndServe's listener setup.
 func waitForServer(t *testing.T, addr string) {
 	t.Helper()
 	deadline := time.Now().Add(3 * time.Second)

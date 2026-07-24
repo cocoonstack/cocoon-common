@@ -37,10 +37,8 @@ func ReadRestoreFromHibernate(pod *corev1.Pod) bool {
 	return pod.Annotations[AnnotationRestoreFromHibernate] == annotationTrue
 }
 
-// MarkRestoreFromHibernate flags a freshly-built pod to restore its VM from the
-// :hibernate snapshot instead of cloning from the base image. The operator sets
-// this when it (re)creates a pod for an agent that is currently hibernated (see
-// AnnotationRestoreFromHibernate); symmetric with ReadRestoreFromHibernate.
+// MarkRestoreFromHibernate flags a pod to restore its VM from the :hibernate
+// snapshot instead of cloning from the base image.
 func MarkRestoreFromHibernate(pod *corev1.Pod) {
 	if pod == nil {
 		return

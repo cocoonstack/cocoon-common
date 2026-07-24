@@ -51,8 +51,7 @@ func TestNewClientsetAndDynamicBadKubeconfigWraps(t *testing.T) {
 	}
 }
 
-// The server URL is fake — good enough for the clients to build; no requests
-// are issued in these tests.
+// The server URL is fake: the clients only need to build, no requests are issued.
 func writeKubeconfig(t *testing.T) string {
 	t.Helper()
 	body := `apiVersion: v1

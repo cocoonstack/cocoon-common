@@ -39,8 +39,6 @@ const (
 	BackendFirecracker     Backend = "firecracker"
 )
 
-// Per-type valid-value tables. Keep ordering aligned with the const
-// block above so a new enum member is one edit in each place.
 var (
 	agentModeValid      = []AgentMode{AgentModeClone, AgentModeRun}
 	toolboxModeValid    = []ToolboxMode{ToolboxModeRun, ToolboxModeClone, ToolboxModeStatic}

@@ -111,7 +111,6 @@ func TestDiskLayersFiltersAndSorts(t *testing.T) {
 	}
 }
 
-// fakeBlobs is a tiny in-memory BlobReader for tests.
 type fakeBlobs map[string][]byte
 
 func (f fakeBlobs) ReadBlob(_ context.Context, digest string) (io.ReadCloser, error) {
