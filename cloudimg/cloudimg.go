@@ -13,10 +13,7 @@ import (
 	"github.com/cocoonstack/cocoon-common/ociutil"
 )
 
-// BlobReader abstracts reading a blob by digest.
-// ReadBlob carries the same digest guarantee as snapshot.Downloader.GetBlob: the
-// returned stream must fail before EOF on a content mismatch, so copyBlob checks
-// length only.
+// BlobReader reads digest-verified blobs.
 type BlobReader interface {
 	ReadBlob(ctx context.Context, digest string) (io.ReadCloser, error)
 }

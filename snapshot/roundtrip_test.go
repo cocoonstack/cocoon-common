@@ -483,9 +483,6 @@ func TestPullRejectsNegativeLayerSize(t *testing.T) {
 	}
 }
 
-// chunkStream enforces the length half of the blob contract itself — exact size,
-// no trailing bytes — driven directly so the zstd decoder can't mask the checks.
-// The digest half belongs to Downloader.GetBlob (see its contract).
 func TestChunkStreamEnforcesBlobLength(t *testing.T) {
 	body := []byte("chunk stream body bytes")
 	digest := "sha256:" + ociutil.SHA256Hex(body)

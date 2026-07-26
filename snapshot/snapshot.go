@@ -33,11 +33,7 @@ type Uploader interface {
 	PutManifest(ctx context.Context, name, tag string, data []byte, contentType string) error
 }
 
-// Downloader abstracts OCI manifest and blob downloads. GetBlob MUST return a
-// stream that fails before EOF if the content does not match the requested
-// digest — go-containerregistry's remote.Layer does this via verify.ReadCloser.
-// The readers here therefore check length only; re-hashing every byte a second
-// time measured 59% of pull CPU and adds no guarantee.
+// Downloader abstracts OCI manifests and digest-verified blob streams.
 type Downloader interface {
 	GetManifest(ctx context.Context, name, tag string) ([]byte, string, error)
 	GetBlob(ctx context.Context, name, digest string) (io.ReadCloser, error)
