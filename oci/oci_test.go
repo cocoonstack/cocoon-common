@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"crypto/sha256"
+	"crypto/tls"
 	"encoding/hex"
 	"errors"
 	"io"
@@ -18,6 +19,22 @@ import (
 	"github.com/cocoonstack/cocoon-common/manifest"
 	"github.com/cocoonstack/cocoon-common/snapshot"
 )
+
+func TestBulkTransportUsesHTTP1(t *testing.T) {
+	tr := bulkTransport()
+	if tr.ForceAttemptHTTP2 {
+		t.Fatal("ForceAttemptHTTP2 = true, want false")
+	}
+	if tr.TLSClientConfig == nil || tr.TLSClientConfig.MinVersion != tls.VersionTLS12 {
+		t.Fatalf("TLS config = %#v, want TLS 1.2 minimum", tr.TLSClientConfig)
+	}
+	if got := strings.Join(tr.TLSClientConfig.NextProtos, ","); got != "http/1.1" {
+		t.Errorf("NextProtos = %q, want http/1.1", got)
+	}
+	if tr.MaxIdleConnsPerHost != maxRegistryConnsPerHost {
+		t.Errorf("MaxIdleConnsPerHost = %d, want %d", tr.MaxIdleConnsPerHost, maxRegistryConnsPerHost)
+	}
+}
 
 func TestOCIRegistryRoundTrip(t *testing.T) {
 	srv := httptest.NewServer(registry.New())
