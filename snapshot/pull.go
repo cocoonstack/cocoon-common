@@ -176,9 +176,17 @@ func pickIndexChild(ctx context.Context, m *manifest.OCIManifest) (manifest.Inde
 	return manifest.IndexManifest{}, errors.New("image-index has no usable platform child")
 }
 
-// writeImportTar assembles the import tar: raw layers (the whole v1 format)
-// stream straight through, encoded layers decode via pullencoded.go.
 func writeImportTar(ctx context.Context, dl Downloader, name, localName string, cfg *manifest.SnapshotConfig, layers []manifest.Descriptor, w io.Writer, progress func(string), prefetch int, budget int64) error {
+	entries, err := planLayers(cfg, layers)
+	if err != nil {
+		return err
+	}
+	pipe, err := newChunkPipeline(dl, name, entries, prefetch, budget)
+	if err != nil {
+		return err
+	}
+	defer pipe.Close()
+
 	bw := bufio.NewWriterSize(w, 256<<10)
 	tw := tar.NewWriter(bw)
 
@@ -187,11 +195,37 @@ func writeImportTar(ctx context.Context, dl Downloader, name, localName string, 
 		return err
 	}
 
+	for _, e := range entries {
+		if !e.encoded() {
+			if progress != nil {
+				progress(fmt.Sprintf("  %s (%d bytes)", e.title, e.layer.Size))
+			}
+			if err := streamLayerToTar(ctx, dl, name, e.layer, e.meta, tw, now); err != nil {
+				return err
+			}
+			continue
+		}
+		if progress != nil {
+			progress(fmt.Sprintf("  %s (%d bytes, %d chunks)", e.title, e.meta.Size, len(e.chunks)))
+		}
+		if err := pipe.streamFile(ctx, tw, e, now); err != nil {
+			return err
+		}
+	}
+
+	if err := tw.Close(); err != nil {
+		return fmt.Errorf("close tar: %w", err)
+	}
+	return bw.Flush()
+}
+
+func planLayers(cfg *manifest.SnapshotConfig, layers []manifest.Descriptor) ([]layerPlan, error) {
 	byDigest := make(map[string]manifest.Descriptor, len(layers))
 	for _, layer := range layers {
 		byDigest[layer.Digest] = layer
 	}
 
+	entries := make([]layerPlan, 0, len(layers))
 	emitted := map[string]bool{}
 	for _, layer := range layers {
 		title := layer.Title()
@@ -201,37 +235,25 @@ func writeImportTar(ctx context.Context, dl Downloader, name, localName string, 
 		}
 
 		if len(fileMeta.Chunks) == 0 && !manifest.IsZstdMediaType(layer.MediaType) {
-			if progress != nil {
-				progress(fmt.Sprintf("  %s (%d bytes)", title, layer.Size))
-			}
-			if err := streamLayerToTar(ctx, dl, name, layer, fileMeta, tw, now); err != nil {
-				return err
-			}
+			entries = append(entries, layerPlan{title: title, meta: fileMeta, layer: layer})
 			continue
 		}
-
 		if emitted[title] {
-			continue // continuation chunk of a file already streamed
+			continue
 		}
 		emitted[title] = true
 		descs, err := resolveEncodedFile(layer, fileMeta, byDigest)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		if progress != nil {
-			progress(fmt.Sprintf("  %s (%d bytes, %d chunks)", title, fileMeta.Size, len(descs)))
-		}
-		// Decode by this file's own layer mediaType: a dedup winner may carry another file's.
-		compressed := manifest.IsZstdMediaType(layer.MediaType)
-		if err := streamEncodedFile(ctx, dl, name, title, descs, fileMeta, compressed, tw, now, prefetch, budget); err != nil {
-			return err
-		}
+		entries = append(entries, layerPlan{
+			title:  title,
+			meta:   fileMeta,
+			layer:  layer,
+			chunks: descs,
+		})
 	}
-
-	if err := tw.Close(); err != nil {
-		return fmt.Errorf("close tar: %w", err)
-	}
-	return bw.Flush()
+	return entries, nil
 }
 
 func writeSnapshotEnvelope(tw *tar.Writer, cfg *manifest.SnapshotConfig, localName string, now time.Time) error {
