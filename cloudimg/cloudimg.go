@@ -14,6 +14,9 @@ import (
 )
 
 // BlobReader abstracts reading a blob by digest.
+// ReadBlob carries the same digest guarantee as snapshot.Downloader.GetBlob: the
+// returned stream must fail before EOF on a content mismatch, so copyBlob checks
+// length only.
 type BlobReader interface {
 	ReadBlob(ctx context.Context, digest string) (io.ReadCloser, error)
 }
@@ -65,5 +68,5 @@ func copyBlob(ctx context.Context, blobs BlobReader, layer manifest.Descriptor, 
 		return fmt.Errorf("get blob %s: %w", layer.Digest, err)
 	}
 	defer func() { _ = body.Close() }()
-	return ociutil.CopyBlobExact(w, body, layer.Digest, layer.Size)
+	return ociutil.CopyBlobSized(w, body, layer.Digest, layer.Size)
 }

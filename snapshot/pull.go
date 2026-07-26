@@ -302,7 +302,7 @@ func streamLayerToTar(ctx context.Context, dl Downloader, name string, layer man
 		return fmt.Errorf("get blob %s: %w", layer.Digest, err)
 	}
 	defer func() { _ = body.Close() }()
-	return ociutil.CopyBlobExact(tw, body, layer.Digest, layer.Size)
+	return ociutil.CopyBlobSized(tw, body, layer.Digest, layer.Size)
 }
 
 func writeTarFile(tw *tar.Writer, name string, data []byte, mode int64, modTime time.Time) error {

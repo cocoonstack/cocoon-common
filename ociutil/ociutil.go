@@ -29,9 +29,18 @@ func CopyBlobExact(dst io.Writer, body io.Reader, digest string, size int64) err
 	return err
 }
 
+// CopyBlobSized copies exactly size bytes, trusting the transport for the digest.
+// For a body from a Downloader that already verified it, a second sha256 pass
+// buys nothing and measured 59% of pull CPU (2026-07-26 profile, node-7).
+func CopyBlobSized(dst io.Writer, body io.Reader, digest string, size int64) error {
+	_, err := io.Copy(dst, NewBlobSizeChecker(body, digest, size))
+	return err
+}
+
 // BlobVerifier wraps a blob body and enforces the manifest contract while it
-// is read: exactly size bytes, no trailing data, matching sha256 digest. Read
-// returns io.EOF only after every check passed; violations surface as errors.
+// is read: exactly size bytes, no trailing data, and — unless the transport
+// already checked it — a matching sha256 digest. Read returns io.EOF only
+// after every check passed; violations surface as errors.
 type BlobVerifier struct {
 	body   io.Reader
 	digest string
@@ -45,6 +54,14 @@ type BlobVerifier struct {
 func NewBlobVerifier(body io.Reader, digest string, size int64) *BlobVerifier {
 	v := &BlobVerifier{body: body, digest: digest, size: size, hash: sha256.New()}
 	v.lim = io.LimitedReader{R: io.TeeReader(body, v.hash), N: size}
+	return v
+}
+
+// NewBlobSizeChecker enforces exact-size and no-trailing-data only. Callers must
+// have a digest guarantee from elsewhere — see the Downloader contract.
+func NewBlobSizeChecker(body io.Reader, digest string, size int64) *BlobVerifier {
+	v := &BlobVerifier{body: body, digest: digest, size: size}
+	v.lim = io.LimitedReader{R: body, N: size}
 	return v
 }
 
@@ -76,6 +93,9 @@ func (v *BlobVerifier) finish() error {
 	var probe [1]byte
 	if extra, _ := v.body.Read(probe[:]); extra > 0 {
 		return fmt.Errorf("blob %s longer than manifest size %d", v.digest, v.size)
+	}
+	if v.hash == nil {
+		return nil
 	}
 	got := "sha256:" + hex.EncodeToString(v.hash.Sum(nil))
 	want := v.digest

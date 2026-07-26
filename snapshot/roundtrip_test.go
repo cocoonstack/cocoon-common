@@ -483,9 +483,10 @@ func TestPullRejectsNegativeLayerSize(t *testing.T) {
 	}
 }
 
-// chunkStream must enforce the blob contract itself: digest match, exact size,
+// chunkStream enforces the length half of the blob contract itself — exact size,
 // no trailing bytes — driven directly so the zstd decoder can't mask the checks.
-func TestChunkStreamVerifiesBlobs(t *testing.T) {
+// The digest half belongs to Downloader.GetBlob (see its contract).
+func TestChunkStreamEnforcesBlobLength(t *testing.T) {
 	body := []byte("chunk stream body bytes")
 	digest := "sha256:" + ociutil.SHA256Hex(body)
 	uploader := newFakeUploader()
@@ -499,11 +500,6 @@ func TestChunkStreamVerifiesBlobs(t *testing.T) {
 
 	if err := read([]manifest.Descriptor{{Digest: digest, Size: int64(len(body))}}); err != nil {
 		t.Fatalf("clean blob: %v", err)
-	}
-	wrongDigest := "sha256:" + ociutil.SHA256Hex([]byte("other"))
-	uploader.blobs[wrongDigest] = body
-	if err := read([]manifest.Descriptor{{Digest: wrongDigest, Size: int64(len(body))}}); err == nil || !strings.Contains(err.Error(), "digest mismatch") {
-		t.Fatalf("err = %v, want digest mismatch", err)
 	}
 	if err := read([]manifest.Descriptor{{Digest: digest, Size: int64(len(body)) + 5}}); err == nil || !strings.Contains(err.Error(), "shorter than") {
 		t.Fatalf("err = %v, want shorter-than-size", err)

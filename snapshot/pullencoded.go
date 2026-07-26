@@ -206,7 +206,7 @@ func (s *chunkStream) Read(p []byte) (int, error) {
 				return 0, fmt.Errorf("get blob %s: %w", desc.Digest, err)
 			}
 			s.body = body
-			s.cur = ociutil.NewBlobVerifier(body, desc.Digest, desc.Size)
+			s.cur = ociutil.NewBlobSizeChecker(body, desc.Digest, desc.Size)
 		}
 		n, err := s.cur.Read(p)
 		if errors.Is(err, io.EOF) {
