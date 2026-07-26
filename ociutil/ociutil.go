@@ -35,7 +35,7 @@ func CopyBlobSized(dst io.Writer, body io.Reader, digest string, size int64) err
 	return err
 }
 
-// BlobVerifier enforces configured blob length and digest checks while reading.
+// BlobVerifier enforces configured blob checks while reading.
 type BlobVerifier struct {
 	body   io.Reader
 	digest string
