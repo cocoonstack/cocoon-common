@@ -41,18 +41,6 @@ func NewOCIRegistry(base string, keychain authn.Keychain) *OCIRegistry {
 	}}
 }
 
-func bulkTransport() *http.Transport {
-	base, ok := http.DefaultTransport.(*http.Transport)
-	if !ok {
-		base = &http.Transport{Proxy: http.ProxyFromEnvironment}
-	}
-	t := base.Clone()
-	t.ForceAttemptHTTP2 = false
-	t.TLSClientConfig = &tls.Config{NextProtos: []string{"http/1.1"}, MinVersion: tls.VersionTLS12}
-	t.MaxIdleConnsPerHost = maxRegistryConnsPerHost
-	return t
-}
-
 // GetManifest fetches the raw manifest bytes and media type at repo:tag, or at
 // repo@digest when tag is a sha256:... digest (multi-arch child manifests).
 func (r *OCIRegistry) GetManifest(ctx context.Context, repo, tag string) ([]byte, string, error) {
@@ -162,6 +150,18 @@ func (r *OCIRegistry) parseRef(repo, reference string) (name.Reference, error) {
 
 func (r *OCIRegistry) callOpts(ctx context.Context) []remote.Option {
 	return append(r.opts, remote.WithContext(ctx))
+}
+
+func bulkTransport() *http.Transport {
+	base, ok := http.DefaultTransport.(*http.Transport)
+	if !ok {
+		base = &http.Transport{Proxy: http.ProxyFromEnvironment}
+	}
+	t := base.Clone()
+	t.ForceAttemptHTTP2 = false
+	t.TLSClientConfig = &tls.Config{NextProtos: []string{"http/1.1"}, MinVersion: tls.VersionTLS12}
+	t.MaxIdleConnsPerHost = maxRegistryConnsPerHost
+	return t
 }
 
 // ignoreNotFound maps a registry 404 to a nil error (absent, not failed) and
