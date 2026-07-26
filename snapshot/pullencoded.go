@@ -21,25 +21,6 @@ const (
 	maxBufferedChunkBytes = 1 << 30
 )
 
-func resolveEncodedFile(layer manifest.Descriptor, fileMeta manifest.SnapshotFile, byDigest map[string]manifest.Descriptor) ([]manifest.Descriptor, error) {
-	title := layer.Title()
-	if fileMeta.Size <= 0 {
-		return nil, fmt.Errorf("%s: encoded layer missing files[].size in snapshot config", title)
-	}
-	if len(fileMeta.Chunks) == 0 {
-		return []manifest.Descriptor{layer}, nil
-	}
-	descs := make([]manifest.Descriptor, len(fileMeta.Chunks))
-	for i, digest := range fileMeta.Chunks {
-		desc, ok := byDigest[digest]
-		if !ok {
-			return nil, fmt.Errorf("%s chunk %d (%s) missing from manifest layers", title, i, digest)
-		}
-		descs[i] = desc
-	}
-	return descs, nil
-}
-
 type layerPlan struct {
 	title  string
 	meta   manifest.SnapshotFile
@@ -167,11 +148,51 @@ func (p *chunkPipeline) streamFile(ctx context.Context, tw *tar.Writer, e layerP
 	return nil
 }
 
-func rawChunkStride(size int64, n int) int64 {
-	if n <= 1 || size <= 0 {
-		return size
+func (p *chunkPipeline) fetch(ctx context.Context, desc manifest.Descriptor, compressed bool) chunkFetch {
+	if desc.Size < 0 || desc.Size > maxBufferedChunkBytes {
+		return chunkFetch{err: fmt.Errorf("blob %s size %d outside bufferable range", desc.Digest, desc.Size)}
 	}
-	return (size-1)/int64(n-1) + 1
+	if !compressed {
+		buf := p.out.take(p.outputCap)
+		stored, err := p.read(ctx, desc, buf)
+		if err != nil {
+			p.out.put(buf)
+			return chunkFetch{err: err}
+		}
+		return chunkFetch{data: stored, buf: buf}
+	}
+	comp := p.in.take(p.inputCap)
+	stored, err := p.read(ctx, desc, comp)
+	if err != nil {
+		p.in.put(comp)
+		return chunkFetch{err: err}
+	}
+	dst := p.out.take(p.outputCap)
+	out, err := p.dec.DecodeAll(stored, dst[:0])
+	p.in.put(comp)
+	if err != nil {
+		p.out.put(dst)
+		return chunkFetch{err: fmt.Errorf("decode chunk %s: %w", desc.Digest, err)}
+	}
+	return chunkFetch{data: out, buf: dst}
+}
+
+func (p *chunkPipeline) read(ctx context.Context, desc manifest.Descriptor, buf []byte) ([]byte, error) {
+	body, err := p.dl.GetBlob(ctx, p.name, desc.Digest)
+	if err != nil {
+		return nil, fmt.Errorf("get blob %s: %w", desc.Digest, err)
+	}
+	defer func() { _ = body.Close() }()
+	stored := buf[:desc.Size]
+	v := ociutil.NewBlobSizeChecker(body, desc.Digest, desc.Size)
+	if _, err = io.ReadFull(v, stored); err != nil {
+		return nil, err
+	}
+	// Drain the checker: its trailing-data and transport checks run at EOF.
+	if _, err = io.Copy(io.Discard, v); err != nil {
+		return nil, err
+	}
+	return stored, nil
 }
 
 type chunkFetch struct {
@@ -221,52 +242,6 @@ func (s *chunkSource) WriteTo(w io.Writer) (int64, error) {
 	return written, nil
 }
 
-func (p *chunkPipeline) fetch(ctx context.Context, desc manifest.Descriptor, compressed bool) chunkFetch {
-	if desc.Size < 0 || desc.Size > maxBufferedChunkBytes {
-		return chunkFetch{err: fmt.Errorf("blob %s size %d outside bufferable range", desc.Digest, desc.Size)}
-	}
-	if !compressed {
-		buf := p.out.take(p.outputCap)
-		stored, err := p.read(ctx, desc, buf)
-		if err != nil {
-			p.out.put(buf)
-			return chunkFetch{err: err}
-		}
-		return chunkFetch{data: stored, buf: buf}
-	}
-	comp := p.in.take(p.inputCap)
-	stored, err := p.read(ctx, desc, comp)
-	if err != nil {
-		p.in.put(comp)
-		return chunkFetch{err: err}
-	}
-	dst := p.out.take(p.outputCap)
-	out, err := p.dec.DecodeAll(stored, dst[:0])
-	p.in.put(comp)
-	if err != nil {
-		p.out.put(dst)
-		return chunkFetch{err: fmt.Errorf("decode chunk %s: %w", desc.Digest, err)}
-	}
-	return chunkFetch{data: out, buf: dst}
-}
-
-func (p *chunkPipeline) read(ctx context.Context, desc manifest.Descriptor, buf []byte) ([]byte, error) {
-	body, err := p.dl.GetBlob(ctx, p.name, desc.Digest)
-	if err != nil {
-		return nil, fmt.Errorf("get blob %s: %w", desc.Digest, err)
-	}
-	defer func() { _ = body.Close() }()
-	stored := buf[:desc.Size]
-	v := ociutil.NewBlobSizeChecker(body, desc.Digest, desc.Size)
-	if _, err = io.ReadFull(v, stored); err != nil {
-		return nil, err
-	}
-	if _, err = io.Copy(io.Discard, v); err != nil {
-		return nil, err
-	}
-	return stored, nil
-}
-
 type chunkStream struct {
 	ctx   context.Context
 	dl    Downloader
@@ -312,4 +287,30 @@ func (s *chunkStream) Close() error {
 		s.cur, s.body = nil, nil
 	}
 	return nil
+}
+
+func resolveEncodedFile(layer manifest.Descriptor, fileMeta manifest.SnapshotFile, byDigest map[string]manifest.Descriptor) ([]manifest.Descriptor, error) {
+	title := layer.Title()
+	if fileMeta.Size <= 0 {
+		return nil, fmt.Errorf("%s: encoded layer missing files[].size in snapshot config", title)
+	}
+	if len(fileMeta.Chunks) == 0 {
+		return []manifest.Descriptor{layer}, nil
+	}
+	descs := make([]manifest.Descriptor, len(fileMeta.Chunks))
+	for i, digest := range fileMeta.Chunks {
+		desc, ok := byDigest[digest]
+		if !ok {
+			return nil, fmt.Errorf("%s chunk %d (%s) missing from manifest layers", title, i, digest)
+		}
+		descs[i] = desc
+	}
+	return descs, nil
+}
+
+func rawChunkStride(size int64, n int) int64 {
+	if n <= 1 || size <= 0 {
+		return size
+	}
+	return (size-1)/int64(n-1) + 1
 }
