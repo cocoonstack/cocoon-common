@@ -2,6 +2,7 @@ package oci
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
@@ -15,6 +16,8 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 )
+
+const maxRegistryConnsPerHost = 32
 
 // errBlobUncompressed guards the DiffID/Uncompressed accessors: cocoon blobs
 // are opaque content-addressed bytes and WriteLayer only reads Compressed().
@@ -32,7 +35,10 @@ type OCIRegistry struct {
 // NewOCIRegistry roots a client at base, authenticating via keychain (e.g.
 // authn.DefaultKeychain, or a MultiKeychain with google.Keychain for GCP AR).
 func NewOCIRegistry(base string, keychain authn.Keychain) *OCIRegistry {
-	return &OCIRegistry{base: base, opts: []remote.Option{remote.WithAuthFromKeychain(keychain)}}
+	return &OCIRegistry{base: base, opts: []remote.Option{
+		remote.WithAuthFromKeychain(keychain),
+		remote.WithTransport(bulkTransport()),
+	}}
 }
 
 // GetManifest fetches the raw manifest bytes and media type at repo:tag, or at
@@ -49,7 +55,6 @@ func (r *OCIRegistry) GetManifest(ctx context.Context, repo, tag string) ([]byte
 	return desc.Manifest, string(desc.MediaType), nil
 }
 
-// GetBlob streams the blob at the given digest.
 func (r *OCIRegistry) GetBlob(ctx context.Context, repo, digest string) (io.ReadCloser, error) {
 	ref, err := name.NewDigest(r.base + "/" + repo + "@" + digest)
 	if err != nil {
@@ -62,7 +67,6 @@ func (r *OCIRegistry) GetBlob(ctx context.Context, repo, digest string) (io.Read
 	return layer.Compressed()
 }
 
-// HasBlob reports whether the blob is already present, so pushes can skip it.
 func (r *OCIRegistry) HasBlob(ctx context.Context, repo, digest string) (bool, error) {
 	ref, err := name.NewDigest(r.base + "/" + repo + "@" + digest)
 	if err != nil {
@@ -79,7 +83,6 @@ func (r *OCIRegistry) HasBlob(ctx context.Context, repo, digest string) (bool, e
 	return false, ignoreNotFound(err, "head blob "+repo+"@"+digest)
 }
 
-// HasManifest reports whether a manifest exists at repo:tag.
 func (r *OCIRegistry) HasManifest(ctx context.Context, repo, tag string) (bool, error) {
 	ref, err := name.ParseReference(r.base + "/" + repo + ":" + tag)
 	if err != nil {
@@ -91,7 +94,6 @@ func (r *OCIRegistry) HasManifest(ctx context.Context, repo, tag string) (bool, 
 	return true, nil
 }
 
-// PutBlob uploads a blob of the given digest/size via a standard upload session.
 func (r *OCIRegistry) PutBlob(ctx context.Context, repo, digest string, body io.Reader, size int64) error {
 	repoRef, err := name.NewRepository(r.base + "/" + repo)
 	if err != nil {
@@ -107,7 +109,6 @@ func (r *OCIRegistry) PutBlob(ctx context.Context, repo, digest string, body io.
 	return nil
 }
 
-// PutManifest uploads a manifest at repo:tag with the given content type.
 func (r *OCIRegistry) PutManifest(ctx context.Context, repo, tag string, data []byte, contentType string) error {
 	ref, err := name.ParseReference(r.base + "/" + repo + ":" + tag)
 	if err != nil {
@@ -149,6 +150,18 @@ func (r *OCIRegistry) parseRef(repo, reference string) (name.Reference, error) {
 
 func (r *OCIRegistry) callOpts(ctx context.Context) []remote.Option {
 	return append(r.opts, remote.WithContext(ctx))
+}
+
+func bulkTransport() *http.Transport {
+	base, ok := http.DefaultTransport.(*http.Transport)
+	if !ok {
+		base = &http.Transport{Proxy: http.ProxyFromEnvironment}
+	}
+	t := base.Clone()
+	t.ForceAttemptHTTP2 = false
+	t.TLSClientConfig = &tls.Config{NextProtos: []string{"http/1.1"}, MinVersion: tls.VersionTLS12}
+	t.MaxIdleConnsPerHost = maxRegistryConnsPerHost
+	return t
 }
 
 // ignoreNotFound maps a registry 404 to a nil error (absent, not failed) and
