@@ -50,7 +50,6 @@ func bulkTransport() *http.Transport {
 	t.ForceAttemptHTTP2 = false
 	t.TLSClientConfig = &tls.Config{NextProtos: []string{"http/1.1"}, MinVersion: tls.VersionTLS12}
 	t.MaxIdleConnsPerHost = maxRegistryConnsPerHost
-	t.MaxConnsPerHost = 0
 	return t
 }
 
@@ -68,7 +67,6 @@ func (r *OCIRegistry) GetManifest(ctx context.Context, repo, tag string) ([]byte
 	return desc.Manifest, string(desc.MediaType), nil
 }
 
-// GetBlob streams the blob at the given digest.
 func (r *OCIRegistry) GetBlob(ctx context.Context, repo, digest string) (io.ReadCloser, error) {
 	ref, err := name.NewDigest(r.base + "/" + repo + "@" + digest)
 	if err != nil {
@@ -81,7 +79,6 @@ func (r *OCIRegistry) GetBlob(ctx context.Context, repo, digest string) (io.Read
 	return layer.Compressed()
 }
 
-// HasBlob reports whether the blob is already present, so pushes can skip it.
 func (r *OCIRegistry) HasBlob(ctx context.Context, repo, digest string) (bool, error) {
 	ref, err := name.NewDigest(r.base + "/" + repo + "@" + digest)
 	if err != nil {
@@ -98,7 +95,6 @@ func (r *OCIRegistry) HasBlob(ctx context.Context, repo, digest string) (bool, e
 	return false, ignoreNotFound(err, "head blob "+repo+"@"+digest)
 }
 
-// HasManifest reports whether a manifest exists at repo:tag.
 func (r *OCIRegistry) HasManifest(ctx context.Context, repo, tag string) (bool, error) {
 	ref, err := name.ParseReference(r.base + "/" + repo + ":" + tag)
 	if err != nil {
@@ -110,7 +106,6 @@ func (r *OCIRegistry) HasManifest(ctx context.Context, repo, tag string) (bool, 
 	return true, nil
 }
 
-// PutBlob uploads a blob of the given digest/size via a standard upload session.
 func (r *OCIRegistry) PutBlob(ctx context.Context, repo, digest string, body io.Reader, size int64) error {
 	repoRef, err := name.NewRepository(r.base + "/" + repo)
 	if err != nil {
@@ -126,7 +121,6 @@ func (r *OCIRegistry) PutBlob(ctx context.Context, repo, digest string, body io.
 	return nil
 }
 
-// PutManifest uploads a manifest at repo:tag with the given content type.
 func (r *OCIRegistry) PutManifest(ctx context.Context, repo, tag string, data []byte, contentType string) error {
 	ref, err := name.ParseReference(r.base + "/" + repo + ":" + tag)
 	if err != nil {
