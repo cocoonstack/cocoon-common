@@ -1,6 +1,13 @@
 package ociutil
 
-import "testing"
+import (
+	"bytes"
+	"errors"
+	"io"
+	"strings"
+	"testing"
+	"testing/iotest"
+)
 
 func TestParseRef(t *testing.T) {
 	tests := []struct {
@@ -52,5 +59,36 @@ func TestIsRelativeRef(t *testing.T) {
 				t.Errorf("IsRelativeRef(%q) = %v, want %v", tt.ref, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestBlobReadersSplitDigestAndLength(t *testing.T) {
+	body := []byte("blob body bytes")
+	wrong := "sha256:" + SHA256Hex([]byte("other"))
+
+	read := func(r io.Reader) error {
+		_, err := io.Copy(io.Discard, r)
+		return err
+	}
+
+	if err := read(NewBlobVerifier(bytes.NewReader(body), wrong, int64(len(body)))); err == nil ||
+		!strings.Contains(err.Error(), "digest mismatch") {
+		t.Errorf("verifier on a mismatched digest: err = %v, want digest mismatch", err)
+	}
+	if err := read(NewBlobSizeChecker(bytes.NewReader(body), wrong, int64(len(body)))); err != nil {
+		t.Errorf("size checker must not re-hash: %v", err)
+	}
+	if err := read(NewBlobSizeChecker(bytes.NewReader(body), wrong, int64(len(body))+5)); err == nil ||
+		!strings.Contains(err.Error(), "shorter than") {
+		t.Errorf("short blob: err = %v, want shorter-than-size", err)
+	}
+	if err := read(NewBlobSizeChecker(bytes.NewReader(body), wrong, int64(len(body))-5)); err == nil ||
+		!strings.Contains(err.Error(), "longer than") {
+		t.Errorf("long blob: err = %v, want longer-than-size", err)
+	}
+	verifyErr := errors.New("transport digest mismatch")
+	transport := io.MultiReader(bytes.NewReader(body), iotest.ErrReader(verifyErr))
+	if err := read(NewBlobSizeChecker(transport, wrong, int64(len(body)))); !errors.Is(err, verifyErr) {
+		t.Errorf("transport verification: err = %v, want %v", err, verifyErr)
 	}
 }

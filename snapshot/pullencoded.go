@@ -176,7 +176,7 @@ func fetchChunk(ctx context.Context, dl Downloader, name string, desc manifest.D
 	}
 	defer func() { _ = body.Close() }()
 	buf := bytes.NewBuffer(make([]byte, 0, desc.Size))
-	if err := ociutil.CopyBlobExact(buf, body, desc.Digest, desc.Size); err != nil {
+	if err := ociutil.CopyBlobSized(buf, body, desc.Digest, desc.Size); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil
@@ -206,7 +206,7 @@ func (s *chunkStream) Read(p []byte) (int, error) {
 				return 0, fmt.Errorf("get blob %s: %w", desc.Digest, err)
 			}
 			s.body = body
-			s.cur = ociutil.NewBlobVerifier(body, desc.Digest, desc.Size)
+			s.cur = ociutil.NewBlobSizeChecker(body, desc.Digest, desc.Size)
 		}
 		n, err := s.cur.Read(p)
 		if errors.Is(err, io.EOF) {
