@@ -35,10 +35,19 @@ type OCIRegistry struct {
 // NewOCIRegistry roots a client at base, authenticating via keychain (e.g.
 // authn.DefaultKeychain, or a MultiKeychain with google.Keychain for GCP AR).
 func NewOCIRegistry(base string, keychain authn.Keychain) *OCIRegistry {
-	return &OCIRegistry{base: base, opts: []remote.Option{
+	opts := []remote.Option{
 		remote.WithAuthFromKeychain(keychain),
 		remote.WithTransport(bulkTransport()),
-	}}
+	}
+	// Reuse pins one puller/pusher so the /v2/ ping + bearer-token exchange
+	// happens once per repo instead of on every blob call.
+	if puller, err := remote.NewPuller(opts...); err == nil {
+		opts = append(opts, remote.Reuse(puller))
+	}
+	if pusher, err := remote.NewPusher(opts...); err == nil {
+		opts = append(opts, remote.Reuse(pusher))
+	}
+	return &OCIRegistry{base: base, opts: opts}
 }
 
 // GetManifest fetches the raw manifest bytes and media type at repo:tag, or at
@@ -84,9 +93,9 @@ func (r *OCIRegistry) HasBlob(ctx context.Context, repo, digest string) (bool, e
 }
 
 func (r *OCIRegistry) HasManifest(ctx context.Context, repo, tag string) (bool, error) {
-	ref, err := name.ParseReference(r.base + "/" + repo + ":" + tag)
+	ref, err := r.parseRef(repo, tag)
 	if err != nil {
-		return false, fmt.Errorf("parse ref %s:%s: %w", repo, tag, err)
+		return false, err
 	}
 	if _, err := remote.Head(ref, r.callOpts(ctx)...); err != nil {
 		return false, ignoreNotFound(err, "head manifest "+repo+":"+tag)
@@ -110,9 +119,9 @@ func (r *OCIRegistry) PutBlob(ctx context.Context, repo, digest string, body io.
 }
 
 func (r *OCIRegistry) PutManifest(ctx context.Context, repo, tag string, data []byte, contentType string) error {
-	ref, err := name.ParseReference(r.base + "/" + repo + ":" + tag)
+	ref, err := r.parseRef(repo, tag)
 	if err != nil {
-		return fmt.Errorf("parse ref %s:%s: %w", repo, tag, err)
+		return err
 	}
 	if err := remote.Put(ref, rawManifest{data: data, mediaType: types.MediaType(contentType)}, r.callOpts(ctx)...); err != nil {
 		return fmt.Errorf("put manifest %s:%s: %w", repo, tag, err)

@@ -39,9 +39,6 @@ func Stream(ctx context.Context, raw []byte, dl Downloader, opts StreamOptions) 
 	if opts.Name == "" {
 		return errors.New("snapshot stream: name is required")
 	}
-	if opts.Writer == nil {
-		return errors.New("snapshot stream: writer is required")
-	}
 
 	m, err := manifest.Parse(raw)
 	if err != nil {

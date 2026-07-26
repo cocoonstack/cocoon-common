@@ -13,17 +13,17 @@ import (
 	"github.com/cocoonstack/cocoon-common/meta"
 )
 
-func TestPatchMergeWritesDelta(t *testing.T) {
+func TestPatchWritesDelta(t *testing.T) {
 	pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "demo", Namespace: "ns"}}
 	cli := newFakeClient(t, pod.DeepCopy())
 
-	if err := patchMerge(t.Context(), cli, pod, func(p *corev1.Pod) {
+	if err := Patch(t.Context(), cli, pod, func(p *corev1.Pod) {
 		if p.Labels == nil {
 			p.Labels = map[string]string{}
 		}
 		p.Labels["x"] = "y"
 	}); err != nil {
-		t.Fatalf("patchMerge: %v", err)
+		t.Fatalf("Patch: %v", err)
 	}
 
 	var got corev1.Pod

@@ -1,6 +1,8 @@
 package v1
 
 import (
+	"slices"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -16,9 +18,14 @@ const (
 	CocoonHibernationPhaseFailed      CocoonHibernationPhase = "Failed"
 )
 
+var hibernationDesireValid = []HibernationDesire{HibernationDesireHibernate, HibernationDesireWake}
+
 // HibernationDesire defines the desired hibernation state.
 // +kubebuilder:validation:Enum=Hibernate;Wake
 type HibernationDesire string
+
+// IsValid reports whether d is a recognized HibernationDesire value.
+func (d HibernationDesire) IsValid() bool { return slices.Contains(hibernationDesireValid, d) }
 
 // CocoonHibernationPhase represents the lifecycle phase of a CocoonHibernation.
 // +kubebuilder:validation:Enum=Pending;Hibernating;Hibernated;Waking;Active;Failed

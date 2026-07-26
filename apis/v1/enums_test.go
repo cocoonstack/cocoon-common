@@ -176,3 +176,20 @@ func TestEnumDefaults(t *testing.T) {
 		}
 	})
 }
+
+func TestHibernationDesireIsValid(t *testing.T) {
+	cases := []struct {
+		in   HibernationDesire
+		want bool
+	}{
+		{HibernationDesireHibernate, true},
+		{HibernationDesireWake, true},
+		{"", false},
+		{"unknown", false},
+	}
+	for _, c := range cases {
+		if got := c.in.IsValid(); got != c.want {
+			t.Errorf("HibernationDesire(%q).IsValid() = %v, want %v", c.in, got, c.want)
+		}
+	}
+}

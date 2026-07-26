@@ -21,12 +21,18 @@ func PatchStatus[T DeepCopyObject[T]](ctx context.Context, cli client.Client, ob
 	return cli.Status().Patch(ctx, obj, patch)
 }
 
+// Patch applies mutate under a MergeFrom patch on the object.
+func Patch[T DeepCopyObject[T]](ctx context.Context, cli client.Client, obj T, mutate func(T)) error {
+	patch := buildMergePatch(obj, mutate)
+	return cli.Patch(ctx, obj, patch)
+}
+
 // PatchHibernateState patches the hibernate annotation, short-circuiting if already at the desired state.
 func PatchHibernateState(ctx context.Context, cli client.Client, pod *corev1.Pod, state bool) error {
 	if meta.ReadHibernateState(pod) == meta.HibernateState(state) {
 		return nil
 	}
-	return patchMerge(ctx, cli, pod, func(p *corev1.Pod) {
+	return Patch(ctx, cli, pod, func(p *corev1.Pod) {
 		meta.HibernateState(state).Apply(p)
 	})
 }
@@ -38,14 +44,9 @@ func PatchCocoonSetGeneration(ctx context.Context, cli client.Client, pod *corev
 	if meta.ReadCocoonSetGeneration(pod) == generation {
 		return nil
 	}
-	return patchMerge(ctx, cli, pod, func(p *corev1.Pod) {
+	return Patch(ctx, cli, pod, func(p *corev1.Pod) {
 		meta.StampCocoonSetGeneration(p, generation)
 	})
-}
-
-func patchMerge[T DeepCopyObject[T]](ctx context.Context, cli client.Client, obj T, mutate func(T)) error {
-	patch := buildMergePatch(obj, mutate)
-	return cli.Patch(ctx, obj, patch)
 }
 
 func buildMergePatch[T DeepCopyObject[T]](obj T, mutate func(T)) client.Patch {
