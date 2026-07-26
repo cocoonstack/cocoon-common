@@ -461,7 +461,6 @@ func TestChunkPipelineFileWindowNarrowsPerFile(t *testing.T) {
 		{"fewer chunks than the window", planOf("a", false, 6, 2, 2, 2), 3},
 		{"more chunks than the window", planOf("a", false, 20, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2), 8},
 		{"single chunk streams", planOf("a", false, 2, 2), 0},
-		{"oversized chunk streams", planOf("a", false, 4, 2, maxBufferedChunkBytes+1), 0},
 	} {
 		if got := p.fileWindow(tc.plan); got != tc.want {
 			t.Errorf("%s: fileWindow = %d, want %d", tc.name, got, tc.want)

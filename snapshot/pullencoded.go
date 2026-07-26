@@ -102,11 +102,6 @@ func (p *chunkPipeline) fileWindow(e layerPlan) int {
 	if p.window < 2 || len(e.chunks) < 2 {
 		return 0
 	}
-	for _, d := range e.chunks {
-		if d.Size > maxBufferedChunkBytes {
-			return 0
-		}
-	}
 	return min(p.window, len(e.chunks))
 }
 
@@ -149,9 +144,6 @@ func (p *chunkPipeline) streamFile(ctx context.Context, tw *tar.Writer, e layerP
 }
 
 func (p *chunkPipeline) fetch(ctx context.Context, desc manifest.Descriptor, compressed bool) chunkFetch {
-	if desc.Size < 0 || desc.Size > maxBufferedChunkBytes {
-		return chunkFetch{err: fmt.Errorf("blob %s size %d outside bufferable range", desc.Digest, desc.Size)}
-	}
 	if !compressed {
 		buf := p.out.take(p.outputCap)
 		stored, err := p.read(ctx, desc, buf)
@@ -206,7 +198,7 @@ type chunkSource struct {
 }
 
 func newChunkSource(ctx context.Context, p *chunkPipeline, e layerPlan, window int) *chunkSource {
-	futures := make(chan chan chunkFetch, max(window-1, 0))
+	futures := make(chan chan chunkFetch, window-1)
 	go func() {
 		defer close(futures)
 		for _, desc := range e.chunks {
