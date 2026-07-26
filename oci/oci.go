@@ -42,7 +42,11 @@ func NewOCIRegistry(base string, keychain authn.Keychain) *OCIRegistry {
 }
 
 func bulkTransport() *http.Transport {
-	t := http.DefaultTransport.(*http.Transport).Clone() //nolint:errcheck,forcetypeassert
+	base, ok := http.DefaultTransport.(*http.Transport)
+	if !ok {
+		base = &http.Transport{Proxy: http.ProxyFromEnvironment}
+	}
+	t := base.Clone()
 	t.ForceAttemptHTTP2 = false
 	t.TLSClientConfig = &tls.Config{NextProtos: []string{"http/1.1"}, MinVersion: tls.VersionTLS12}
 	t.MaxIdleConnsPerHost = maxRegistryConnsPerHost
