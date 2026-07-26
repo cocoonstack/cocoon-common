@@ -188,7 +188,6 @@ func (p *chunkPipeline) read(ctx context.Context, desc manifest.Descriptor, buf 
 	if _, err = io.ReadFull(v, stored); err != nil {
 		return nil, err
 	}
-	// Drain the checker: its trailing-data and transport checks run at EOF.
 	if _, err = io.Copy(io.Discard, v); err != nil {
 		return nil, err
 	}
@@ -235,6 +234,9 @@ func (s *chunkSource) WriteTo(w io.Writer) (int64, error) {
 		n, err := w.Write(res.data)
 		written += int64(n)
 		s.pipe.out.put(res.buf)
+		if n != len(res.data) && err == nil {
+			err = io.ErrShortWrite
+		}
 		if err != nil {
 			return written, err
 		}

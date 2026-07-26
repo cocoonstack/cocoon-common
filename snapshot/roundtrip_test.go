@@ -564,6 +564,23 @@ func TestChunkSourceSpawnsWithinWindow(t *testing.T) {
 	})
 }
 
+func TestChunkSourceRejectsShortWrite(t *testing.T) {
+	pool := newBufPool(1)
+	buf := pool.take(4)
+	copy(buf, "data")
+	fut := make(chan chunkFetch, 1)
+	fut <- chunkFetch{data: buf[:4], buf: buf}
+	futures := make(chan chan chunkFetch, 1)
+	futures <- fut
+	close(futures)
+
+	src := &chunkSource{futures: futures, pipe: &chunkPipeline{out: pool}}
+	written, err := src.WriteTo(shortWriter{})
+	if written != 3 || !errors.Is(err, io.ErrShortWrite) {
+		t.Fatalf("WriteTo = (%d, %v), want (3, %v)", written, err, io.ErrShortWrite)
+	}
+}
+
 func TestPullRejectsNegativeLayerSize(t *testing.T) {
 	pinClock(t)
 	uploader := newFakeUploader()
@@ -851,6 +868,12 @@ func (d terminalErrorDownloader) GetManifest(context.Context, string, string) ([
 
 func (d terminalErrorDownloader) GetBlob(context.Context, string, string) (io.ReadCloser, error) {
 	return io.NopCloser(io.MultiReader(bytes.NewReader(d.body), iotest.ErrReader(d.err))), nil
+}
+
+type shortWriter struct{}
+
+func (shortWriter) Write(p []byte) (int, error) {
+	return max(len(p)-1, 0), nil
 }
 
 // gatedDownloader blocks every GetBlob until released and counts starts, so
