@@ -395,35 +395,111 @@ func TestPullTinyBudgetStreamsSequentially(t *testing.T) {
 	}
 }
 
-// The window must be sized by the file's largest chunk: a compressible prefix
-// must never authorize a window the dense middle can blow past the budget with.
-func TestPrefetchWindowBoundedByLargestChunk(t *testing.T) {
-	sized := func(sizes ...int64) []manifest.Descriptor {
-		descs := make([]manifest.Descriptor, len(sizes))
-		for i, s := range sizes {
-			descs[i] = manifest.Descriptor{Digest: fmt.Sprintf("sha256:%064d", i), Size: s}
-		}
-		return descs
+func planOf(title string, zstd bool, fileSize int64, sizes ...int64) layerPlan {
+	descs := make([]manifest.Descriptor, len(sizes))
+	for i, s := range sizes {
+		descs[i] = manifest.Descriptor{Digest: fmt.Sprintf("sha256:%s%063d", title, i), Size: s}
 	}
+	return layerPlan{title: title, meta: manifest.SnapshotFile{Size: fileSize}, chunks: descs, zstd: zstd}
+}
+
+// One pipeline serves every file, so the window must be sized by the widest slot
+// in the whole plan: neither a compressible prefix nor a small-chunk file may
+// authorize a window that a denser file then blows the budget with. Sizing this
+// per file is what let two files' buffers be live at once and doubled peak RSS.
+func TestChunkPipelineWindowBoundedByWidestFile(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
-		descs    []manifest.Descriptor
+		plans    []layerPlan
 		prefetch int
 		budget   int64
 		want     int
 	}{
-		{"tiny prefix, dense tail, budget holds none", sized(2, 2, 100, 100, 100, 100), 8, 10, 0},
-		{"prefix sum fits but window x max would not", sized(2, 100, 100), 8, 202, 2},
-		{"budget holds two largest", sized(2, 2, 100, 100, 100, 100), 8, 200, 2},
-		{"homogeneous small capped by chunk count", sized(2, 2, 2, 2), 8, 1 << 20, 4},
-		{"homogeneous small capped by prefetch", sized(2, 2, 2, 2, 2, 2, 2, 2, 2, 2), 8, 1 << 20, 8},
-		{"single chunk streams", sized(100), 8, 1 << 20, 0},
-		{"oversized chunk streams", sized(2, maxBufferedChunkBytes+1), 8, 1 << 40, 0},
-		{"all zero-size streams", sized(0, 0, 0), 8, 1 << 20, 0},
+		{"tiny prefix, dense tail, budget holds none", []layerPlan{planOf("a", false, 404, 2, 2, 100, 100, 100, 100)}, 8, 10, 0},
+		{"prefix sum fits but window x max would not", []layerPlan{planOf("a", false, 202, 2, 100, 100)}, 8, 202, 2},
+		{"narrow file must not widen the window", []layerPlan{
+			planOf("small", false, 4, 2, 2),
+			planOf("dense", false, 400, 100, 100, 100, 100),
+		}, 8, 200, 2},
+		{"widest file decides even when it comes first", []layerPlan{
+			planOf("dense", false, 400, 100, 100, 100, 100),
+			planOf("small", false, 4, 2, 2),
+		}, 8, 200, 2},
+		{"compressed charges stored plus stride", []layerPlan{planOf("a", true, 300, 50, 50, 50)}, 8, 400, 2},
+		{"compressed budget one short streams", []layerPlan{planOf("a", true, 300, 50, 50, 50)}, 8, 399, 0},
+		{"prefetch caps the window", []layerPlan{planOf("a", false, 20, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2)}, 8, 1 << 20, 8},
+		{"oversized chunk streams", []layerPlan{planOf("a", false, 1, 2, maxBufferedChunkBytes+1)}, 8, 1 << 40, 0},
+		{"all zero-size streams", []layerPlan{planOf("a", false, 0, 0, 0, 0)}, 8, 1 << 20, 0},
+		{"whole-layer entries need no buffers", []layerPlan{{title: "a", layer: manifest.Descriptor{Size: 100}}}, 8, 1 << 20, 0},
 	} {
-		if got := prefetchWindow(tc.descs, tc.prefetch, tc.budget); got != tc.want {
-			t.Errorf("%s: window = %d, want %d", tc.name, got, tc.want)
+		p, err := newChunkPipeline(nil, "myvm", tc.plans, tc.prefetch, tc.budget)
+		if err != nil {
+			t.Fatalf("%s: %v", tc.name, err)
 		}
+		p.Close()
+		if p.window != tc.want {
+			t.Errorf("%s: window = %d, want %d", tc.name, p.window, tc.want)
+		}
+	}
+}
+
+// The shared window then narrows per file: a file cannot buffer more chunks than
+// it has, and one oversized chunk drops that file alone to the O(1) path.
+func TestChunkPipelineFileWindowNarrowsPerFile(t *testing.T) {
+	plans := []layerPlan{planOf("dense", false, 8, 2, 2, 2, 2)}
+	p, err := newChunkPipeline(nil, "myvm", plans, 8, 1<<20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer p.Close()
+	// The shared window answers "what does the budget allow", not "what does this
+	// file need" — chunk count narrows it later, per file.
+	if p.window != 8 {
+		t.Fatalf("shared window = %d, want 8 (prefetch, budget is ample)", p.window)
+	}
+	for _, tc := range []struct {
+		name string
+		plan layerPlan
+		want int
+	}{
+		{"fewer chunks than the window", planOf("a", false, 6, 2, 2, 2), 3},
+		{"more chunks than the window", planOf("a", false, 20, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2), 8},
+		{"single chunk streams", planOf("a", false, 2, 2), 0},
+		{"oversized chunk streams", planOf("a", false, 4, 2, maxBufferedChunkBytes+1), 0},
+	} {
+		if got := p.fileWindow(tc.plan); got != tc.want {
+			t.Errorf("%s: fileWindow = %d, want %d", tc.name, got, tc.want)
+		}
+	}
+	var off chunkPipeline
+	if got := off.fileWindow(plans[0]); got != 0 {
+		t.Errorf("window-less pipeline: fileWindow = %d, want 0", got)
+	}
+}
+
+// Decoding inside the fetch goroutines makes the buffered unit the uncompressed
+// stride, which the manifest does not record — the bound must never understate it.
+func TestRawChunkStrideNeverUnderstatesTheCut(t *testing.T) {
+	for _, tc := range []struct {
+		stride int64
+		n      int
+	}{{256 << 20, 32}, {256 << 20, 2}, {1 << 20, 7}, {3, 5}} {
+		size := tc.stride*int64(tc.n-1) + 1 // smallest total that still needs n chunks
+		for _, last := range []int64{1, tc.stride / 2, tc.stride} {
+			if last == 0 {
+				continue
+			}
+			total := tc.stride*int64(tc.n-1) + last
+			if got := rawChunkStride(total, tc.n); got < tc.stride {
+				t.Errorf("stride %d n %d last %d: bound %d understates the cut", tc.stride, tc.n, last, got)
+			}
+		}
+		if got := rawChunkStride(size, tc.n); got < tc.stride {
+			t.Errorf("stride %d n %d: bound %d understates the cut", tc.stride, tc.n, got)
+		}
+	}
+	if got := rawChunkStride(100, 1); got != 100 {
+		t.Errorf("single chunk: got %d, want the whole file", got)
 	}
 }
 
@@ -441,7 +517,8 @@ func TestChunkSourceSpawnsWithinWindow(t *testing.T) {
 			descs = append(descs, manifest.Descriptor{Digest: d, Size: 2})
 			want = append(want, b...)
 		}
-		src := newChunkSource(t.Context(), g, "myvm", descs, 2)
+		pipe := &chunkPipeline{dl: g, name: "myvm", window: 2, out: newBufPool(3)}
+		src := newChunkSource(t.Context(), pipe, layerPlan{title: "myvm", chunks: descs}, 2)
 
 		// After Wait every goroutine is durably blocked, so started is final.
 		synctest.Wait()
@@ -503,6 +580,39 @@ func TestChunkStreamEnforcesBlobLength(t *testing.T) {
 	}
 	if err := read([]manifest.Descriptor{{Digest: digest, Size: int64(len(body)) - 5}}); err == nil || !strings.Contains(err.Error(), "longer than") {
 		t.Fatalf("err = %v, want longer-than-size", err)
+	}
+}
+
+// The same split for the buffered path: the pipeline trusts the transport digest
+// but must still reject a blob whose length disagrees with the manifest, and it
+// must hand every borrowed buffer back on the error paths or the pool starves.
+func TestChunkPipelineEnforcesBlobLength(t *testing.T) {
+	body := []byte("buffered chunk body")
+	digest := "sha256:" + ociutil.SHA256Hex(body)
+	uploader := newFakeUploader()
+	uploader.blobs[digest] = body
+
+	// Pool of one: a leaked buffer makes the next fetch block forever.
+	p := &chunkPipeline{dl: uploader, name: "myvm", out: newBufPool(1)}
+	fetch := func(size int64) error {
+		got, err := p.fetch(t.Context(), manifest.Descriptor{Digest: digest, Size: size}, false)
+		if err == nil {
+			p.out.put(got)
+		}
+		return err
+	}
+
+	if err := fetch(int64(len(body))); err != nil {
+		t.Fatalf("clean blob: %v", err)
+	}
+	if err := fetch(int64(len(body)) + 5); err == nil {
+		t.Fatal("short blob accepted")
+	}
+	if err := fetch(int64(len(body)) - 5); err == nil || !strings.Contains(err.Error(), "longer than") {
+		t.Fatalf("err = %v, want longer-than-size", err)
+	}
+	if err := fetch(int64(len(body))); err != nil {
+		t.Fatalf("pool starved after the error paths: %v", err)
 	}
 }
 
