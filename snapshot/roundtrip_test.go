@@ -12,8 +12,11 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"testing/iotest"
 	"testing/synctest"
 	"time"
+
+	"github.com/klauspost/compress/zstd"
 
 	"github.com/cocoonstack/cocoon-common/manifest"
 	"github.com/cocoonstack/cocoon-common/ociutil"
@@ -395,18 +398,6 @@ func TestPullTinyBudgetStreamsSequentially(t *testing.T) {
 	}
 }
 
-func planOf(title string, zstd bool, fileSize int64, sizes ...int64) layerPlan {
-	descs := make([]manifest.Descriptor, len(sizes))
-	for i, s := range sizes {
-		descs[i] = manifest.Descriptor{Digest: fmt.Sprintf("sha256:%s%063d", title, i), Size: s}
-	}
-	return layerPlan{title: title, meta: manifest.SnapshotFile{Size: fileSize}, chunks: descs, zstd: zstd}
-}
-
-// One pipeline serves every file, so the window must be sized by the widest slot
-// in the whole plan: neither a compressible prefix nor a small-chunk file may
-// authorize a window that a denser file then blows the budget with. Sizing this
-// per file is what let two files' buffers be live at once and doubled peak RSS.
 func TestChunkPipelineWindowBoundedByWidestFile(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
@@ -416,17 +407,26 @@ func TestChunkPipelineWindowBoundedByWidestFile(t *testing.T) {
 		want     int
 	}{
 		{"tiny prefix, dense tail, budget holds none", []layerPlan{planOf("a", false, 404, 2, 2, 100, 100, 100, 100)}, 8, 10, 0},
-		{"prefix sum fits but window x max would not", []layerPlan{planOf("a", false, 202, 2, 100, 100)}, 8, 202, 2},
+		{"current plus two outputs fit exactly", []layerPlan{planOf("a", false, 202, 2, 100, 100)}, 8, 300, 2},
+		{"current output does not fit", []layerPlan{planOf("a", false, 202, 2, 100, 100)}, 8, 299, 0},
 		{"narrow file must not widen the window", []layerPlan{
 			planOf("small", false, 4, 2, 2),
 			planOf("dense", false, 400, 100, 100, 100, 100),
-		}, 8, 200, 2},
+		}, 8, 300, 2},
 		{"widest file decides even when it comes first", []layerPlan{
 			planOf("dense", false, 400, 100, 100, 100, 100),
 			planOf("small", false, 4, 2, 2),
-		}, 8, 200, 2},
-		{"compressed charges stored plus stride", []layerPlan{planOf("a", true, 300, 50, 50, 50)}, 8, 400, 2},
-		{"compressed budget one short streams", []layerPlan{planOf("a", true, 300, 50, 50, 50)}, 8, 399, 0},
+		}, 8, 300, 2},
+		{"compressed pools fit exactly", []layerPlan{planOf("a", true, 300, 50, 50, 50)}, 8, 550, 2},
+		{"compressed pools one short stream", []layerPlan{planOf("a", true, 300, 50, 50, 50)}, 8, 549, 0},
+		{"cross-file input and output maxima fit exactly", []layerPlan{
+			planOf("wide-output", true, 1800, 100, 100),
+			planOf("wide-input", true, 100, 900, 900),
+		}, 8, 7200, 2},
+		{"cross-file input and output maxima one short stream", []layerPlan{
+			planOf("wide-output", true, 1800, 100, 100),
+			planOf("wide-input", true, 100, 900, 900),
+		}, 8, 7199, 0},
 		{"prefetch caps the window", []layerPlan{planOf("a", false, 20, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2)}, 8, 1 << 20, 8},
 		{"oversized chunk streams", []layerPlan{planOf("a", false, 1, 2, maxBufferedChunkBytes+1)}, 8, 1 << 40, 0},
 		{"all zero-size streams", []layerPlan{planOf("a", false, 0, 0, 0, 0)}, 8, 1 << 20, 0},
@@ -443,8 +443,6 @@ func TestChunkPipelineWindowBoundedByWidestFile(t *testing.T) {
 	}
 }
 
-// The shared window then narrows per file: a file cannot buffer more chunks than
-// it has, and one oversized chunk drops that file alone to the O(1) path.
 func TestChunkPipelineFileWindowNarrowsPerFile(t *testing.T) {
 	plans := []layerPlan{planOf("dense", false, 8, 2, 2, 2, 2)}
 	p, err := newChunkPipeline(nil, "myvm", plans, 8, 1<<20)
@@ -452,8 +450,6 @@ func TestChunkPipelineFileWindowNarrowsPerFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer p.Close()
-	// The shared window answers "what does the budget allow", not "what does this
-	// file need" — chunk count narrows it later, per file.
 	if p.window != 8 {
 		t.Fatalf("shared window = %d, want 8 (prefetch, budget is ample)", p.window)
 	}
@@ -477,14 +473,12 @@ func TestChunkPipelineFileWindowNarrowsPerFile(t *testing.T) {
 	}
 }
 
-// Decoding inside the fetch goroutines makes the buffered unit the uncompressed
-// stride, which the manifest does not record — the bound must never understate it.
 func TestRawChunkStrideNeverUnderstatesTheCut(t *testing.T) {
 	for _, tc := range []struct {
 		stride int64
 		n      int
 	}{{256 << 20, 32}, {256 << 20, 2}, {1 << 20, 7}, {3, 5}} {
-		size := tc.stride*int64(tc.n-1) + 1 // smallest total that still needs n chunks
+		size := tc.stride*int64(tc.n-1) + 1
 		for _, last := range []int64{1, tc.stride / 2, tc.stride} {
 			if last == 0 {
 				continue
@@ -503,8 +497,41 @@ func TestRawChunkStrideNeverUnderstatesTheCut(t *testing.T) {
 	}
 }
 
-// Futures must enter the queue before their fetch spawns: with window 2 and no
-// consumer yet, exactly one fetch may start (queue cap 1, second send blocks).
+func TestChunkPipelineRejectsDecodedChunkOverCap(t *testing.T) {
+	raw := bytes.Repeat([]byte("x"), 32)
+	enc, err := zstd.NewWriter(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = enc.Close() }()
+	stored := enc.EncodeAll(raw, nil)
+	digest := "sha256:" + ociutil.SHA256Hex(stored)
+	uploader := newFakeUploader()
+	uploader.blobs[digest] = stored
+	desc := manifest.Descriptor{Digest: digest, Size: int64(len(stored))}
+	entry := layerPlan{
+		title:  "memory",
+		meta:   manifest.SnapshotFile{Size: 8},
+		chunks: []manifest.Descriptor{desc, desc},
+		zstd:   true,
+	}
+	budget := int64(8 + 2*(len(stored)+8))
+	p, err := newChunkPipeline(uploader, "myvm", []layerPlan{entry}, 2, budget)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer p.Close()
+
+	res := p.fetch(t.Context(), desc, true)
+	if res.err == nil {
+		p.out.put(res.buf)
+		t.Fatalf("decoded %d bytes into an 8-byte slot", len(res.data))
+	}
+	if !errors.Is(res.err, zstd.ErrDecoderSizeExceeded) && !errors.Is(res.err, zstd.ErrWindowSizeExceeded) {
+		t.Fatalf("decode error = %v, want a zstd size limit", res.err)
+	}
+}
+
 func TestChunkSourceSpawnsWithinWindow(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		g := &gatedDownloader{blobs: map[string][]byte{}, release: make(chan struct{})}
@@ -517,7 +544,7 @@ func TestChunkSourceSpawnsWithinWindow(t *testing.T) {
 			descs = append(descs, manifest.Descriptor{Digest: d, Size: 2})
 			want = append(want, b...)
 		}
-		pipe := &chunkPipeline{dl: g, name: "myvm", window: 2, out: newBufPool(3)}
+		pipe := &chunkPipeline{dl: g, name: "myvm", window: 2, outputCap: 2, out: newBufPool(3)}
 		src := newChunkSource(t.Context(), pipe, layerPlan{title: "myvm", chunks: descs}, 2)
 
 		// After Wait every goroutine is durably blocked, so started is final.
@@ -583,23 +610,19 @@ func TestChunkStreamEnforcesBlobLength(t *testing.T) {
 	}
 }
 
-// The same split for the buffered path: the pipeline trusts the transport digest
-// but must still reject a blob whose length disagrees with the manifest, and it
-// must hand every borrowed buffer back on the error paths or the pool starves.
 func TestChunkPipelineEnforcesBlobLength(t *testing.T) {
 	body := []byte("buffered chunk body")
 	digest := "sha256:" + ociutil.SHA256Hex(body)
 	uploader := newFakeUploader()
 	uploader.blobs[digest] = body
 
-	// Pool of one: a leaked buffer makes the next fetch block forever.
-	p := &chunkPipeline{dl: uploader, name: "myvm", out: newBufPool(1)}
+	p := &chunkPipeline{dl: uploader, name: "myvm", outputCap: int64(len(body) + 5), out: newBufPool(1)}
 	fetch := func(size int64) error {
-		got, err := p.fetch(t.Context(), manifest.Descriptor{Digest: digest, Size: size}, false)
-		if err == nil {
-			p.out.put(got)
+		res := p.fetch(t.Context(), manifest.Descriptor{Digest: digest, Size: size}, false)
+		if res.err == nil {
+			p.out.put(res.buf)
 		}
-		return err
+		return res.err
 	}
 
 	if err := fetch(int64(len(body))); err != nil {
@@ -616,7 +639,26 @@ func TestChunkPipelineEnforcesBlobLength(t *testing.T) {
 	}
 }
 
-// Re-pushing identical content must be a pure HasBlob no-op (chunk-level dedup).
+func TestChunkPipelinePropagatesTransportError(t *testing.T) {
+	body := []byte("verified body")
+	verifyErr := errors.New("transport digest mismatch")
+	p := &chunkPipeline{
+		dl: terminalErrorDownloader{
+			body: body,
+			err:  verifyErr,
+		},
+		name: "myvm",
+	}
+
+	_, err := p.read(t.Context(), manifest.Descriptor{
+		Digest: "sha256:ignored",
+		Size:   int64(len(body)),
+	}, make([]byte, len(body)))
+	if !errors.Is(err, verifyErr) {
+		t.Fatalf("read error = %v, want %v", err, verifyErr)
+	}
+}
+
 func TestV2SecondPushSkipsAllBlobs(t *testing.T) {
 	pinClock(t)
 	corpus := v2Corpus(t)
@@ -627,6 +669,14 @@ func TestV2SecondPushSkipsAllBlobs(t *testing.T) {
 	if delta := uploader.putBlobCalls.Load() - first; delta != 0 {
 		t.Errorf("second push uploaded %d blobs, want 0", delta)
 	}
+}
+
+func planOf(title string, zstd bool, fileSize int64, sizes ...int64) layerPlan {
+	descs := make([]manifest.Descriptor, len(sizes))
+	for i, s := range sizes {
+		descs[i] = manifest.Descriptor{Digest: fmt.Sprintf("sha256:%s%063d", title, i), Size: s}
+	}
+	return layerPlan{title: title, meta: manifest.SnapshotFile{Size: fileSize}, chunks: descs, zstd: zstd}
 }
 
 // v2Corpus exercises every codec branch: empty, small-raw, exactly-at-chunk-size,
@@ -784,6 +834,19 @@ func readTarEntries(t *testing.T, r io.Reader) []tarEntry {
 		}
 		out = append(out, tarEntry{name: hdr.Name, size: hdr.Size, mode: hdr.Mode, pax: sparse, body: body})
 	}
+}
+
+type terminalErrorDownloader struct {
+	body []byte
+	err  error
+}
+
+func (d terminalErrorDownloader) GetManifest(context.Context, string, string) ([]byte, string, error) {
+	return nil, "", errors.ErrUnsupported
+}
+
+func (d terminalErrorDownloader) GetBlob(context.Context, string, string) (io.ReadCloser, error) {
+	return io.NopCloser(io.MultiReader(bytes.NewReader(d.body), iotest.ErrReader(d.err))), nil
 }
 
 // gatedDownloader blocks every GetBlob until released and counts starts, so

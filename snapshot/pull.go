@@ -176,10 +176,6 @@ func pickIndexChild(ctx context.Context, m *manifest.OCIManifest) (manifest.Inde
 	return manifest.IndexManifest{}, errors.New("image-index has no usable platform child")
 }
 
-// writeImportTar assembles the import tar in three steps — resolve every layer,
-// size one buffer pipeline against the whole plan, then stream in order. The
-// sizing has to see the whole plan: the budget belongs to the pull, and pools
-// built per file left two files' buffers live at once, doubling peak RSS.
 func writeImportTar(ctx context.Context, dl Downloader, name, localName string, cfg *manifest.SnapshotConfig, layers []manifest.Descriptor, w io.Writer, progress func(string), prefetch int, budget int64) error {
 	entries, err := planLayers(cfg, layers)
 	if err != nil {
@@ -223,8 +219,6 @@ func writeImportTar(ctx context.Context, dl Downloader, name, localName string, 
 	return bw.Flush()
 }
 
-// planLayers resolves layers into tar order, collapsing a chunked file's layers
-// into the single entry that reassembles it.
 func planLayers(cfg *manifest.SnapshotConfig, layers []manifest.Descriptor) ([]layerPlan, error) {
 	byDigest := make(map[string]manifest.Descriptor, len(layers))
 	for _, layer := range layers {
@@ -245,14 +239,13 @@ func planLayers(cfg *manifest.SnapshotConfig, layers []manifest.Descriptor) ([]l
 			continue
 		}
 		if emitted[title] {
-			continue // continuation chunk of a file already planned
+			continue
 		}
 		emitted[title] = true
 		descs, err := resolveEncodedFile(layer, fileMeta, byDigest)
 		if err != nil {
 			return nil, err
 		}
-		// Decode by this file's own layer mediaType: a dedup winner may carry another file's.
 		entries = append(entries, layerPlan{
 			title:  title,
 			meta:   fileMeta,
