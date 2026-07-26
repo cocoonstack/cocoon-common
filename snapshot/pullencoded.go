@@ -176,7 +176,7 @@ func fetchChunk(ctx context.Context, dl Downloader, name string, desc manifest.D
 	}
 	defer func() { _ = body.Close() }()
 	buf := bytes.NewBuffer(make([]byte, 0, desc.Size))
-	if err := ociutil.CopyBlobExact(buf, body, desc.Digest, desc.Size); err != nil {
+	if err := ociutil.CopyBlobSized(buf, body, desc.Digest, desc.Size); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil
