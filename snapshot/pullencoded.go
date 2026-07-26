@@ -2,7 +2,6 @@ package snapshot
 
 import (
 	"archive/tar"
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -46,17 +45,18 @@ type layerPlan struct {
 	meta   manifest.SnapshotFile
 	layer  manifest.Descriptor
 	chunks []manifest.Descriptor
-	zstd   bool
 }
 
 func (e layerPlan) encoded() bool { return e.chunks != nil }
+
+func (e layerPlan) zstd() bool { return manifest.IsZstdMediaType(e.layer.MediaType) }
 
 func (e layerPlan) bufferCaps() (input, output int64) {
 	stored := int64(0)
 	for _, d := range e.chunks {
 		stored = max(stored, d.Size)
 	}
-	if !e.zstd {
+	if !e.zstd() {
 		return 0, stored
 	}
 	return stored, rawChunkStride(e.meta.Size, len(e.chunks))
@@ -83,7 +83,7 @@ func newChunkPipeline(dl Downloader, name string, entries []layerPlan, prefetch 
 		inputCap, outputCap := e.bufferCaps()
 		p.inputCap = max(p.inputCap, inputCap)
 		p.outputCap = max(p.outputCap, outputCap)
-		anyZstd = anyZstd || e.zstd
+		anyZstd = anyZstd || e.zstd()
 	}
 	if p.outputCap <= 0 || p.inputCap > maxBufferedChunkBytes || p.outputCap > maxBufferedChunkBytes {
 		return p, nil
@@ -141,14 +141,14 @@ func (p *chunkPipeline) streamFile(ctx context.Context, tw *tar.Writer, e layerP
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	var body io.Reader
+	var written int64
 	if window := p.fileWindow(e); window >= 2 {
-		body = newChunkSource(ctx, p, e, window)
+		written, err = newChunkSource(ctx, p, e, window).WriteTo(tw)
 	} else {
 		cs := &chunkStream{ctx: ctx, dl: p.dl, name: p.name, descs: e.chunks}
 		defer func() { _ = cs.Close() }()
-		body = cs
-		if e.zstd {
+		var body io.Reader = cs
+		if e.zstd() {
 			dec, decErr := zstd.NewReader(body)
 			if decErr != nil {
 				return fmt.Errorf("init zstd decoder for %s: %w", e.title, decErr)
@@ -156,9 +156,8 @@ func (p *chunkPipeline) streamFile(ctx context.Context, tw *tar.Writer, e layerP
 			defer dec.Close()
 			body = dec
 		}
+		written, err = io.Copy(tw, body)
 	}
-
-	written, err := io.Copy(tw, body)
 	if err != nil {
 		return fmt.Errorf("stream %s: %w", e.title, err)
 	}
@@ -184,8 +183,6 @@ type chunkFetch struct {
 type chunkSource struct {
 	futures chan chan chunkFetch
 	pipe    *chunkPipeline
-	cur     *bytes.Reader
-	curBuf  []byte
 }
 
 func newChunkSource(ctx context.Context, p *chunkPipeline, e layerPlan, window int) *chunkSource {
@@ -200,38 +197,28 @@ func newChunkSource(ctx context.Context, p *chunkPipeline, e layerPlan, window i
 				return
 			}
 			go func() {
-				fut <- p.fetch(ctx, desc, e.zstd)
+				fut <- p.fetch(ctx, desc, e.zstd())
 			}()
 		}
 	}()
 	return &chunkSource{futures: futures, pipe: p}
 }
 
-func (s *chunkSource) Read(p []byte) (int, error) {
-	for {
-		if s.cur != nil {
-			n, err := s.cur.Read(p)
-			if errors.Is(err, io.EOF) {
-				s.cur = nil
-				s.pipe.out.put(s.curBuf)
-				s.curBuf = nil
-				if n > 0 {
-					return n, nil
-				}
-				continue
-			}
-			return n, err
-		}
-		fut, ok := <-s.futures
-		if !ok {
-			return 0, io.EOF
-		}
+func (s *chunkSource) WriteTo(w io.Writer) (int64, error) {
+	var written int64
+	for fut := range s.futures {
 		res := <-fut
 		if res.err != nil {
-			return 0, res.err
+			return written, res.err
 		}
-		s.cur, s.curBuf = bytes.NewReader(res.data), res.buf
+		n, err := w.Write(res.data)
+		written += int64(n)
+		s.pipe.out.put(res.buf)
+		if err != nil {
+			return written, err
+		}
 	}
+	return written, nil
 }
 
 func (p *chunkPipeline) fetch(ctx context.Context, desc manifest.Descriptor, compressed bool) chunkFetch {

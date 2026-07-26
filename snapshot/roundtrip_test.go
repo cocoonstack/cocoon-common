@@ -512,8 +512,8 @@ func TestChunkPipelineRejectsDecodedChunkOverCap(t *testing.T) {
 	entry := layerPlan{
 		title:  "memory",
 		meta:   manifest.SnapshotFile{Size: 8},
+		layer:  manifest.Descriptor{MediaType: manifest.ZstdMediaType(manifest.MediaTypeVMMemory)},
 		chunks: []manifest.Descriptor{desc, desc},
-		zstd:   true,
 	}
 	budget := int64(8 + 2*(len(stored)+8))
 	p, err := newChunkPipeline(uploader, "myvm", []layerPlan{entry}, 2, budget)
@@ -555,7 +555,7 @@ func TestChunkSourceSpawnsWithinWindow(t *testing.T) {
 		}
 		close(g.release)
 		var out bytes.Buffer
-		if _, err := io.Copy(&out, src); err != nil {
+		if _, err := src.WriteTo(&out); err != nil {
 			t.Fatalf("drain: %v", err)
 		}
 		if !bytes.Equal(out.Bytes(), want) {
@@ -676,7 +676,11 @@ func planOf(title string, zstd bool, fileSize int64, sizes ...int64) layerPlan {
 	for i, s := range sizes {
 		descs[i] = manifest.Descriptor{Digest: fmt.Sprintf("sha256:%s%063d", title, i), Size: s}
 	}
-	return layerPlan{title: title, meta: manifest.SnapshotFile{Size: fileSize}, chunks: descs, zstd: zstd}
+	mt := manifest.MediaTypeGeneric
+	if zstd {
+		mt = manifest.ZstdMediaType(mt)
+	}
+	return layerPlan{title: title, meta: manifest.SnapshotFile{Size: fileSize}, layer: manifest.Descriptor{MediaType: mt}, chunks: descs}
 }
 
 // v2Corpus exercises every codec branch: empty, small-raw, exactly-at-chunk-size,

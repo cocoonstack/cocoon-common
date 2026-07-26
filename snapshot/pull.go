@@ -251,7 +251,6 @@ func planLayers(cfg *manifest.SnapshotConfig, layers []manifest.Descriptor) ([]l
 			meta:   fileMeta,
 			layer:  layer,
 			chunks: descs,
-			zstd:   manifest.IsZstdMediaType(layer.MediaType),
 		})
 	}
 	return entries, nil
