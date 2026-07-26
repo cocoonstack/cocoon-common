@@ -2,6 +2,7 @@ package oci
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
@@ -15,6 +16,10 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 )
+
+// Chunked push and pull run one request per in-flight chunk; the idle pool must
+// hold them all or HTTP/1.1 pays a fresh TLS handshake per chunk.
+const maxRegistryConnsPerHost = 32
 
 // errBlobUncompressed guards the DiffID/Uncompressed accessors: cocoon blobs
 // are opaque content-addressed bytes and WriteLayer only reads Compressed().
@@ -32,7 +37,24 @@ type OCIRegistry struct {
 // NewOCIRegistry roots a client at base, authenticating via keychain (e.g.
 // authn.DefaultKeychain, or a MultiKeychain with google.Keychain for GCP AR).
 func NewOCIRegistry(base string, keychain authn.Keychain) *OCIRegistry {
-	return &OCIRegistry{base: base, opts: []remote.Option{remote.WithAuthFromKeychain(keychain)}}
+	return &OCIRegistry{base: base, opts: []remote.Option{
+		remote.WithAuthFromKeychain(keychain),
+		remote.WithTransport(bulkTransport()),
+	}}
+}
+
+// bulkTransport keeps chunked transfers off a single HTTP/2 connection. Go's
+// default transport negotiates h2, which multiplexes every concurrent chunk GET
+// onto one TCP connection whose frames all pass through one reader goroutine —
+// measured as the pull ceiling. Over HTTP/1.1 each concurrent fetch gets its own
+// connection, which is how the same bytes reach several hundred MiB/s in isolation.
+func bulkTransport() *http.Transport {
+	t := http.DefaultTransport.(*http.Transport).Clone() //nolint:errcheck,forcetypeassert
+	t.ForceAttemptHTTP2 = false
+	t.TLSClientConfig = &tls.Config{NextProtos: []string{"http/1.1"}, MinVersion: tls.VersionTLS12}
+	t.MaxIdleConnsPerHost = maxRegistryConnsPerHost
+	t.MaxConnsPerHost = 0
+	return t
 }
 
 // GetManifest fetches the raw manifest bytes and media type at repo:tag, or at
