@@ -201,6 +201,17 @@ func TestStreamResolvesIndexChildByDigest(t *testing.T) {
 	}
 }
 
+func TestGetManifestNotFoundIsTyped(t *testing.T) {
+	srv := httptest.NewServer(registry.New())
+	t.Cleanup(srv.Close)
+	r := NewOCIRegistry(strings.TrimPrefix(srv.URL, "http://")+"/cocoon", authn.DefaultKeychain)
+
+	_, _, err := r.GetManifest(t.Context(), "ghost/repo", "missing")
+	if !errors.Is(err, snapshot.ErrManifestNotFound) {
+		t.Fatalf("err = %v, want errors.Is ErrManifestNotFound", err)
+	}
+}
+
 func digestOf(b []byte) string {
 	sum := sha256.Sum256(b)
 	return "sha256:" + hex.EncodeToString(sum[:])

@@ -21,6 +21,8 @@ const (
 )
 
 var (
+	ErrManifestNotFound = errors.New("manifest not found")
+
 	errMissingSnapshotJSON = errors.New("snapshot.json not found in export stream")
 
 	nowFunc = time.Now // tests override
