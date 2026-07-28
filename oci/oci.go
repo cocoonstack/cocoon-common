@@ -15,6 +15,8 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	"github.com/google/go-containerregistry/pkg/v1/types"
+
+	"github.com/cocoonstack/cocoon-common/snapshot"
 )
 
 const maxRegistryConnsPerHost = 32
@@ -59,6 +61,9 @@ func (r *OCIRegistry) GetManifest(ctx context.Context, repo, tag string) ([]byte
 	}
 	desc, err := remote.Get(ref, r.callOpts(ctx)...)
 	if err != nil {
+		if isNotFound(err) {
+			return nil, "", fmt.Errorf("get manifest %s:%s: %w", repo, tag, snapshot.ErrManifestNotFound)
+		}
 		return nil, "", fmt.Errorf("get manifest %s:%s: %w", repo, tag, err)
 	}
 	return desc.Manifest, string(desc.MediaType), nil
@@ -176,11 +181,15 @@ func bulkTransport() *http.Transport {
 // ignoreNotFound maps a registry 404 to a nil error (absent, not failed) and
 // wraps anything else.
 func ignoreNotFound(err error, action string) error {
-	var terr *transport.Error
-	if errors.As(err, &terr) && terr.StatusCode == http.StatusNotFound {
+	if isNotFound(err) {
 		return nil
 	}
 	return fmt.Errorf("%s: %w", action, err)
+}
+
+func isNotFound(err error) bool {
+	var terr *transport.Error
+	return errors.As(err, &terr) && terr.StatusCode == http.StatusNotFound
 }
 
 // streamLayer is a v1.Layer over a body with a known digest and size, so PutBlob

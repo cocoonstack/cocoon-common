@@ -21,6 +21,11 @@ const (
 )
 
 var (
+	// ErrManifestNotFound is a Downloader's authoritative "no such manifest"
+	// (registry 404), as opposed to a transport failure; unwrap with errors.Is.
+	// Callers use it to distinguish clean absence from unverifiable state.
+	ErrManifestNotFound = errors.New("manifest not found")
+
 	errMissingSnapshotJSON = errors.New("snapshot.json not found in export stream")
 
 	nowFunc = time.Now // tests override
