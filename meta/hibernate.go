@@ -34,3 +34,17 @@ func MarkRestoreFromHibernate(pod *corev1.Pod) {
 	a := ensurePodAnnotations(pod)
 	a[AnnotationRestoreFromHibernate] = annotationTrue
 }
+
+//nolint:dupl // mirrors the restore-from-hibernate pair by design; merging them would hide which key is read.
+
+// ReadKeepSnapshotOnDelete reports whether this pod's deletion releases a
+// scheduling seat, in which case the node-local snapshot must outlive the pod.
+func ReadKeepSnapshotOnDelete(pod *corev1.Pod) bool {
+	return pod.Annotations[AnnotationKeepSnapshotOnDelete] == annotationTrue
+}
+
+// MarkKeepSnapshotOnDelete flags a pod's deletion as a seat release.
+func MarkKeepSnapshotOnDelete(pod *corev1.Pod) {
+	a := ensurePodAnnotations(pod)
+	a[AnnotationKeepSnapshotOnDelete] = annotationTrue
+}

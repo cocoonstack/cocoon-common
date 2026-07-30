@@ -80,3 +80,26 @@ func TestDefaultSnapshotTagConstant(t *testing.T) {
 		t.Errorf("DefaultSnapshotTag must differ from HibernateSnapshotTag")
 	}
 }
+
+func TestKeepSnapshotOnDeleteRoundTrip(t *testing.T) {
+	pod := &corev1.Pod{}
+	if ReadKeepSnapshotOnDelete(pod) {
+		t.Error("an unflagged pod must not keep its snapshot: a plain teardown has to GC it")
+	}
+	MarkKeepSnapshotOnDelete(pod)
+	if pod.Annotations[AnnotationKeepSnapshotOnDelete] != annotationTrue {
+		t.Errorf("MarkKeepSnapshotOnDelete should set %s=%s, got %q", AnnotationKeepSnapshotOnDelete, annotationTrue, pod.Annotations[AnnotationKeepSnapshotOnDelete])
+	}
+	if !ReadKeepSnapshotOnDelete(pod) {
+		t.Error("Read must see what Mark wrote")
+	}
+}
+
+func TestReadKeepSnapshotOnDeleteRejectsNonTrue(t *testing.T) {
+	pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{
+		AnnotationKeepSnapshotOnDelete: "1",
+	}}}
+	if ReadKeepSnapshotOnDelete(pod) {
+		t.Error("only the literal \"true\" may keep a snapshot alive past its pod")
+	}
+}
