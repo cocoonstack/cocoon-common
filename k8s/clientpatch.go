@@ -37,8 +37,7 @@ func PatchHibernateState(ctx context.Context, cli client.Client, pod *corev1.Pod
 	})
 }
 
-// PatchKeepSnapshotOnDelete flags the pod's coming deletion as a seat release so
-// vk-cocoon keeps its local snapshot. Short-circuits if already flagged.
+// PatchKeepSnapshotOnDelete flags the pod's deletion as a seat release, short-circuiting if already flagged.
 func PatchKeepSnapshotOnDelete(ctx context.Context, cli client.Client, pod *corev1.Pod) error {
 	if meta.ReadKeepSnapshotOnDelete(pod) {
 		return nil

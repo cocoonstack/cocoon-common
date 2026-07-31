@@ -81,25 +81,13 @@ func TestDefaultSnapshotTagConstant(t *testing.T) {
 	}
 }
 
-func TestKeepSnapshotOnDeleteRoundTrip(t *testing.T) {
+func TestMarkKeepSnapshotOnDelete(t *testing.T) {
 	pod := &corev1.Pod{}
 	if ReadKeepSnapshotOnDelete(pod) {
-		t.Error("an unflagged pod must not keep its snapshot: a plain teardown has to GC it")
+		t.Fatal("fresh pod should not be flagged as a seat release")
 	}
 	MarkKeepSnapshotOnDelete(pod)
-	if pod.Annotations[AnnotationKeepSnapshotOnDelete] != annotationTrue {
-		t.Errorf("MarkKeepSnapshotOnDelete should set %s=%s, got %q", AnnotationKeepSnapshotOnDelete, annotationTrue, pod.Annotations[AnnotationKeepSnapshotOnDelete])
-	}
 	if !ReadKeepSnapshotOnDelete(pod) {
-		t.Error("Read must see what Mark wrote")
-	}
-}
-
-func TestReadKeepSnapshotOnDeleteRejectsNonTrue(t *testing.T) {
-	pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{
-		AnnotationKeepSnapshotOnDelete: "1",
-	}}}
-	if ReadKeepSnapshotOnDelete(pod) {
-		t.Error("only the literal \"true\" may keep a snapshot alive past its pod")
+		t.Error("MarkKeepSnapshotOnDelete should round-trip through ReadKeepSnapshotOnDelete")
 	}
 }

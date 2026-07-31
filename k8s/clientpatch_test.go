@@ -113,15 +113,6 @@ func TestPatchCocoonSetGenerationShortCircuitsNoOp(t *testing.T) {
 	}
 }
 
-func newFakeClient(t *testing.T, objs ...client.Object) client.Client {
-	t.Helper()
-	scheme := runtime.NewScheme()
-	if err := clientgoscheme.AddToScheme(scheme); err != nil {
-		t.Fatalf("add client-go scheme: %v", err)
-	}
-	return ctrlfake.NewClientBuilder().WithScheme(scheme).WithObjects(objs...).Build()
-}
-
 func TestPatchKeepSnapshotOnDeletePersistsAndShortCircuits(t *testing.T) {
 	pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "demo", Namespace: "ns"}}
 	cli := newFakeClient(t, pod.DeepCopy())
@@ -140,4 +131,13 @@ func TestPatchKeepSnapshotOnDeletePersistsAndShortCircuits(t *testing.T) {
 	if err := PatchKeepSnapshotOnDelete(t.Context(), cli, &got); err != nil {
 		t.Fatalf("re-flagging an already-flagged pod must be a no-op: %v", err)
 	}
+}
+
+func newFakeClient(t *testing.T, objs ...client.Object) client.Client {
+	t.Helper()
+	scheme := runtime.NewScheme()
+	if err := clientgoscheme.AddToScheme(scheme); err != nil {
+		t.Fatalf("add client-go scheme: %v", err)
+	}
+	return ctrlfake.NewClientBuilder().WithScheme(scheme).WithObjects(objs...).Build()
 }
