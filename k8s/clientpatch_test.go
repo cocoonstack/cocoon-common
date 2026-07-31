@@ -113,6 +113,26 @@ func TestPatchCocoonSetGenerationShortCircuitsNoOp(t *testing.T) {
 	}
 }
 
+func TestPatchKeepSnapshotOnDeletePersistsAndShortCircuits(t *testing.T) {
+	pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "demo", Namespace: "ns"}}
+	cli := newFakeClient(t, pod.DeepCopy())
+
+	if err := PatchKeepSnapshotOnDelete(t.Context(), cli, pod); err != nil {
+		t.Fatalf("PatchKeepSnapshotOnDelete: %v", err)
+	}
+	var got corev1.Pod
+	if err := cli.Get(t.Context(), client.ObjectKey{Namespace: "ns", Name: "demo"}, &got); err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if !meta.ReadKeepSnapshotOnDelete(&got) {
+		t.Errorf("flag must reach the API server before the delete lands: %v", got.Annotations)
+	}
+	// The fake client errors on an empty-body Patch, so success proves the no-op guard.
+	if err := PatchKeepSnapshotOnDelete(t.Context(), cli, &got); err != nil {
+		t.Fatalf("re-flagging an already-flagged pod must be a no-op: %v", err)
+	}
+}
+
 func newFakeClient(t *testing.T, objs ...client.Object) client.Client {
 	t.Helper()
 	scheme := runtime.NewScheme()

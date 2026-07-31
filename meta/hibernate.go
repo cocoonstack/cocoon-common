@@ -34,3 +34,14 @@ func MarkRestoreFromHibernate(pod *corev1.Pod) {
 	a := ensurePodAnnotations(pod)
 	a[AnnotationRestoreFromHibernate] = annotationTrue
 }
+
+// ReadKeepSnapshotOnDelete reports whether the pod's deletion is flagged as a seat release.
+func ReadKeepSnapshotOnDelete(pod *corev1.Pod) bool {
+	return pod.Annotations[AnnotationKeepSnapshotOnDelete] == annotationTrue
+}
+
+// MarkKeepSnapshotOnDelete flags a pod's deletion as a seat release.
+func MarkKeepSnapshotOnDelete(pod *corev1.Pod) {
+	a := ensurePodAnnotations(pod)
+	a[AnnotationKeepSnapshotOnDelete] = annotationTrue
+}

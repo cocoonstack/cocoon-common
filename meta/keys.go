@@ -55,6 +55,8 @@ const (
 	// restore its VM from the :hibernate snapshot (cross-node migration) instead
 	// of cloning from the base image. Written by the operator on the rebuilt pod.
 	AnnotationRestoreFromHibernate = "vm.cocoonstack.io/restore-from-hibernate"
+	// AnnotationKeepSnapshotOnDelete requests node-local snapshot retention for a seat-release pod deletion.
+	AnnotationKeepSnapshotOnDelete = "vm.cocoonstack.io/keep-snapshot-on-delete"
 	// AnnotationForkFrom names a VM to fork the new VM from.
 	AnnotationForkFrom = "vm.cocoonstack.io/fork-from"
 	// AnnotationCloneFromDir names a host directory to clone the VM image from (vk-cocoon-specific).

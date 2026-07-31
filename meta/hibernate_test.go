@@ -80,3 +80,14 @@ func TestDefaultSnapshotTagConstant(t *testing.T) {
 		t.Errorf("DefaultSnapshotTag must differ from HibernateSnapshotTag")
 	}
 }
+
+func TestMarkKeepSnapshotOnDelete(t *testing.T) {
+	pod := &corev1.Pod{}
+	if ReadKeepSnapshotOnDelete(pod) {
+		t.Fatal("fresh pod should not be flagged as a seat release")
+	}
+	MarkKeepSnapshotOnDelete(pod)
+	if !ReadKeepSnapshotOnDelete(pod) {
+		t.Error("MarkKeepSnapshotOnDelete should round-trip through ReadKeepSnapshotOnDelete")
+	}
+}

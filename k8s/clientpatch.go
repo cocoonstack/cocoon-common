@@ -37,6 +37,14 @@ func PatchHibernateState(ctx context.Context, cli client.Client, pod *corev1.Pod
 	})
 }
 
+// PatchKeepSnapshotOnDelete flags the pod's deletion as a seat release, short-circuiting if already flagged.
+func PatchKeepSnapshotOnDelete(ctx context.Context, cli client.Client, pod *corev1.Pod) error {
+	if meta.ReadKeepSnapshotOnDelete(pod) {
+		return nil
+	}
+	return Patch(ctx, cli, pod, meta.MarkKeepSnapshotOnDelete)
+}
+
 // PatchCocoonSetGeneration stamps the owning CocoonSet's metadata.generation
 // onto the pod so vk-cocoon can read it back as lifecycle-observed-generation.
 // Short-circuits when the annotation is already correct.
