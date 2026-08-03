@@ -150,6 +150,55 @@ func TestPushOmitsBaseImageAnnotationWhenEmpty(t *testing.T) {
 	}
 }
 
+func TestPushStampsCallerAnnotations(t *testing.T) {
+	cocoon := &fakeCocoon{exportTar: buildExportTar(t, snapshotExportConfig{Name: "myvm"}, map[string][]byte{
+		"config.json": []byte(`{}`),
+	})}
+	uploader := newFakeUploader()
+	pusher := &Pusher{Uploader: uploader, Cocoon: cocoon}
+
+	_, err := pusher.Push(t.Context(), PushOptions{
+		Name:        "myvm",
+		Annotations: map[string]string{"cocoonstack.snapshot.from-node": "node-7"},
+	})
+	if err != nil {
+		t.Fatalf("Push: %v", err)
+	}
+
+	parsed, err := manifest.Parse(uploader.manifests["myvm:latest"].bytes)
+	if err != nil {
+		t.Fatalf("parse manifest: %v", err)
+	}
+	if got := parsed.Annotations["cocoonstack.snapshot.from-node"]; got != "node-7" {
+		t.Errorf("from-node annotation = %q, want node-7 (all: %v)", got, parsed.Annotations)
+	}
+	if _, ok := parsed.Annotations[manifest.AnnotationCreated]; !ok {
+		t.Errorf("created annotation lost: %v", parsed.Annotations)
+	}
+}
+
+func TestMarshalEnvelope(t *testing.T) {
+	data, err := MarshalEnvelope(&manifest.SnapshotConfig{
+		SnapshotID: "snap-id-9",
+		Image:      "ghcr.io/example/base:1",
+		Hypervisor: "cloud-hypervisor",
+		CPU:        2,
+	}, "vm-a")
+	if err != nil {
+		t.Fatalf("MarshalEnvelope: %v", err)
+	}
+	if !bytes.HasSuffix(data, []byte("\n")) {
+		t.Error("envelope must end with a newline")
+	}
+	var envelope snapshotExportEnvelope
+	if err := json.Unmarshal(data, &envelope); err != nil {
+		t.Fatalf("unmarshal envelope: %v", err)
+	}
+	if envelope.Version != 1 || envelope.Config.ID != "snap-id-9" || envelope.Config.Name != "vm-a" || envelope.Config.CPU != 2 {
+		t.Errorf("envelope = %+v", envelope)
+	}
+}
+
 func TestStreamReassemblesTarFromOCISnapshot(t *testing.T) {
 	files := map[string][]byte{
 		"config.json":   []byte(`{"cpu":2}`),

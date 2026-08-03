@@ -123,6 +123,33 @@ func FetchSnapshotConfig(ctx context.Context, dl Downloader, name string, desc m
 	return &cfg, nil
 }
 
+func MarshalEnvelope(cfg *manifest.SnapshotConfig, localName string) ([]byte, error) {
+	envelope := snapshotExportEnvelope{
+		Version: 1,
+		Config: snapshotExportConfig{
+			ID:           cfg.SnapshotID,
+			Name:         localName,
+			Description:  cfg.Description,
+			Image:        cfg.Image,
+			ImageDigest:  cfg.ImageDigest,
+			ImageType:    cfg.ImageType,
+			ImageBlobIDs: cfg.ImageBlobIDs,
+			Hypervisor:   cfg.Hypervisor,
+			CPU:          cfg.CPU,
+			Memory:       cfg.Memory,
+			Storage:      cfg.Storage,
+			NICs:         cfg.NICs,
+			Network:      cfg.Network,
+			Windows:      cfg.Windows,
+		},
+	}
+	data, err := json.MarshalIndent(envelope, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("marshal snapshot envelope: %w", err)
+	}
+	return append(data, '\n'), nil
+}
+
 // validateSnapshotLayers fails closed before any byte is streamed: every layer
 // must be decodable here, and encoded layers may only appear in v2 manifests.
 func validateSnapshotLayers(m *manifest.OCIManifest, cfg *manifest.SnapshotConfig) error {
@@ -254,31 +281,10 @@ func planLayers(cfg *manifest.SnapshotConfig, layers []manifest.Descriptor) ([]l
 }
 
 func writeSnapshotEnvelope(tw *tar.Writer, cfg *manifest.SnapshotConfig, localName string, now time.Time) error {
-	envelope := snapshotExportEnvelope{
-		Version: 1,
-		Config: snapshotExportConfig{
-			ID:           cfg.SnapshotID,
-			Name:         localName,
-			Description:  cfg.Description,
-			Image:        cfg.Image,
-			ImageDigest:  cfg.ImageDigest,
-			ImageType:    cfg.ImageType,
-			ImageBlobIDs: cfg.ImageBlobIDs,
-			Hypervisor:   cfg.Hypervisor,
-			CPU:          cfg.CPU,
-			Memory:       cfg.Memory,
-			Storage:      cfg.Storage,
-			NICs:         cfg.NICs,
-			Network:      cfg.Network,
-			Windows:      cfg.Windows,
-		},
-	}
-	envelopeJSON, err := json.MarshalIndent(envelope, "", "  ")
+	envelopeJSON, err := MarshalEnvelope(cfg, localName)
 	if err != nil {
-		return fmt.Errorf("marshal snapshot envelope: %w", err)
+		return err
 	}
-	envelopeJSON = append(envelopeJSON, '\n')
-
 	if err := writeTarFile(tw, snapshotJSONName, envelopeJSON, 0o644, now); err != nil {
 		return fmt.Errorf("write snapshot envelope: %w", err)
 	}
