@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"strconv"
 	"time"
@@ -21,12 +22,13 @@ import (
 
 // PushOptions configures a snapshot push operation.
 type PushOptions struct {
-	Name      string
-	Tag       string
-	BaseImage string // optional cocoonstack.snapshot.baseimage annotation
-	Source    string
-	Revision  string
-	Progress  func(string)
+	Name        string
+	Tag         string
+	BaseImage   string // optional cocoonstack.snapshot.baseimage annotation
+	Source      string
+	Revision    string
+	Annotations map[string]string
+	Progress    func(string)
 
 	// v2 wire-format knobs; all-zero reproduces the v1 writer exactly.
 	ZstdLevel       int // >0: zstd-compress layers ≥ 1 MiB at this level
@@ -279,6 +281,7 @@ func buildSnapshotManifest(config manifest.Descriptor, layers []manifest.Descrip
 	if opts.Revision != "" {
 		annotations[manifest.AnnotationRevision] = opts.Revision
 	}
+	maps.Copy(annotations, opts.Annotations)
 
 	m := manifest.OCIManifest{
 		SchemaVersion: 2,
