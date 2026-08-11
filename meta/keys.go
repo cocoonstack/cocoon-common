@@ -19,7 +19,6 @@ const (
 	// DefaultNodePool is the pool name used when LabelNodePool is unset.
 	DefaultNodePool = "default"
 	// LabelSnapshotCompatibilityClass selects nodes whose guest-visible CPU ABI
-	// can restore the pod's memory snapshots.
 	LabelSnapshotCompatibilityClass = "cocoonstack.io/snapshot-cpu-class"
 
 	// AnnotationMode declares the VM provisioning mode (clone / run / static).
