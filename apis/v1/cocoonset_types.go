@@ -8,6 +8,7 @@ import (
 
 // CocoonSetSpec defines the desired state of a CocoonSet.
 // +kubebuilder:validation:XValidation:rule="!has(self.hibernatePolicy) || self.hibernatePolicy != 'release' || ((!has(self.agent.replicas) || self.agent.replicas == 0) && (!has(self.toolboxes) || size(self.toolboxes) == 0))",message="hibernatePolicy=release requires agent.replicas=0 and no toolboxes"
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.snapshotCompatibilityClass) || (has(self.snapshotCompatibilityClass) && self.snapshotCompatibilityClass == oldSelf.snapshotCompatibilityClass)",message="snapshotCompatibilityClass is immutable once set"
 type CocoonSetSpec struct {
 	// +optional
 	Suspend bool `json:"suspend,omitempty"`
@@ -26,6 +27,11 @@ type CocoonSetSpec struct {
 	// +optional
 	// +kubebuilder:default=default
 	NodePool string `json:"nodePool,omitempty"`
+
+	// +optional
+	// +kubebuilder:validation:MaxLength=63
+	// +kubebuilder:validation:Pattern=`^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$`
+	SnapshotCompatibilityClass string `json:"snapshotCompatibilityClass,omitempty"`
 
 	// NodeName pins the VM to a node (cross-node migrate). Empty = let the
 	// scheduler place it within NodePool and leave it alone; a value adds a
