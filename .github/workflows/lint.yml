@@ -24,7 +24,7 @@ jobs:
       - name: Verify generated artifacts
         run: |
           make generate manifests
-          test -z "$(git status --porcelain --untracked-files=all)"
+          git add -A && git diff --cached --exit-code
 
       - name: Lint
         run: make lint
