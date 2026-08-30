@@ -32,6 +32,21 @@ func TestEnvBool(t *testing.T) {
 	}
 }
 
+func TestEnvInt(t *testing.T) {
+	t.Setenv("COCOON_TEST_INT", "42")
+	if got := EnvInt("COCOON_TEST_INT", 7); got != 42 {
+		t.Errorf("set: got %d, want 42", got)
+	}
+	t.Setenv("COCOON_TEST_INT", "garbage")
+	if got := EnvInt("COCOON_TEST_INT", 7); got != 7 {
+		t.Errorf("bad input: got %d, want fallback 7", got)
+	}
+	t.Setenv("COCOON_TEST_INT", "")
+	if got := EnvInt("COCOON_TEST_INT", 7); got != 7 {
+		t.Errorf("empty: got %d, want fallback 7", got)
+	}
+}
+
 func TestSleepCtxReturnsTrueOnTimer(t *testing.T) {
 	if !SleepCtx(t.Context(), time.Millisecond) {
 		t.Errorf("timer path should return true")
