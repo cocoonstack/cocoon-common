@@ -447,15 +447,15 @@ func TestFetchSnapshotConfigRejectsOversizeDescriptor(t *testing.T) {
 
 // fakeUploader records every blob and manifest write so tests can assert
 // the wire format produced by Pusher.
+type fakeManifestUpload struct {
+	bytes       []byte
+	contentType string
+}
+
 type fakeUploader struct {
 	mu        sync.Mutex
 	blobs     map[string][]byte // digest -> bytes
 	manifests map[string]fakeManifestUpload
-}
-
-type fakeManifestUpload struct {
-	bytes       []byte
-	contentType string
 }
 
 func newFakeUploader() *fakeUploader {
