@@ -14,9 +14,8 @@ import (
 const (
 	diskBlobA = "AAAA"
 	diskBlobB = "BBBB"
-	// Real sha256 digests of the byte contents above; required by CopyBlobExact's digest check.
-	digestA = "sha256:63c1dd951ffedf6f7fd968ad4efa39b8ed584f162f46e715114ee184f8de9201"
-	digestB = "sha256:4a8d8134f29b0b7b60c126f5532bc9f5d9bb73037373cf6fb872d81f1dcefdfd"
+	digestA   = "sha256:63c1dd951ffedf6f7fd968ad4efa39b8ed584f162f46e715114ee184f8de9201"
+	digestB   = "sha256:4a8d8134f29b0b7b60c126f5532bc9f5d9bb73037373cf6fb872d81f1dcefdfd"
 )
 
 var winManifest = `{

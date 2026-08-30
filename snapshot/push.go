@@ -183,8 +183,7 @@ func (p *Pusher) uploadTarEntry(ctx context.Context, name string, hdr *tar.Heade
 	})
 }
 
-// uploadSpooled spools one blob to a temp file while hashing (the OCI API
-// needs the digest before the first uploaded byte), then uploads it if absent.
+// uploadSpooled spools a blob to a temp file while hashing, since the OCI API needs the digest before the first byte.
 func (p *Pusher) uploadSpooled(ctx context.Context, name, title, mediaType string, write func(io.Writer) error) (manifest.Descriptor, error) {
 	tmp, err := os.CreateTemp("", "cocoon-snapshot-*")
 	if err != nil {
@@ -294,8 +293,7 @@ func buildSnapshotManifest(config manifest.Descriptor, layers []manifest.Descrip
 	return json.MarshalIndent(m, "", "  ")
 }
 
-// snapshotVersionMarkers pairs the config schemaVersion with the manifest
-// artifactType; the reader trusts them to agree.
+// snapshotVersionMarkers pairs the config schemaVersion with the manifest artifactType; the reader trusts them to agree.
 func snapshotVersionMarkers(encoded bool) (schemaVersion, artifactType string) {
 	if encoded {
 		return "v2", manifest.ArtifactTypeSnapshotV2

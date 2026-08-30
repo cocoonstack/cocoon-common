@@ -22,9 +22,8 @@ import (
 
 const localhost = "127.0.0.1"
 
-// LoadOrGenerateCert loads a TLS keypair from disk, falling back to a
-// self-signed cert when paths are empty, the cert is missing, or the
-// cert is expired. Returns a source label for logging.
+// LoadOrGenerateCert loads a TLS keypair from disk, falling back to a self-signed cert
+// when the paths are empty or the cert is missing or expired; the label names the source.
 func LoadOrGenerateCert(ctx context.Context, certPath, keyPath, hostname, ip string) (tls.Certificate, string, error) {
 	cert, source, err := tryLoadDiskCert(ctx, certPath, keyPath)
 	if err != nil {
@@ -40,8 +39,7 @@ func LoadOrGenerateCert(ctx context.Context, certPath, keyPath, hostname, ip str
 	return cert, "self-signed", nil
 }
 
-// GenerateSelfSignedCert creates an in-memory ECDSA P-256 self-signed
-// cert for hostname and ip.
+// GenerateSelfSignedCert creates an in-memory ECDSA P-256 self-signed cert for hostname and ip.
 func GenerateSelfSignedCert(hostname, ip string) (tls.Certificate, error) {
 	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {

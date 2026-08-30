@@ -31,10 +31,8 @@ type StreamOptions struct {
 	MemoryBudgetMiB int // prefetch-buffer cap for this Stream call (default 4096)
 }
 
-// Stream reassembles a snapshot manifest into a cocoon-import tar stream.
-// If raw is an OCI image-index (multi-platform), a child manifest is resolved
-// via dl.GetManifest(..., childDigest) and streamed instead — preferring
-// linux/amd64, falling back to the first non-attestation entry.
+// Stream reassembles a snapshot manifest into a cocoon-import tar stream,
+// resolving an OCI image-index to a child manifest first.
 func Stream(ctx context.Context, raw []byte, dl Downloader, opts StreamOptions) error {
 	if opts.Name == "" {
 		return errors.New("snapshot stream: name is required")
@@ -150,8 +148,7 @@ func MarshalEnvelope(cfg *manifest.SnapshotConfig, localName string) ([]byte, er
 	return append(data, '\n'), nil
 }
 
-// validateSnapshotLayers fails closed before any byte is streamed: every layer
-// must be decodable here, and encoded layers may only appear in v2 manifests.
+// validateSnapshotLayers fails closed before the first byte: every layer must be decodable, and encoding needs a v2 manifest.
 func validateSnapshotLayers(m *manifest.OCIManifest, cfg *manifest.SnapshotConfig) error {
 	encoded := m.ArtifactType == manifest.ArtifactTypeSnapshotV2
 	for _, layer := range m.Layers {
@@ -178,8 +175,7 @@ func validateSnapshotLayers(m *manifest.OCIManifest, cfg *manifest.SnapshotConfi
 	return nil
 }
 
-// pickIndexChild selects the linux/amd64 child from an OCI image-index and
-// falls back to the first non-attestation entry when no platform matches.
+// pickIndexChild selects the linux/amd64 child of an image-index, falling back to the first non-attestation entry.
 func pickIndexChild(ctx context.Context, m *manifest.OCIManifest) (manifest.IndexManifest, error) {
 	var fallback *manifest.IndexManifest
 	for i := range m.Manifests {

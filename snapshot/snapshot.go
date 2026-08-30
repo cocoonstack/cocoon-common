@@ -1,6 +1,5 @@
-// Package snapshot pushes and pulls cocoon VM snapshots as OCI artifacts.
-// Push reads a `cocoon snapshot export` stream; Stream assembles a
-// `cocoon snapshot import` tar into a caller-supplied writer.
+// Package snapshot moves cocoon VM snapshots between a `cocoon snapshot export`
+// stream, an OCI registry, and a `cocoon snapshot import` tar.
 package snapshot
 
 import (

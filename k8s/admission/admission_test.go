@@ -59,7 +59,7 @@ func TestServeCopiesUIDAndAllowsNilResponse(t *testing.T) {
 	rr := httptest.NewRecorder()
 	r := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(raw))
 	Serve(rr, r, 0, func(_ context.Context, _ *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
-		return nil // should be normalized to Allow
+		return nil
 	})
 
 	body, _ := io.ReadAll(rr.Result().Body)
@@ -77,8 +77,6 @@ func TestServeCopiesUIDAndAllowsNilResponse(t *testing.T) {
 }
 
 func TestServeRejectsMissingRequest(t *testing.T) {
-	// AdmissionReview with no Request field — shared boundary helper must
-	// fail closed with 400, not nil-deref when copying UID.
 	raw, err := json.Marshal(&admissionv1.AdmissionReview{})
 	if err != nil {
 		t.Fatalf("marshal: %v", err)

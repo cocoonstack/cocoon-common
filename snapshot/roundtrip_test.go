@@ -32,8 +32,7 @@ var v2OptionMatrix = []struct {
 	{"both-k2", PushOptions{ZstdLevel: 3, ChunkSizeMiB: 1, Concurrency: 2}},
 }
 
-// Invariant 2: the v2 pipeline must be invisible at the tar layer — its output
-// is byte-identical to the v1 pipeline's for the same input.
+// The v2 pipeline is invisible at the tar layer: byte-identical output to v1.
 func TestV2RoundTripMatchesV1ByteForByte(t *testing.T) {
 	pinClock(t)
 	corpus := v2Corpus(t)
@@ -48,9 +47,7 @@ func TestV2RoundTripMatchesV1ByteForByte(t *testing.T) {
 	}
 }
 
-// Invariant 1: per-entry equivalence with the source export tar — name, order,
-// size, body, mode, and COCOON.sparse.* PAX records. snapshot.json is compared
-// semantically since the reader re-marshals the envelope by design.
+// Every entry matches the source export tar; snapshot.json is compared semantically since the reader re-marshals it.
 func TestV2RoundTripPreservesEntries(t *testing.T) {
 	pinClock(t)
 	corpus := v2Corpus(t)
@@ -161,8 +158,7 @@ func TestV2ManifestShape(t *testing.T) {
 	}
 }
 
-// Knobs on but nothing compressed or chunked (all files tiny) must still
-// produce a v1-classified manifest so phase-0 readers stay compatible.
+// Knobs on with nothing large enough to encode must still classify as v1, so phase-0 readers keep working.
 func TestV2KnobsWithOnlySmallFilesStaysV1(t *testing.T) {
 	pinClock(t)
 	corpus := buildOrderedExportTar(t, snapshotExportConfig{Name: "myvm"}, []namedTarEntry{
@@ -281,8 +277,7 @@ func TestPullFailsClosedOnMissingChunkLayer(t *testing.T) {
 	}
 }
 
-// Identical chunks dedup across files into one blob carrying one file's
-// annotations; reconstruction must not reject the other file's reference.
+// Identical chunks dedup into one blob carrying one file's annotations; the other file's reference must still resolve.
 func TestRoundTripSharedChunkAcrossFiles(t *testing.T) {
 	pinClock(t)
 	const chunk = 1 << 20
@@ -302,8 +297,7 @@ func TestRoundTripSharedChunkAcrossFiles(t *testing.T) {
 	}
 }
 
-// The v2 reader must keep consuming the literal v1 shape — spelled as strings,
-// not constants, so constant drift cannot silently rewrite what "v1" means.
+// The literal v1 shape is spelled as strings, not constants, so constant drift cannot rewrite what "v1" means.
 func TestReaderConsumesFrozenV1Manifest(t *testing.T) {
 	pinClock(t)
 	uploader := newFakeUploader()
@@ -361,16 +355,14 @@ func TestPushSanitizesNegativeConcurrency(t *testing.T) {
 
 func TestPushRejectsChunkLargerThanBudget(t *testing.T) {
 	pinClock(t)
-	// One worker needs 2 pools × 2 buffers = 4×chunk; below that, reject.
-	// Above maxChunkSizeMiB, reject before any budget math.
 	for _, tc := range []struct {
 		chunkMiB, budgetMiB int
 		wantErr             string
 	}{
 		{8192, 1024, "maximum"},
-		{1 << 50, 0, "maximum"},      // would overflow the byte shift
-		{512, 1024, "memory budget"}, // 2×chunk fits but 4×chunk does not
-		{512, 2048, ""},              // exactly one worker's floor
+		{1 << 50, 0, "maximum"},
+		{512, 1024, "memory budget"},
+		{512, 2048, ""},
 	} {
 		uploader := newFakeUploader()
 		pusher := &Pusher{Uploader: uploader, Cocoon: &fakeCocoon{exportTar: v2Corpus(t)}}
@@ -384,8 +376,7 @@ func TestPushRejectsChunkLargerThanBudget(t *testing.T) {
 	}
 }
 
-// A budget below two chunks routes the pull to the O(1) streaming path; the
-// output must stay byte-identical.
+// A budget below two chunks routes the pull to the sequential path with byte-identical output.
 func TestPullTinyBudgetStreamsSequentially(t *testing.T) {
 	pinClock(t)
 	corpus := v2Corpus(t)
@@ -546,9 +537,7 @@ func TestChunkSourceSpawnsWithinWindow(t *testing.T) {
 		pipe := &chunkPipeline{dl: g, name: "myvm", window: 2, outputCap: 2, out: newBufPool(3)}
 		src := newChunkSource(t.Context(), pipe, layerPlan{title: "myvm", chunks: descs}, 2)
 
-		// After Wait every goroutine is durably blocked, so started is final.
 		synctest.Wait()
-		// Errorf: Fatalf would leak the gated fetches and re-panic synctest.
 		if n := g.started.Load(); n != 1 {
 			t.Errorf("fetches started before any consumption = %d, want 1", n)
 		}
@@ -699,8 +688,7 @@ func planOf(title string, zstd bool, fileSize int64, sizes ...int64) layerPlan {
 	return layerPlan{title: title, meta: manifest.SnapshotFile{Size: fileSize}, layer: manifest.Descriptor{MediaType: mt}, chunks: descs}
 }
 
-// v2Corpus exercises every codec branch: empty, small-raw, exactly-at-chunk-size,
-// one-byte-over, multi-chunk sparse, and an unknown-name generic layer.
+// v2Corpus covers every codec branch: empty, small-raw, at-chunk-size, one-over, multi-chunk sparse, unknown-name.
 func v2Corpus(t *testing.T) []byte {
 	t.Helper()
 	const chunk = 1 << 20
@@ -765,14 +753,13 @@ func buildOrderedExportTar(t *testing.T, cfg snapshotExportConfig, entries []nam
 	return buf.Bytes()
 }
 
-// fillBytes is deterministic and half-compressible: zero runs mixed with an
-// xorshift stream, so zstd neither trivially collapses nor stores it raw.
+// fillBytes is deterministic and half-compressible, so zstd neither collapses it nor stores it raw.
 func fillBytes(n int, seed uint64) []byte {
 	out := make([]byte, n)
 	state := seed*2685821657736338717 + 1
 	for i := range out {
 		if i%512 < 256 {
-			continue // zero run
+			continue
 		}
 		state ^= state << 13
 		state ^= state >> 7
@@ -875,8 +862,7 @@ func (shortWriter) Write(p []byte) (int, error) {
 	return max(len(p)-1, 0), nil
 }
 
-// gatedDownloader blocks every GetBlob until released and counts starts, so
-// tests can observe how many fetches the prefetcher launches.
+// gatedDownloader blocks every GetBlob until released and counts starts.
 type gatedDownloader struct {
 	blobs   map[string][]byte
 	release chan struct{}

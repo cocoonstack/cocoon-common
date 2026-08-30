@@ -29,8 +29,6 @@ func TestVMSpecApplyAndParse(t *testing.T) {
 	}
 	spec.Apply(pod)
 
-	// Anchor the annotation key contract — a roundtrip-only assertion
-	// would silently pass if Apply and Parse both used the wrong key.
 	wantKeys := map[string]string{
 		AnnotationVMName:         spec.VMName,
 		AnnotationImage:          spec.Image,

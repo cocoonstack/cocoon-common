@@ -93,9 +93,7 @@ func (p SnapshotPolicy) IsValid() bool { return slices.Contains(snapshotPolicyVa
 // Default returns p when set, otherwise SnapshotPolicyAlways.
 func (p SnapshotPolicy) Default() SnapshotPolicy { return cmp.Or(p, SnapshotPolicyAlways) }
 
-// HibernatePolicy selects the scheduling-seat semantics of a suspended
-// CocoonSet: retain keeps the placeholder pod on its node, release frees the
-// seat once the hibernate snapshot is registry-verified (wake reschedules).
+// HibernatePolicy selects retain or release scheduling-seat semantics for a suspended CocoonSet.
 // +kubebuilder:validation:Enum=retain;release
 type HibernatePolicy string
 

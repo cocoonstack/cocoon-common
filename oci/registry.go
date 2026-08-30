@@ -1,6 +1,5 @@
-// Package oci provides a standard OCI Distribution registry client that
-// satisfies the snapshot Uploader/Downloader contracts, so cocoon snapshots
-// and cloud images can live in any OCI registry (e.g. Artifact Registry).
+// Package oci provides a standard OCI Distribution registry client behind the
+// snapshot Uploader/Downloader contracts, so artifacts can live in any registry.
 package oci
 
 import (
@@ -9,8 +8,7 @@ import (
 	"github.com/cocoonstack/cocoon-common/snapshot"
 )
 
-// Registry is the OCI backend shared by vk (push/pull) and the operator
-// (existence probe + rollback).
+// Registry is the OCI backend shared by vk-cocoon (push/pull) and the operator (probe/GC).
 type Registry interface {
 	snapshot.Uploader
 	snapshot.Downloader

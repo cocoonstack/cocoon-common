@@ -28,6 +28,8 @@ type CocoonSetSpec struct {
 	// +kubebuilder:default=default
 	NodePool string `json:"nodePool,omitempty"`
 
+	// SnapshotCompatibilityClass selects nodes exposing a guest-visible CPU ABI
+	// that can resume this set's memory snapshots. Independent from NodePool.
 	// +optional
 	// +kubebuilder:validation:MaxLength=63
 	// +kubebuilder:validation:Pattern=`^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$`

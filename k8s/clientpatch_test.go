@@ -42,9 +42,8 @@ func TestPatchHibernateStateShortCircuitsNoOp(t *testing.T) {
 	meta.HibernateState(true).Apply(pod)
 	cli := newFakeClient(t, pod.DeepCopy())
 
-	// The fake client errors on an empty-body Patch, so success proves the no-op guard.
 	if err := PatchHibernateState(t.Context(), cli, pod, true); err != nil {
-		t.Fatalf("no-op PatchHibernateState: %v", err)
+		t.Fatalf("no-op PatchHibernateState must not reach the client: %v", err)
 	}
 }
 
@@ -107,9 +106,8 @@ func TestPatchCocoonSetGenerationShortCircuitsNoOp(t *testing.T) {
 	}}
 	cli := newFakeClient(t, pod.DeepCopy())
 
-	// The fake client errors on an empty-body Patch, so success proves the no-op guard.
 	if err := PatchCocoonSetGeneration(t.Context(), cli, pod, 7); err != nil {
-		t.Fatalf("no-op PatchCocoonSetGeneration: %v", err)
+		t.Fatalf("no-op PatchCocoonSetGeneration must not reach the client: %v", err)
 	}
 }
 
@@ -127,9 +125,8 @@ func TestPatchKeepSnapshotOnDeletePersistsAndShortCircuits(t *testing.T) {
 	if !meta.ReadKeepSnapshotOnDelete(&got) {
 		t.Errorf("flag must reach the API server before the delete lands: %v", got.Annotations)
 	}
-	// The fake client errors on an empty-body Patch, so success proves the no-op guard.
 	if err := PatchKeepSnapshotOnDelete(t.Context(), cli, &got); err != nil {
-		t.Fatalf("re-flagging an already-flagged pod must be a no-op: %v", err)
+		t.Fatalf("re-flagging an already-flagged pod must not reach the client: %v", err)
 	}
 }
 

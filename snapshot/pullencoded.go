@@ -43,6 +43,12 @@ func (e layerPlan) bufferCaps() (input, output int64) {
 	return stored, rawChunkStride(e.meta.Size, len(e.chunks))
 }
 
+type chunkFetch struct {
+	data []byte
+	buf  []byte
+	err  error
+}
+
 type chunkPipeline struct {
 	dl        Downloader
 	name      string
@@ -125,7 +131,7 @@ func (p *chunkPipeline) streamFile(ctx context.Context, tw *tar.Writer, e layerP
 		defer func() { _ = cs.Close() }()
 		var body io.Reader = cs
 		if e.zstd() {
-			dec, decErr := zstd.NewReader(body)
+			dec, decErr := zstd.NewReader(body, zstd.WithDecoderConcurrency(1))
 			if decErr != nil {
 				return fmt.Errorf("init zstd decoder for %s: %w", e.title, decErr)
 			}
@@ -184,12 +190,6 @@ func (p *chunkPipeline) read(ctx context.Context, desc manifest.Descriptor, buf 
 		return nil, err
 	}
 	return stored, nil
-}
-
-type chunkFetch struct {
-	data []byte
-	buf  []byte
-	err  error
 }
 
 type chunkSource struct {

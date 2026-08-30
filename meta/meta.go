@@ -1,3 +1,2 @@
-// Package meta defines shared metadata keys and naming rules used
-// across Cocoon components.
+// Package meta defines the metadata keys and naming rules shared across cocoon components.
 package meta

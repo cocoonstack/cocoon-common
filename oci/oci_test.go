@@ -104,9 +104,7 @@ func TestOCIRegistryRoundTrip(t *testing.T) {
 	}
 }
 
-// TestGetManifestByDigest confirms GetManifest addresses a sha256:... reference
-// via '@' (repo@digest), the path snapshot pull takes to fetch a multi-arch
-// image-index child — a ':' join here would be rejected by name.ParseReference.
+// A sha256 reference must join with '@'; name.ParseReference rejects a ':' join.
 func TestGetManifestByDigest(t *testing.T) {
 	srv := httptest.NewServer(registry.New())
 	t.Cleanup(srv.Close)
@@ -135,9 +133,7 @@ func TestGetManifestByDigest(t *testing.T) {
 	}
 }
 
-// TestStreamResolvesIndexChildByDigest pins the image-index path: the child is
-// referenced only by digest, so the stream fails unless OCIRegistry fetches it
-// via repo@digest.
+// An image-index child is referenced only by digest, so the stream needs repo@digest.
 func TestStreamResolvesIndexChildByDigest(t *testing.T) {
 	srv := httptest.NewServer(registry.New())
 	t.Cleanup(srv.Close)
@@ -160,7 +156,6 @@ func TestStreamResolvesIndexChildByDigest(t *testing.T) {
 		`","size":` + strconv.Itoa(len(cfgBlob)) + `},"layers":[{"mediaType":"` + manifest.MediaTypeVMConfig +
 		`","digest":"` + digestOf(layerBlob) + `","size":` + strconv.Itoa(len(layerBlob)) +
 		`,"annotations":{"` + manifest.AnnotationTitle + `":"config.json"}}]}`)
-	// Store the child by tag; the registry then serves it back by its digest.
 	if err := r.PutManifest(ctx, "myvm", "child", child, manifest.MediaTypeOCIManifest); err != nil {
 		t.Fatalf("PutManifest child: %v", err)
 	}

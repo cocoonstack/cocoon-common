@@ -17,24 +17,6 @@ var (
 	relTag  = regexp.MustCompile(`^[A-Za-z0-9_][A-Za-z0-9._-]{0,127}$`)
 )
 
-// SHA256Hex returns the hex-encoded SHA-256 digest of data.
-func SHA256Hex(data []byte) string {
-	h := sha256.Sum256(data)
-	return hex.EncodeToString(h[:])
-}
-
-// CopyBlobExact copies exactly size bytes and verifies both length and sha256 digest.
-func CopyBlobExact(dst io.Writer, body io.Reader, digest string, size int64) error {
-	_, err := io.Copy(dst, NewBlobVerifier(body, digest, size))
-	return err
-}
-
-// CopyBlobSized copies exactly size bytes from a digest-verified body.
-func CopyBlobSized(dst io.Writer, body io.Reader, digest string, size int64) error {
-	_, err := io.Copy(dst, NewBlobSizeChecker(body, digest, size))
-	return err
-}
-
 // BlobVerifier enforces configured blob checks while reading.
 type BlobVerifier struct {
 	body   io.Reader
@@ -106,8 +88,25 @@ func (v *BlobVerifier) finish() error {
 	return nil
 }
 
-// ParseRef splits a registry-relative "repo[:tag]" at its first colon,
-// defaulting tag to "latest"; IsRelativeRef guards the domain.
+// SHA256Hex returns the hex-encoded SHA-256 digest of data.
+func SHA256Hex(data []byte) string {
+	h := sha256.Sum256(data)
+	return hex.EncodeToString(h[:])
+}
+
+// CopyBlobExact copies exactly size bytes and verifies both length and sha256 digest.
+func CopyBlobExact(dst io.Writer, body io.Reader, digest string, size int64) error {
+	_, err := io.Copy(dst, NewBlobVerifier(body, digest, size))
+	return err
+}
+
+// CopyBlobSized copies exactly size bytes from a digest-verified body.
+func CopyBlobSized(dst io.Writer, body io.Reader, digest string, size int64) error {
+	_, err := io.Copy(dst, NewBlobSizeChecker(body, digest, size))
+	return err
+}
+
+// ParseRef splits a registry-relative "repo[:tag]" at its first colon, defaulting the tag to "latest".
 func ParseRef(ref string) (string, string) {
 	if name, tag, ok := strings.Cut(ref, ":"); ok && name != "" {
 		return name, tag
@@ -115,8 +114,7 @@ func ParseRef(ref string) (string, string) {
 	return ref, "latest"
 }
 
-// IsRelativeRef reports whether ref is a registry-relative repo[:tag], the
-// only form ParseRef splits correctly (ports and digests carry extra colons).
+// IsRelativeRef reports whether ref is a registry-relative repo[:tag], the only form ParseRef splits correctly.
 func IsRelativeRef(ref string) bool {
 	repo, tag := ParseRef(ref)
 	return relRepo.MatchString(repo) && relTag.MatchString(tag)

@@ -18,8 +18,7 @@ const (
 	LabelNodePool = "cocoonstack.io/pool"
 	// DefaultNodePool is the pool name used when LabelNodePool is unset.
 	DefaultNodePool = "default"
-	// LabelSnapshotCompatibilityClass selects nodes whose guest-visible CPU ABI
-	// can resume a CocoonSet's memory snapshots.
+	// LabelSnapshotCompatibilityClass selects nodes whose guest-visible CPU ABI can resume a CocoonSet's memory snapshots.
 	LabelSnapshotCompatibilityClass = "cocoonstack.io/snapshot-cpu-class"
 
 	// AnnotationMode declares the VM provisioning mode (clone / run / static).
@@ -40,8 +39,7 @@ const (
 	AnnotationForcePull = "cocoonset.cocoonstack.io/force-pull"
 	// AnnotationCocoonSetGeneration carries the CocoonSet generation stamped at scheduling time.
 	AnnotationCocoonSetGeneration = "cocoonset.cocoonstack.io/generation"
-	// AnnotationHibernatedOnNode records the main agent's node at release-policy
-	// suspend; wake uses it as a preferred-affinity hint for a warm restore.
+	// AnnotationHibernatedOnNode records the main agent's node at release-policy suspend, a preferred-affinity hint for wake.
 	AnnotationHibernatedOnNode = "cocoonset.cocoonstack.io/hibernated-on-node"
 
 	// AnnotationVMID carries the runtime VM identifier vk-cocoon assigns after creation.
@@ -54,9 +52,7 @@ const (
 	AnnotationVNCPort = "vm.cocoonstack.io/vnc-port"
 	// AnnotationHibernate signals "hibernate this VM" when set to "true".
 	AnnotationHibernate = "vm.cocoonstack.io/hibernate"
-	// AnnotationRestoreFromHibernate signals that a freshly created pod must
-	// restore its VM from the :hibernate snapshot (cross-node migration) instead
-	// of cloning from the base image. Written by the operator on the rebuilt pod.
+	// AnnotationRestoreFromHibernate makes a rebuilt pod restore from the :hibernate snapshot instead of cloning the base image.
 	AnnotationRestoreFromHibernate = "vm.cocoonstack.io/restore-from-hibernate"
 	// AnnotationKeepSnapshotOnDelete requests node-local snapshot retention for a seat-release pod deletion.
 	AnnotationKeepSnapshotOnDelete = "vm.cocoonstack.io/keep-snapshot-on-delete"

@@ -105,9 +105,29 @@ func ClassifyParsed(m *OCIManifest) Kind {
 	return classifyFields(m.ArtifactType, m.Config.MediaType, m.MediaType)
 }
 
-// SnapshotFile holds per-file metadata stored in the snapshot config blob.
-// v2: Size is the uncompressed size (descriptors describe stored bytes) and
-// Chunks is the authoritative ordered digest list of a split file.
+func classifyFields(artifactType, configMediaType, topMediaType string) Kind {
+	switch artifactType {
+	case ArtifactTypeOSImage, ArtifactTypeWindowsImage:
+		return KindCloudImage
+	case ArtifactTypeSnapshot, ArtifactTypeSnapshotV2:
+		return KindSnapshot
+	}
+
+	switch configMediaType {
+	case MediaTypeOCIImageConfig, MediaTypeDockerConfig:
+		return KindContainerImage
+	}
+
+	switch topMediaType {
+	case MediaTypeOCIIndex, MediaTypeDockerIndex:
+		return KindImageIndex
+	}
+
+	return KindUnknown
+}
+
+// SnapshotFile holds per-file metadata in the snapshot config blob; under v2 Size is
+// uncompressed and Chunks is the authoritative digest order of a split file.
 type SnapshotFile struct {
 	Mode       int64    `json:"mode,omitempty"`
 	SparseMap  string   `json:"sparseMap,omitempty"`
@@ -134,25 +154,4 @@ type SnapshotConfig struct {
 	Windows       bool                    `json:"windows,omitempty"`
 	Files         map[string]SnapshotFile `json:"files,omitempty"`
 	CreatedAt     time.Time               `json:"createdAt,omitzero"`
-}
-
-func classifyFields(artifactType, configMediaType, topMediaType string) Kind {
-	switch artifactType {
-	case ArtifactTypeOSImage, ArtifactTypeWindowsImage:
-		return KindCloudImage
-	case ArtifactTypeSnapshot, ArtifactTypeSnapshotV2:
-		return KindSnapshot
-	}
-
-	switch configMediaType {
-	case MediaTypeOCIImageConfig, MediaTypeDockerConfig:
-		return KindContainerImage
-	}
-
-	switch topMediaType {
-	case MediaTypeOCIIndex, MediaTypeDockerIndex:
-		return KindImageIndex
-	}
-
-	return KindUnknown
 }

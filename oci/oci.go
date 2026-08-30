@@ -21,28 +21,24 @@ import (
 
 const maxRegistryConnsPerHost = 32
 
-// errBlobUncompressed guards the DiffID/Uncompressed accessors: cocoon blobs
-// are opaque content-addressed bytes and WriteLayer only reads Compressed().
+// errBlobUncompressed guards DiffID/Uncompressed: cocoon blobs are opaque bytes and WriteLayer reads only Compressed().
 var errBlobUncompressed = errors.New("cocoon blob layers expose only compressed bytes")
 
 var _ Registry = (*OCIRegistry)(nil)
 
-// OCIRegistry is a Registry backed by a standard OCI Distribution registry
-// (e.g. Artifact Registry), using OCI upload sessions and keychain auth.
+// OCIRegistry is a Registry backed by a standard OCI Distribution registry, using upload sessions and keychain auth.
 type OCIRegistry struct {
 	base string // registry host + repo prefix, e.g. "asia-docker.pkg.dev/proj/repo"
 	opts []remote.Option
 }
 
-// NewOCIRegistry roots a client at base, authenticating via keychain (e.g.
-// authn.DefaultKeychain, or a MultiKeychain with google.Keychain for GCP AR).
+// NewOCIRegistry roots a client at base, authenticating through keychain.
 func NewOCIRegistry(base string, keychain authn.Keychain) *OCIRegistry {
 	opts := []remote.Option{
 		remote.WithAuthFromKeychain(keychain),
 		remote.WithTransport(bulkTransport()),
 	}
-	// Reuse pins one puller/pusher so the /v2/ ping + bearer-token exchange
-	// happens once per repo instead of on every blob call.
+	// Reuse pins one puller and pusher so the /v2/ ping and token exchange happen once per repo.
 	if puller, err := remote.NewPuller(opts...); err == nil {
 		opts = append(opts, remote.Reuse(puller))
 	}
@@ -52,8 +48,7 @@ func NewOCIRegistry(base string, keychain authn.Keychain) *OCIRegistry {
 	return &OCIRegistry{base: base, opts: opts}
 }
 
-// GetManifest fetches the raw manifest bytes and media type at repo:tag, or at
-// repo@digest when tag is a sha256:... digest (multi-arch child manifests).
+// GetManifest fetches raw manifest bytes at repo:tag, or repo@digest when tag is a sha256 digest.
 func (r *OCIRegistry) GetManifest(ctx context.Context, repo, tag string) ([]byte, string, error) {
 	ref, err := r.parseRef(repo, tag)
 	if err != nil {
@@ -134,22 +129,20 @@ func (r *OCIRegistry) PutManifest(ctx context.Context, repo, tag string, data []
 	return nil
 }
 
-// DeleteManifest removes the manifest at repo:reference (tag or digest).
-// A 404 is success: every caller wants ensure-absent, and GC paths would
-// otherwise log errors for tags that were never pushed.
+// DeleteManifest removes the manifest at repo:reference (tag or digest);
+// a 404 is success, since every caller wants ensure-absent.
 func (r *OCIRegistry) DeleteManifest(ctx context.Context, repo, reference string) error {
 	ref, err := r.parseRef(repo, reference)
 	if err != nil {
 		return err
 	}
 	if err := remote.Delete(ref, r.callOpts(ctx)...); err != nil {
-		return ignoreNotFound(err, "delete manifest "+reference)
+		return ignoreNotFound(err, "delete manifest "+repo+":"+reference)
 	}
 	return nil
 }
 
-// parseRef resolves repo + reference into a name.Reference: a digest (sha256:...)
-// joins the repo with '@', a tag with ':'.
+// parseRef joins repo and reference with '@' for a digest and ':' for a tag.
 func (r *OCIRegistry) parseRef(repo, reference string) (name.Reference, error) {
 	sep := ":"
 	if strings.ContainsRune(reference, ':') {
@@ -178,8 +171,7 @@ func bulkTransport() *http.Transport {
 	return t
 }
 
-// ignoreNotFound maps a registry 404 to a nil error (absent, not failed) and
-// wraps anything else.
+// ignoreNotFound maps a registry 404 to nil and wraps anything else.
 func ignoreNotFound(err error, action string) error {
 	if isNotFound(err) {
 		return nil
@@ -192,9 +184,8 @@ func isNotFound(err error) bool {
 	return errors.As(err, &terr) && terr.StatusCode == http.StatusNotFound
 }
 
-// streamLayer is a v1.Layer over a body with a known digest and size, so PutBlob
-// streams a raw blob without buffering it (WriteLayer reads only Compressed()).
-// body is single-use: a retried upload fails the digest check, not corrupts.
+// streamLayer is a v1.Layer over a body of known digest and size, so PutBlob streams without buffering.
+// body is single-use: a retried upload fails the digest check rather than corrupting the blob.
 type streamLayer struct {
 	hash v1.Hash
 	size int64

@@ -39,7 +39,6 @@ func TestExtractAgentSlot(t *testing.T) {
 			want:      3,
 		},
 		{
-			// A naive last-dash split would misread this as slot 2.
 			name:      "toolbox with trailing digit is not an agent slot",
 			ns:        "prod",
 			cocoonSet: "demo",
@@ -117,8 +116,6 @@ func TestRoleForPod(t *testing.T) {
 			want:   RoleSubAgent,
 		},
 		{
-			// Regression: toolbox "app-0" builds VM name "vk-ns-cs-app-0",
-			// which a naive last-dash split would misread as agent slot 0.
 			name:   "toolbox named app-0 is not main",
 			pod:    &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Namespace: "ns", OwnerReferences: cocoonSetOwner}},
 			vmName: "vk-ns-cs-app-0",
