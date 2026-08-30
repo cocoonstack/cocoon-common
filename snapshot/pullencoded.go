@@ -43,6 +43,12 @@ func (e layerPlan) bufferCaps() (input, output int64) {
 	return stored, rawChunkStride(e.meta.Size, len(e.chunks))
 }
 
+type chunkFetch struct {
+	data []byte
+	buf  []byte
+	err  error
+}
+
 type chunkPipeline struct {
 	dl        Downloader
 	name      string
@@ -184,12 +190,6 @@ func (p *chunkPipeline) read(ctx context.Context, desc manifest.Descriptor, buf 
 		return nil, err
 	}
 	return stored, nil
-}
-
-type chunkFetch struct {
-	data []byte
-	buf  []byte
-	err  error
 }
 
 type chunkSource struct {

@@ -445,8 +445,7 @@ func TestFetchSnapshotConfigRejectsOversizeDescriptor(t *testing.T) {
 	}
 }
 
-// fakeUploader records every blob and manifest write so tests can assert
-// the wire format produced by Pusher.
+// fakeUploader records every blob and manifest write Pusher produces.
 type fakeManifestUpload struct {
 	bytes       []byte
 	contentType string
@@ -454,7 +453,7 @@ type fakeManifestUpload struct {
 
 type fakeUploader struct {
 	mu        sync.Mutex
-	blobs     map[string][]byte // digest -> bytes
+	blobs     map[string][]byte
 	manifests map[string]fakeManifestUpload
 }
 
@@ -525,8 +524,7 @@ type exportTarEntry struct {
 	pax  map[string]string
 }
 
-// buildExportTar produces a fake `cocoon snapshot export` tar containing a
-// snapshot.json envelope plus the named files.
+// buildExportTar produces a fake export tar: a snapshot.json envelope plus the named files.
 func buildExportTar(t *testing.T, cfg snapshotExportConfig, files map[string][]byte) []byte {
 	t.Helper()
 	entries := make(map[string]exportTarEntry, len(files))
@@ -539,7 +537,6 @@ func buildExportTar(t *testing.T, cfg snapshotExportConfig, files map[string][]b
 func buildExportTarEntries(t *testing.T, cfg snapshotExportConfig, files map[string]exportTarEntry) []byte {
 	t.Helper()
 	var ordered []namedTarEntry
-	// Stable order so the layer order in the produced manifest is testable.
 	for _, name := range []string{"config.json", "state.json", "memory-ranges", "overlay.qcow2", "cidata.img"} {
 		entry, ok := files[name]
 		if !ok {

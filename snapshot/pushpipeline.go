@@ -32,8 +32,7 @@ type chunkGroup struct {
 	descs []manifest.Descriptor
 }
 
-// pushPipeline is the encode/upload worker pool Push selects when compression
-// or chunking is enabled.
+// pushPipeline is the encode/upload worker pool Push selects when compression or chunking is on.
 type pushPipeline struct {
 	pusher  *Pusher
 	eg      *errgroup.Group
@@ -44,8 +43,7 @@ type pushPipeline struct {
 	report  func(format string, args ...any)
 }
 
-// enqueueChunks cuts one tar entry at fixed uncompressed offsets and hands each
-// chunk to the worker pool; the returned slice is complete only after eg.Wait.
+// enqueueChunks cuts one tar entry at fixed offsets into the worker pool; the returned slice is complete only after eg.Wait.
 func (pl *pushPipeline) enqueueChunks(ctx context.Context, tr *tar.Reader, hdr *tar.Header, chunkSize int64, compress bool) ([]manifest.Descriptor, error) {
 	count64 := (hdr.Size + chunkSize - 1) / chunkSize
 	if count64 > 1<<20 {
@@ -285,8 +283,7 @@ func (p *Pusher) uploadCompressedSpool(ctx context.Context, level int, name stri
 	})
 }
 
-// pipelineParams resolves the knobs: both buffer pools hold workers+1 chunks,
-// so the worker count solves 2(w+1)×chunk ≤ budget.
+// pipelineParams solves 2(workers+1)×chunk ≤ budget, the combined size of both buffer pools.
 func pipelineParams(opts PushOptions) (int, int64, error) {
 	workers := opts.Concurrency
 	if workers <= 0 {

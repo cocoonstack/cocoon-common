@@ -7,8 +7,7 @@ import (
 // ConditionTypeReady is the condition type for overall readiness.
 const ConditionTypeReady = "Ready"
 
-// NewReadyCondition builds a Ready condition. LastTransitionTime is left zero
-// so apimeta.SetStatusCondition preserves the existing timestamp on no-op updates.
+// NewReadyCondition builds a Ready condition, leaving LastTransitionTime zero so a no-op update keeps the existing timestamp.
 func NewReadyCondition(generation int64, status metav1.ConditionStatus, reason, message string) metav1.Condition {
 	return metav1.Condition{
 		Type:               ConditionTypeReady,

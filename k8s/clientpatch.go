@@ -45,9 +45,7 @@ func PatchKeepSnapshotOnDelete(ctx context.Context, cli client.Client, pod *core
 	return Patch(ctx, cli, pod, meta.MarkKeepSnapshotOnDelete)
 }
 
-// PatchCocoonSetGeneration stamps the owning CocoonSet's metadata.generation
-// onto the pod so vk-cocoon can read it back as lifecycle-observed-generation.
-// Short-circuits when the annotation is already correct.
+// PatchCocoonSetGeneration stamps the owning CocoonSet's metadata.generation onto the pod, short-circuiting when it already matches.
 func PatchCocoonSetGeneration(ctx context.Context, cli client.Client, pod *corev1.Pod, generation int64) error {
 	if meta.ReadCocoonSetGeneration(pod) == generation {
 		return nil

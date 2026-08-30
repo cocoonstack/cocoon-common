@@ -54,7 +54,6 @@ func TestLoadOrGenerateCertLoadsFromDisk(t *testing.T) {
 	certPath := filepath.Join(dir, "tls.crt")
 	keyPath := filepath.Join(dir, "tls.key")
 
-	// Mint the keypair directly: GenerateSelfSignedCert keeps the private key in memory and exposes no PEM to persist.
 	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		t.Fatalf("gen key: %v", err)

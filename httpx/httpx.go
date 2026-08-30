@@ -1,11 +1,11 @@
-// Package httpx provides shared HTTP server lifecycle helpers so that
-// cocoonstack binaries don't each reinvent graceful-shutdown plumbing.
+// Package httpx provides the shared HTTP server lifecycle and graceful-shutdown plumbing.
 package httpx
 
 import (
 	"context"
 	"errors"
 	"net/http"
+	"slices"
 	"sync"
 	"time"
 )
@@ -93,5 +93,5 @@ func Run(ctx context.Context, shutdownTimeout time.Duration, specs ...ServerSpec
 	// Wait after Shutdown so ListenAndServe errors from the shutdown window are collected too.
 	wg.Wait()
 
-	return errors.Join(append(serveErrs, shutdownErrs...)...)
+	return errors.Join(slices.Concat(serveErrs, shutdownErrs)...)
 }

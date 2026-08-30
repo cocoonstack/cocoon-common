@@ -43,7 +43,6 @@ func TestRunShutsDownOnCtxCancel(t *testing.T) {
 		fmt.Fprintln(w, "ok")
 	})
 	srv := NewServer(addr, handler)
-	// Close unused listener — we let ListenAndServe allocate its own.
 	_ = ln.Close()
 
 	ctx, cancel := context.WithCancel(t.Context())
@@ -88,7 +87,6 @@ func TestRunAggregatesServeErrors(t *testing.T) {
 		runErrCh <- Run(t.Context(), time.Second, spec)
 	}()
 
-	// Run must return on its own when Start fails — without external cancel.
 	select {
 	case err := <-runErrCh:
 		if !errors.Is(err, startErr) {
@@ -181,10 +179,8 @@ func TestHTTPSServerSpecUsesListenAndServeTLS(t *testing.T) {
 	if spec.Start == nil {
 		t.Errorf("start must be set")
 	}
-	// Don't invoke Start — it would try to load real cert files.
 }
 
-// Without this the test races against ListenAndServe's listener setup.
 func waitForServer(t *testing.T, addr string) {
 	t.Helper()
 	deadline := time.Now().Add(3 * time.Second)

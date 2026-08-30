@@ -85,6 +85,18 @@ func FromToolboxSpec(spec cocoonv1.ToolboxSpec, vmName string, snapshotPolicy co
 	return s
 }
 
+// ShouldSnapshotVM reports whether the VM should be snapshotted based on its SnapshotPolicy and role.
+func ShouldSnapshotVM(spec VMSpec, role string) bool {
+	switch cocoonv1.SnapshotPolicy(spec.SnapshotPolicy).Default() {
+	case cocoonv1.SnapshotPolicyNever:
+		return false
+	case cocoonv1.SnapshotPolicyMainOnly:
+		return role == RoleMain
+	default:
+		return true
+	}
+}
+
 func fromVMOptions(o cocoonv1.VMOptions, vmName, image, mode string, snapshotPolicy cocoonv1.SnapshotPolicy) VMSpec {
 	return VMSpec{
 		VMName:         vmName,
@@ -99,17 +111,5 @@ func fromVMOptions(o cocoonv1.VMOptions, vmName, image, mode string, snapshotPol
 		ConnType:       string(o.ConnType),
 		Backend:        string(o.Backend.Default()),
 		ProbePort:      formatPort(o.ProbePort),
-	}
-}
-
-// ShouldSnapshotVM reports whether the VM should be snapshotted based on its SnapshotPolicy and role.
-func ShouldSnapshotVM(spec VMSpec, role string) bool {
-	switch cocoonv1.SnapshotPolicy(spec.SnapshotPolicy).Default() {
-	case cocoonv1.SnapshotPolicyNever:
-		return false
-	case cocoonv1.SnapshotPolicyMainOnly:
-		return role == RoleMain
-	default:
-		return true
 	}
 }

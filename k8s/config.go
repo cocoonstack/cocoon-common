@@ -10,10 +10,8 @@ const (
 	defaultClientBurst = 100
 )
 
-// LoadConfig returns a client config from $KUBECONFIG (an os.PathListSeparator
-// list is merged, as kubectl does), then ~/.kube/config, then in-cluster — the
-// deferred loading rules cover all three, first match wins. The config carries
-// COCOON_K8S_QPS/COCOON_K8S_BURST (default 50/100) instead of client-go's 5/10.
+// LoadConfig resolves a client config from $KUBECONFIG (a path list is merged, as kubectl does),
+// then ~/.kube/config, then in-cluster, and applies COCOON_K8S_QPS/COCOON_K8S_BURST (default 50/100).
 func LoadConfig() (*rest.Config, error) {
 	cfg, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
 		clientcmd.NewDefaultClientConfigLoadingRules(),
