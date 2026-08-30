@@ -6,7 +6,7 @@ Shared Go packages for [cocoonstack](https://github.com/cocoonstack) services.
 
 - `apis/v1` -- typed CocoonSet and CocoonHibernation CRD Go types and generated CRD YAML manifests
 - `meta` -- shared CRD identifiers, annotation/label/toleration keys, VM naming helpers, the typed `VMSpec` / `VMRuntime` / `HibernateState` / `LifecycleStatus` annotation contract, and pod-state helpers (`IsPodReady`, `IsPodTerminal`, `IsContainerRunning`, `PodKey`, `PodNodePool`) every cocoon component shares
-- `k8s` -- Kubernetes client config bootstrap with the standard kubeconfig fallback chain, merge-patch helpers, env/sleep helpers (`EnvOrDefault`, `EnvBool`, `SleepCtx`), unstructured decoder, and TLS helpers (`LoadOrGenerateCert`, `GenerateSelfSignedCert`, `DetectNodeIP`)
+- `k8s` -- Kubernetes client config bootstrap with the standard kubeconfig fallback chain, merge-patch helpers, env/sleep helpers (`EnvOrDefault`, `EnvBool`, `EnvInt`, `SleepCtx`), a nil-safe `Eventf`, unstructured decoder, and TLS helpers (`LoadOrGenerateCert`, `GenerateSelfSignedCert`, `DetectNodeIP`)
 - `k8s/admission` -- shared admission-webhook scaffolding (`Allow` / `Deny` responses, `Decode` / `Serve` request loop) used by `cocoon-webhook` and reusable by any future cocoonstack admission handler
 - `snapshot` -- push cocoon VM snapshots to an OCI registry and stream them back, including the chunked/zstd v2 wire format
 - `cloudimg` -- stream a cocoonstack cloud-image (qcow2) artifact out of a registry into `cocoon image import`
@@ -132,7 +132,8 @@ Use `k8s.LoadConfig()` to resolve cluster configuration from:
 Other helpers in this package:
 
 - `k8s.NewClientset` / `k8s.NewClientsetAndDynamic` -- clientset constructors on top of `LoadConfig`, for binaries that do not run a controller-runtime manager.
-- `k8s.EnvOrDefault`, `k8s.EnvBool` -- lenient env-var parsing that falls back to the supplied default on unset / malformed values.
+- `k8s.EnvOrDefault`, `k8s.EnvBool`, `k8s.EnvInt` -- lenient env-var parsing that falls back to the supplied default on unset / malformed values.
+- `k8s.Eventf` -- records an event through a `record.EventRecorder` and is a no-op when the recorder is nil, so tests and recorder-less builds stay silent.
 - `k8s.SleepCtx(ctx, d)` -- context-aware sleep; returns `false` when the context fires first so callers can exit retry loops without a second `select`.
 - `k8s.RunTicker(ctx, interval, fn)` -- the repeat-until-canceled counterpart to `SleepCtx`, so background reconcile loops stop open-coding a ticker plus `select`.
 - `k8s.LoadOrGenerateCert` / `k8s.GenerateSelfSignedCert` / `k8s.DetectNodeIP` -- TLS bring-up helpers used by `vk-cocoon` and reusable by any cocoonstack HTTP server that needs a dev-time self-signed fallback. `DetectNodeIP` returns `(string, error)`.

@@ -19,3 +19,12 @@ func EnvBool(key string, fallback bool) bool {
 	}
 	return b
 }
+
+// EnvInt parses an integer env var, falling back to fallback when unset or invalid.
+func EnvInt(key string, fallback int) int {
+	n, err := strconv.Atoi(os.Getenv(key))
+	if err != nil {
+		return fallback
+	}
+	return n
+}
