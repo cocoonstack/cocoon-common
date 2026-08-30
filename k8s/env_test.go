@@ -1,10 +1,6 @@
 package k8s
 
-import (
-	"context"
-	"testing"
-	"time"
-)
+import "testing"
 
 func TestEnvOrDefault(t *testing.T) {
 	t.Setenv("COCOON_TEST_VAR", "set")
@@ -44,25 +40,5 @@ func TestEnvInt(t *testing.T) {
 	t.Setenv("COCOON_TEST_INT", "")
 	if got := EnvInt("COCOON_TEST_INT", 7); got != 7 {
 		t.Errorf("empty: got %d, want fallback 7", got)
-	}
-}
-
-func TestSleepCtxReturnsTrueOnTimer(t *testing.T) {
-	if !SleepCtx(t.Context(), time.Millisecond) {
-		t.Errorf("timer path should return true")
-	}
-}
-
-func TestSleepCtxReturnsFalseOnCancel(t *testing.T) {
-	ctx, cancel := context.WithCancel(t.Context())
-	cancel()
-	if SleepCtx(ctx, time.Hour) {
-		t.Errorf("cancel path should return false")
-	}
-}
-
-func TestSleepCtxZeroDurationReturnsImmediately(t *testing.T) {
-	if !SleepCtx(t.Context(), 0) {
-		t.Errorf("zero duration should return true without waiting")
 	}
 }

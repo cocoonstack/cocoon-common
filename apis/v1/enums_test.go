@@ -45,6 +45,7 @@ func TestOSTypeIsValid(t *testing.T) {
 		{OSLinux, true},
 		{OSWindows, true},
 		{OSAndroid, true},
+		{OSMacos, true},
 		{"", false},
 		{"freebsd", false},
 	}
