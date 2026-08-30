@@ -121,8 +121,9 @@ func (p *Pusher) readAndUploadEntriesPipelined(ctx context.Context, opts PushOpt
 		return nil, nil, nil, false, err
 	}
 
+	compressOn := opts.ZstdLevel > 0
 	var enc *zstd.Encoder
-	if opts.ZstdLevel > 0 {
+	if compressOn && chunkSize > 0 {
 		var encErr error
 		enc, encErr = zstd.NewWriter(nil,
 			zstd.WithEncoderLevel(zstd.EncoderLevelFromZstd(opts.ZstdLevel)),
@@ -205,7 +206,7 @@ readLoop:
 		fileMeta.Size = hdr.Size
 		files[hdr.Name] = fileMeta
 
-		compress := enc != nil && hdr.Size >= compressMinBytes
+		compress := compressOn && hdr.Size >= compressMinBytes
 		if chunkSize > 0 && (compress || hdr.Size > chunkSize) {
 			encoded = true
 			descs, chunkErr := pl.enqueueChunks(egCtx, tr, hdr, chunkSize, compress)

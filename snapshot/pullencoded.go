@@ -125,7 +125,7 @@ func (p *chunkPipeline) streamFile(ctx context.Context, tw *tar.Writer, e layerP
 		defer func() { _ = cs.Close() }()
 		var body io.Reader = cs
 		if e.zstd() {
-			dec, decErr := zstd.NewReader(body)
+			dec, decErr := zstd.NewReader(body, zstd.WithDecoderConcurrency(1))
 			if decErr != nil {
 				return fmt.Errorf("init zstd decoder for %s: %w", e.title, decErr)
 			}
