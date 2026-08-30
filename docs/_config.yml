@@ -1,0 +1,3 @@
+title: cocoon-common
+description: Shared Go contract packages for cocoonstack — CRD types, the pod annotation contract, and the OCI snapshot wire format
+theme: jekyll-theme-primer
