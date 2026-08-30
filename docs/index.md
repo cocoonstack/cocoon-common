@@ -14,7 +14,7 @@ snapshot    VM snapshot push/pull over OCI (v1 and v2 wire formats)
 oci         the Registry interface + its standard-OCI implementation
 manifest    OCI manifest types, media types, artifact classification
 ociutil     reference parsing and digest/size-verified blob copies
-cloudimg    cloud-image (qcow2) streaming out of a registry
+cloudimg    cloud-image disk streaming out of a registry
 httpx, log  HTTP server lifecycle and logger bootstrap
 ```
 

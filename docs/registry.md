@@ -7,7 +7,7 @@ shares them so producer and consumer cannot drift on the wire format.
 ```
 oci       Registry interface + standard-OCI implementation
 snapshot  Pusher / Stream — the snapshot wire format
-cloudimg  Stream — cloud-image (qcow2) artifacts
+cloudimg  Stream — cloud-image disk artifacts
 manifest  OCI manifest types, media types, classification
 ociutil   reference parsing, digest/size-verified blob copies
 ```
@@ -63,8 +63,10 @@ config blob is a `manifest.SnapshotConfig`. `PushOptions.Annotations` adds
 caller annotations to that manifest; `Source` and `Revision` map to the
 standard `org.opencontainers.image.*` keys.
 
-Blobs are content-addressed and preflighted with `HasBlob`, so a second push
-of an unchanged VM uploads nothing.
+Layer blobs are content-addressed and preflighted with `HasBlob`, so a second
+push of an unchanged VM re-uploads no layers. The config blob and the manifest
+always go over the wire: the config embeds a fresh `CreatedAt`, so its digest
+differs on every push.
 
 ## Wire formats: v1 and v2
 
@@ -130,8 +132,9 @@ peer keep the registry as their identity anchor.
 
 `cloudimg.Stream(ctx, raw, blobs, w)` classifies the manifest, then
 concatenates its disk layers — sorted by title annotation, since large images
-are split across layers to stay under registry per-layer limits — into a
-qcow2 stream on `w`.
+are split across layers to stay under registry per-layer limits — onto `w`.
+The layers are copied verbatim, so the stream is qcow2 or raw depending on the
+artifact's own disk media types.
 
 ## Media types and classification
 

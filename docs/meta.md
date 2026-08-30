@@ -47,12 +47,14 @@ meta.VMRuntime{VMID: vmID, IP: ip}.Apply(pod)
 meta.HibernateState(true).Apply(pod)
 ```
 
-`Apply` skips empty fields, so it can never clear a value another writer set;
-`HibernateState(false).Apply` is the one exception and deletes its key.
+`Apply` skips empty fields, so it can never clear a value another writer set.
+The exceptions are deletes by design: `HibernateState(false).Apply` drops its
+key, and `LifecycleStatus.Apply` drops the message key when `Message` is empty.
 `ParseVMSpec` / `ParseVMRuntime` / `ReadHibernateState` read them back.
 
 `meta.FromAgentSpec` and `meta.FromToolboxSpec` build a `VMSpec` straight from
-the CRD types, resolving every enum through its `Default()`.
+the CRD types, resolving each enum that declares a `Default()` through it;
+`ConnType` has none and is passed through as-is.
 
 ## VM naming and roles
 

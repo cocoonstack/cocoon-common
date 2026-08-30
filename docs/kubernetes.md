@@ -46,8 +46,8 @@ desired value, so a reconcile loop can call them unconditionally:
 - `PatchCocoonSetGeneration(ctx, cli, pod, generation)`
 
 For reconcilers that prefer the raw JSON merge-patch encoding,
-`k8s.StatusMergePatch` and `k8s.AnnotationsMergePatch` build the body — pair
-the latter with [`meta.LifecycleStatus.Annotations()`](meta.md#lifecycle-status),
+`k8s.AnnotationsMergePatch` builds the body — pair it with
+[`meta.LifecycleStatus.Annotations()`](meta.md#lifecycle-status),
 where a nil value means "delete this key".
 
 `k8s.DecodeUnstructured[T]` converts an `*unstructured.Unstructured` into a
@@ -117,5 +117,6 @@ mux.HandleFunc("/mutate", func(w http.ResponseWriter, r *http.Request) {
 `Serve` decodes the review, rejects a missing `request` with 400, dispatches,
 copies the request UID onto the response, and writes the encoded review. A nil
 handler return is normalised to `Allow()`. The body is capped at
-`DefaultMaxBody` (10 MiB) when the `maxBytes` argument is `0`; `Decode` is
-exported for handlers that need the review without the response half.
+`DefaultMaxBody` (10 MiB) when the `maxBytes` argument is not positive;
+`Decode` is exported for handlers that need the review without the response
+half.

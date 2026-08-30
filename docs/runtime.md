@@ -37,5 +37,6 @@ if err := log.Setup(ctx, "COCOON_OPERATOR_LOG_LEVEL"); err != nil {
 ```
 
 `log.Setup` initializes `github.com/projecteru2/core/log` from an environment
-variable, defaulting to `info`. Every cocoonstack binary calls it once from
-`main`; everything below uses `log.WithFunc("pkg.Func")` directly.
+variable, defaulting to `info`, and is the only symbol this package exports.
+Every cocoonstack binary calls it once from `main`; everything below imports
+the eru package directly and uses its `log.WithFunc("pkg.Func")`.
