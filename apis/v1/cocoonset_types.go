@@ -230,7 +230,3 @@ type CocoonSetList struct {
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []CocoonSet `json:"items"`
 }
-
-func init() {
-	SchemeBuilder.Register(&CocoonSet{}, &CocoonSetList{})
-}

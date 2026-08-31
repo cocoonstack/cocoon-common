@@ -92,7 +92,3 @@ type CocoonHibernationList struct {
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []CocoonHibernation `json:"items"`
 }
-
-func init() {
-	SchemeBuilder.Register(&CocoonHibernation{}, &CocoonHibernationList{})
-}
