@@ -38,13 +38,6 @@ k8s.PatchStatus(ctx, cli, cs, func(c *v1.CocoonSet) { c.Status.Phase = ... })
 k8s.Patch(ctx, cli, pod, func(p *corev1.Pod) { ... })
 ```
 
-Three pod-level wrappers short-circuit when the object already carries the
-desired value, so a reconcile loop can call them unconditionally:
-
-- `PatchHibernateState(ctx, cli, pod, state)`
-- `PatchKeepSnapshotOnDelete(ctx, cli, pod)`
-- `PatchCocoonSetGeneration(ctx, cli, pod, generation)`
-
 For reconcilers that prefer the raw JSON merge-patch encoding,
 `k8s.AnnotationsMergePatch` builds the body — pair it with
 [`meta.LifecycleStatus.Annotations()`](meta.md#lifecycle-status),
