@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"hash"
 	"io"
 	"regexp"
 	"strings"
@@ -17,31 +16,21 @@ var (
 	relTag  = regexp.MustCompile(`^[A-Za-z0-9_][A-Za-z0-9._-]{0,127}$`)
 )
 
-// BlobVerifier enforces configured blob checks while reading.
-type BlobVerifier struct {
+// BlobSizeChecker enforces exact size and no trailing data on a digest-verified body.
+type BlobSizeChecker struct {
 	body   io.Reader
 	digest string
 	size   int64
 	lim    io.LimitedReader
-	hash   hash.Hash
 	done   bool
 }
 
-// NewBlobVerifier wraps body with digest, exact-size and no-trailing-data enforcement.
-func NewBlobVerifier(body io.Reader, digest string, size int64) *BlobVerifier {
-	v := &BlobVerifier{body: body, digest: digest, size: size, hash: sha256.New()}
-	v.lim = io.LimitedReader{R: io.TeeReader(body, v.hash), N: size}
-	return v
+// NewBlobSizeChecker wraps body so that reads fail on a short or long blob.
+func NewBlobSizeChecker(body io.Reader, digest string, size int64) *BlobSizeChecker {
+	return &BlobSizeChecker{body: body, digest: digest, size: size, lim: io.LimitedReader{R: body, N: size}}
 }
 
-// NewBlobSizeChecker enforces exact size for a digest-verified body.
-func NewBlobSizeChecker(body io.Reader, digest string, size int64) *BlobVerifier {
-	v := &BlobVerifier{body: body, digest: digest, size: size}
-	v.lim = io.LimitedReader{R: body, N: size}
-	return v
-}
-
-func (v *BlobVerifier) Read(p []byte) (int, error) {
+func (v *BlobSizeChecker) Read(p []byte) (int, error) {
 	if v.done {
 		return 0, io.EOF
 	}
@@ -62,7 +51,7 @@ func (v *BlobVerifier) Read(p []byte) (int, error) {
 	return 0, io.EOF
 }
 
-func (v *BlobVerifier) finish() error {
+func (v *BlobSizeChecker) finish() error {
 	if v.lim.N > 0 {
 		return fmt.Errorf("blob %s shorter than manifest size %d (missing %d)", v.digest, v.size, v.lim.N)
 	}
@@ -74,17 +63,6 @@ func (v *BlobVerifier) finish() error {
 	if err != nil && !errors.Is(err, io.EOF) {
 		return fmt.Errorf("verify blob %s: %w", v.digest, err)
 	}
-	if v.hash == nil {
-		return nil
-	}
-	got := "sha256:" + hex.EncodeToString(v.hash.Sum(nil))
-	want := v.digest
-	if !strings.HasPrefix(want, "sha256:") {
-		want = "sha256:" + want
-	}
-	if got != want {
-		return fmt.Errorf("blob %s digest mismatch: got %s", v.digest, got)
-	}
 	return nil
 }
 
@@ -92,12 +70,6 @@ func (v *BlobVerifier) finish() error {
 func SHA256Hex(data []byte) string {
 	h := sha256.Sum256(data)
 	return hex.EncodeToString(h[:])
-}
-
-// CopyBlobExact copies exactly size bytes and verifies both length and sha256 digest.
-func CopyBlobExact(dst io.Writer, body io.Reader, digest string, size int64) error {
-	_, err := io.Copy(dst, NewBlobVerifier(body, digest, size))
-	return err
 }
 
 // CopyBlobSized copies exactly size bytes from a digest-verified body.

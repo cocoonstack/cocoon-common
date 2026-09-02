@@ -62,7 +62,7 @@ func TestIsRelativeRef(t *testing.T) {
 	}
 }
 
-func TestBlobReadersSplitDigestAndLength(t *testing.T) {
+func TestBlobSizeCheckerEnforcesLength(t *testing.T) {
 	body := []byte("blob body bytes")
 	wrong := "sha256:" + SHA256Hex([]byte("other"))
 
@@ -71,10 +71,6 @@ func TestBlobReadersSplitDigestAndLength(t *testing.T) {
 		return err
 	}
 
-	if err := read(NewBlobVerifier(bytes.NewReader(body), wrong, int64(len(body)))); err == nil ||
-		!strings.Contains(err.Error(), "digest mismatch") {
-		t.Errorf("verifier on a mismatched digest: err = %v, want digest mismatch", err)
-	}
 	if err := read(NewBlobSizeChecker(bytes.NewReader(body), wrong, int64(len(body)))); err != nil {
 		t.Errorf("size checker must not re-hash: %v", err)
 	}

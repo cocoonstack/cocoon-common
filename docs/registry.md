@@ -156,7 +156,5 @@ hand-rolls a hash check:
 
 - `CopyBlobSized` — exact-size and no-trailing-data enforcement for a body the
   transport already digest-verified
-- `CopyBlobExact` — the same, plus a full sha256 re-hash, for transports that
-  do not verify
 - `ParseRef` / `IsRelativeRef` — registry-relative `repo[:tag]` parsing, with
   the guard that keeps a host:port or a digest from being split as a tag

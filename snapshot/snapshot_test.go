@@ -43,7 +43,7 @@ func TestPushProducesOCISnapshotManifest(t *testing.T) {
 	cocoon := &fakeCocoon{exportTar: buildExportTar(t, cfg, files)}
 	pusher := &Pusher{Uploader: uploader, Cocoon: cocoon}
 
-	result, err := pusher.Push(t.Context(), PushOptions{
+	err := pusher.Push(t.Context(), PushOptions{
 		Name:      "myvm",
 		Tag:       "v1",
 		BaseImage: "ghcr.io/cocoonstack/cocoon/ubuntu:24.04",
@@ -59,10 +59,6 @@ func TestPushProducesOCISnapshotManifest(t *testing.T) {
 	if upload.contentType != manifest.MediaTypeOCIManifest {
 		t.Errorf("manifest content-type = %q, want %q", upload.contentType, manifest.MediaTypeOCIManifest)
 	}
-	if !bytes.Equal(result.ManifestBytes, upload.bytes) {
-		t.Errorf("PushResult.ManifestBytes does not match what was uploaded")
-	}
-
 	parsed, err := manifest.Parse(upload.bytes)
 	if err != nil {
 		t.Fatalf("parse manifest: %v", err)
@@ -137,7 +133,7 @@ func TestPushOmitsBaseImageAnnotationWhenEmpty(t *testing.T) {
 	uploader := newFakeUploader()
 	pusher := &Pusher{Uploader: uploader, Cocoon: cocoon}
 
-	if _, err := pusher.Push(t.Context(), PushOptions{Name: "myvm"}); err != nil {
+	if err := pusher.Push(t.Context(), PushOptions{Name: "myvm"}); err != nil {
 		t.Fatalf("Push: %v", err)
 	}
 
@@ -157,7 +153,7 @@ func TestPushStampsCallerAnnotations(t *testing.T) {
 	uploader := newFakeUploader()
 	pusher := &Pusher{Uploader: uploader, Cocoon: cocoon}
 
-	_, err := pusher.Push(t.Context(), PushOptions{
+	err := pusher.Push(t.Context(), PushOptions{
 		Name:        "myvm",
 		Annotations: map[string]string{"cocoonstack.snapshot.from-node": "node-7"},
 	})
@@ -224,7 +220,7 @@ func TestStreamReassemblesTarFromOCISnapshot(t *testing.T) {
 	uploader := newFakeUploader()
 	cocoon := &fakeCocoon{exportTar: buildExportTar(t, cfg, files)}
 	pusher := &Pusher{Uploader: uploader, Cocoon: cocoon}
-	if _, err := pusher.Push(t.Context(), PushOptions{Name: "myvm", Tag: "v1"}); err != nil {
+	if err := pusher.Push(t.Context(), PushOptions{Name: "myvm", Tag: "v1"}); err != nil {
 		t.Fatalf("seed push: %v", err)
 	}
 
@@ -316,7 +312,7 @@ func TestStreamPreservesSparseTarMetadata(t *testing.T) {
 	uploader := newFakeUploader()
 	cocoon := &fakeCocoon{exportTar: buildExportTarEntries(t, cfg, entries)}
 	pusher := &Pusher{Uploader: uploader, Cocoon: cocoon}
-	if _, err := pusher.Push(t.Context(), PushOptions{Name: "mysparse", Tag: "latest"}); err != nil {
+	if err := pusher.Push(t.Context(), PushOptions{Name: "mysparse", Tag: "latest"}); err != nil {
 		t.Fatalf("seed push: %v", err)
 	}
 
@@ -379,7 +375,7 @@ func TestStreamRejectsNonSnapshotManifest(t *testing.T) {
 
 func TestPushRequiresName(t *testing.T) {
 	pusher := &Pusher{Uploader: newFakeUploader(), Cocoon: &fakeCocoon{}}
-	_, err := pusher.Push(t.Context(), PushOptions{})
+	err := pusher.Push(t.Context(), PushOptions{})
 	if err == nil {
 		t.Fatal("expected error when name is empty")
 	}
@@ -445,7 +441,6 @@ func TestFetchSnapshotConfigRejectsOversizeDescriptor(t *testing.T) {
 	}
 }
 
-// fakeUploader records every blob and manifest write Pusher produces.
 type fakeManifestUpload struct {
 	bytes       []byte
 	contentType string
@@ -509,7 +504,6 @@ func (f *fakeUploader) GetBlob(_ context.Context, _, digest string) (io.ReadClos
 	return io.NopCloser(bytes.NewReader(data)), nil
 }
 
-// fakeCocoon serves a deterministic snapshot tar from Export.
 type fakeCocoon struct {
 	exportTar []byte
 }
@@ -524,7 +518,6 @@ type exportTarEntry struct {
 	pax  map[string]string
 }
 
-// buildExportTar produces a fake export tar: a snapshot.json envelope plus the named files.
 func buildExportTar(t *testing.T, cfg snapshotExportConfig, files map[string][]byte) []byte {
 	t.Helper()
 	entries := make(map[string]exportTarEntry, len(files))
