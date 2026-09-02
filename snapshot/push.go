@@ -30,7 +30,7 @@ type PushOptions struct {
 	Annotations map[string]string
 	Progress    func(string)
 
-	// v2 wire-format knobs; all-zero reproduces the v1 writer exactly.
+	// v2 wire-format knobs; all-zero produces a v1-compatible artifact.
 	ZstdLevel       int // >0: zstd-compress layers ≥ 1 MiB at this level
 	ChunkSizeMiB    int // >0: split files into chunks of this many uncompressed MiB, one blob each
 	Concurrency     int // parallel chunk uploads / encoder threads (default 8)

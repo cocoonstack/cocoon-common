@@ -56,6 +56,7 @@ type OCIManifest struct {
 	Config        Descriptor        `json:"config"`
 	Layers        []Descriptor      `json:"layers"`
 	Manifests     []IndexManifest   `json:"manifests,omitempty"`
+	Subject       *Descriptor       `json:"subject,omitempty"`
 	Annotations   map[string]string `json:"annotations,omitempty"`
 }
 

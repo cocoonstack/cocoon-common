@@ -144,12 +144,10 @@ func (p *Pusher) readAndUploadEntries(ctx context.Context, opts PushOptions, r i
 
 	var progressMu sync.Mutex
 	pl := &pushPipeline{
-		pusher:  p,
-		eg:      eg,
-		enc:     enc,
-		rawBufs: newBufPool(workers + 1),
-		outBufs: newBufPool(workers + 1),
-		name:    opts.Name,
+		pusher: p,
+		eg:     eg,
+		enc:    enc,
+		name:   opts.Name,
 		report: func(format string, args ...any) {
 			if opts.Progress == nil {
 				return
@@ -158,6 +156,9 @@ func (p *Pusher) readAndUploadEntries(ctx context.Context, opts PushOptions, r i
 			defer progressMu.Unlock()
 			opts.Progress(fmt.Sprintf(format, args...))
 		},
+	}
+	if chunkSize > 0 {
+		pl.rawBufs, pl.outBufs = newBufPool(workers+1), newBufPool(workers+1)
 	}
 
 	var (

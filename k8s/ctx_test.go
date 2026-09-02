@@ -56,4 +56,9 @@ func TestSleepCtxZeroDurationReturnsImmediately(t *testing.T) {
 	if !SleepCtx(t.Context(), 0) {
 		t.Errorf("zero duration should return true without waiting")
 	}
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	if SleepCtx(ctx, 0) {
+		t.Errorf("zero duration on a canceled ctx should return false")
+	}
 }
