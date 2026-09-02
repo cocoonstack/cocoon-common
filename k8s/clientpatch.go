@@ -3,10 +3,7 @@ package k8s
 import (
 	"context"
 
-	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	"github.com/cocoonstack/cocoon-common/meta"
 )
 
 // DeepCopyObject is client.Object with a typed DeepCopy() method.
@@ -25,34 +22,6 @@ func PatchStatus[T DeepCopyObject[T]](ctx context.Context, cli client.Client, ob
 func Patch[T DeepCopyObject[T]](ctx context.Context, cli client.Client, obj T, mutate func(T)) error {
 	patch := buildMergePatch(obj, mutate)
 	return cli.Patch(ctx, obj, patch)
-}
-
-// PatchHibernateState patches the hibernate annotation, short-circuiting if already at the desired state.
-func PatchHibernateState(ctx context.Context, cli client.Client, pod *corev1.Pod, state bool) error {
-	if meta.ReadHibernateState(pod) == meta.HibernateState(state) {
-		return nil
-	}
-	return Patch(ctx, cli, pod, func(p *corev1.Pod) {
-		meta.HibernateState(state).Apply(p)
-	})
-}
-
-// PatchKeepSnapshotOnDelete flags the pod's deletion as a seat release, short-circuiting if already flagged.
-func PatchKeepSnapshotOnDelete(ctx context.Context, cli client.Client, pod *corev1.Pod) error {
-	if meta.ReadKeepSnapshotOnDelete(pod) {
-		return nil
-	}
-	return Patch(ctx, cli, pod, meta.MarkKeepSnapshotOnDelete)
-}
-
-// PatchCocoonSetGeneration stamps the owning CocoonSet's metadata.generation onto the pod, short-circuiting when it already matches.
-func PatchCocoonSetGeneration(ctx context.Context, cli client.Client, pod *corev1.Pod, generation int64) error {
-	if meta.ReadCocoonSetGeneration(pod) == generation {
-		return nil
-	}
-	return Patch(ctx, cli, pod, func(p *corev1.Pod) {
-		meta.StampCocoonSetGeneration(p, generation)
-	})
 }
 
 func buildMergePatch[T DeepCopyObject[T]](obj T, mutate func(T)) client.Patch {
