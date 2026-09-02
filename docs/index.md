@@ -20,7 +20,8 @@ httpx, log  HTTP server lifecycle and logger bootstrap
 
 The dependency direction is one-way: cocoon-common depends on none of its
 consumers, and its own packages form a DAG (`oci → snapshot → manifest,
-ociutil`; `k8s → meta → apis/v1`).
+ociutil`; `cloudimg → manifest, ociutil`; `meta → apis/v1`; `k8s` imports
+nothing else in the module).
 
 ## Guides
 
