@@ -64,7 +64,7 @@ func newChunkPipeline(dl Downloader, name string, entries []layerPlan, prefetch 
 	p := &chunkPipeline{dl: dl, name: name}
 	var anyZstd bool
 	for _, e := range entries {
-		if !e.encoded() {
+		if !e.encoded() || len(e.chunks) < 2 {
 			continue
 		}
 		inputCap, outputCap := e.bufferCaps()
@@ -274,7 +274,6 @@ func (s *chunkStream) Read(p []byte) (int, error) {
 	}
 }
 
-// Close releases the in-flight blob body after an aborted read.
 func (s *chunkStream) Close() error {
 	if s.body != nil {
 		_ = s.body.Close()

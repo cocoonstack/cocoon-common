@@ -129,8 +129,7 @@ func (r *OCIRegistry) PutManifest(ctx context.Context, repo, tag string, data []
 	return nil
 }
 
-// DeleteManifest removes the manifest at repo:reference (tag or digest);
-// a 404 is success, since every caller wants ensure-absent.
+// DeleteManifest removes the manifest at repo:reference (tag or digest); a 404 counts as removed.
 func (r *OCIRegistry) DeleteManifest(ctx context.Context, repo, reference string) error {
 	ref, err := r.parseRef(repo, reference)
 	if err != nil {
@@ -184,8 +183,7 @@ func isNotFound(err error) bool {
 	return errors.As(err, &terr) && terr.StatusCode == http.StatusNotFound
 }
 
-// streamLayer is a v1.Layer over a body of known digest and size, so PutBlob streams without buffering.
-// body is single-use: a retried upload fails the digest check rather than corrupting the blob.
+// streamLayer is a single-use v1.Layer over a body of known digest and size, so PutBlob streams without buffering.
 type streamLayer struct {
 	hash v1.Hash
 	size int64
