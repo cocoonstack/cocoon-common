@@ -104,7 +104,6 @@ func TestOCIRegistryRoundTrip(t *testing.T) {
 	}
 }
 
-// A sha256 reference must join with '@'; name.ParseReference rejects a ':' join.
 func TestGetManifestByDigest(t *testing.T) {
 	srv := httptest.NewServer(registry.New())
 	t.Cleanup(srv.Close)
@@ -133,7 +132,6 @@ func TestGetManifestByDigest(t *testing.T) {
 	}
 }
 
-// An image-index child is referenced only by digest, so the stream needs repo@digest.
 func TestStreamResolvesIndexChildByDigest(t *testing.T) {
 	srv := httptest.NewServer(registry.New())
 	t.Cleanup(srv.Close)

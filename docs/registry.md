@@ -50,7 +50,7 @@ absent hibernate tag is a legitimate state, a 500 is not.
 
 ```go
 p := &snapshot.Pusher{Uploader: reg, Cocoon: runner}
-res, err := p.Push(ctx, snapshot.PushOptions{
+err := p.Push(ctx, snapshot.PushOptions{
     Name:      "myvm",
     Tag:       meta.DefaultSnapshotTag,
     BaseImage: img,     // guards a wake against an image swap
@@ -86,8 +86,9 @@ The four v2 knobs are all opt-in:
 | `Concurrency` | parallel chunk uploads and encoder threads (default 8) |
 | `MemoryBudgetMiB` | pipeline buffer cap (default 9216) |
 
-An all-zero `PushOptions` reproduces the v1 writer exactly, so an
-unconfigured pusher stays readable by a v1-only puller. Turning the knobs on
+An all-zero `PushOptions` produces a v1-compatible artifact (the config
+additionally carries `files[].size`), so an unconfigured pusher stays
+readable by a v1-only puller. Turning the knobs on
 does not by itself produce a v2 artifact: if nothing in the export is large
 enough to compress or split, the manifest is still classified v1.
 
@@ -156,7 +157,5 @@ hand-rolls a hash check:
 
 - `CopyBlobSized` — exact-size and no-trailing-data enforcement for a body the
   transport already digest-verified
-- `CopyBlobExact` — the same, plus a full sha256 re-hash, for transports that
-  do not verify
 - `ParseRef` / `IsRelativeRef` — registry-relative `repo[:tag]` parsing, with
   the guard that keeps a host:port or a digest from being split as a tag

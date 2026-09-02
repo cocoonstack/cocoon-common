@@ -32,7 +32,6 @@ var v2OptionMatrix = []struct {
 	{"both-k2", PushOptions{ZstdLevel: 3, ChunkSizeMiB: 1, Concurrency: 2}},
 }
 
-// The v2 pipeline is invisible at the tar layer: byte-identical output to v1.
 func TestV2RoundTripMatchesV1ByteForByte(t *testing.T) {
 	pinClock(t)
 	corpus := v2Corpus(t)
@@ -47,7 +46,6 @@ func TestV2RoundTripMatchesV1ByteForByte(t *testing.T) {
 	}
 }
 
-// Every entry matches the source export tar; snapshot.json is compared semantically since the reader re-marshals it.
 func TestV2RoundTripPreservesEntries(t *testing.T) {
 	pinClock(t)
 	corpus := v2Corpus(t)
@@ -158,7 +156,6 @@ func TestV2ManifestShape(t *testing.T) {
 	}
 }
 
-// Knobs on with nothing large enough to encode must still classify as v1, so phase-0 readers keep working.
 func TestV2KnobsWithOnlySmallFilesStaysV1(t *testing.T) {
 	pinClock(t)
 	corpus := buildOrderedExportTar(t, snapshotExportConfig{Name: "myvm"}, []namedTarEntry{
@@ -277,7 +274,6 @@ func TestPullFailsClosedOnMissingChunkLayer(t *testing.T) {
 	}
 }
 
-// Identical chunks dedup into one blob carrying one file's annotations; the other file's reference must still resolve.
 func TestRoundTripSharedChunkAcrossFiles(t *testing.T) {
 	pinClock(t)
 	const chunk = 1 << 20
@@ -297,7 +293,6 @@ func TestRoundTripSharedChunkAcrossFiles(t *testing.T) {
 	}
 }
 
-// The literal v1 shape is spelled as strings, not constants, so constant drift cannot rewrite what "v1" means.
 func TestReaderConsumesFrozenV1Manifest(t *testing.T) {
 	pinClock(t)
 	uploader := newFakeUploader()
@@ -337,7 +332,6 @@ func TestReaderConsumesFrozenV1Manifest(t *testing.T) {
 	t.Fatal("memory-ranges entry not reconstructed")
 }
 
-// Negative knobs must sanitize to defaults, not zero out the buffer pools.
 func TestPushSanitizesNegativeConcurrency(t *testing.T) {
 	pinClock(t)
 	corpus := v2Corpus(t)
@@ -366,7 +360,7 @@ func TestPushRejectsChunkLargerThanBudget(t *testing.T) {
 	} {
 		uploader := newFakeUploader()
 		pusher := &Pusher{Uploader: uploader, Cocoon: &fakeCocoon{exportTar: v2Corpus(t)}}
-		_, err := pusher.Push(t.Context(), PushOptions{Name: "myvm", ChunkSizeMiB: tc.chunkMiB, MemoryBudgetMiB: tc.budgetMiB})
+		err := pusher.Push(t.Context(), PushOptions{Name: "myvm", ChunkSizeMiB: tc.chunkMiB, MemoryBudgetMiB: tc.budgetMiB})
 		if tc.wantErr == "" && err != nil {
 			t.Errorf("chunk %d budget %d: unexpected error %v", tc.chunkMiB, tc.budgetMiB, err)
 		}
@@ -376,7 +370,6 @@ func TestPushRejectsChunkLargerThanBudget(t *testing.T) {
 	}
 }
 
-// A budget below two chunks routes the pull to the sequential path with byte-identical output.
 func TestPullTinyBudgetStreamsSequentially(t *testing.T) {
 	pinClock(t)
 	corpus := v2Corpus(t)
@@ -688,7 +681,6 @@ func planOf(title string, zstd bool, fileSize int64, sizes ...int64) layerPlan {
 	return layerPlan{title: title, meta: manifest.SnapshotFile{Size: fileSize}, layer: manifest.Descriptor{MediaType: mt}, chunks: descs}
 }
 
-// v2Corpus covers every codec branch: empty, small-raw, at-chunk-size, one-over, multi-chunk sparse, unknown-name.
 func v2Corpus(t *testing.T) []byte {
 	t.Helper()
 	const chunk = 1 << 20
@@ -753,7 +745,6 @@ func buildOrderedExportTar(t *testing.T, cfg snapshotExportConfig, entries []nam
 	return buf.Bytes()
 }
 
-// fillBytes is deterministic and half-compressible, so zstd neither collapses it nor stores it raw.
 func fillBytes(n int, seed uint64) []byte {
 	out := make([]byte, n)
 	state := seed*2685821657736338717 + 1
@@ -776,15 +767,13 @@ func pinClock(t *testing.T) {
 	t.Cleanup(func() { nowFunc = restore })
 }
 
-func pushCorpus(t *testing.T, uploader Uploader, corpus []byte, opts PushOptions) *PushResult {
+func pushCorpus(t *testing.T, uploader Uploader, corpus []byte, opts PushOptions) {
 	t.Helper()
 	pusher := &Pusher{Uploader: uploader, Cocoon: &fakeCocoon{exportTar: corpus}}
 	opts.Name, opts.Tag = "myvm", "v2test"
-	result, err := pusher.Push(t.Context(), opts)
-	if err != nil {
+	if err := pusher.Push(t.Context(), opts); err != nil {
 		t.Fatalf("Push(%+v): %v", opts, err)
 	}
-	return result
 }
 
 func pullTar(t *testing.T, uploader *fakeUploader, streamOpts StreamOptions) []byte {
@@ -862,7 +851,6 @@ func (shortWriter) Write(p []byte) (int, error) {
 	return max(len(p)-1, 0), nil
 }
 
-// gatedDownloader blocks every GetBlob until released and counts starts.
 type gatedDownloader struct {
 	blobs   map[string][]byte
 	release chan struct{}

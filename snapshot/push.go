@@ -30,21 +30,11 @@ type PushOptions struct {
 	Annotations map[string]string
 	Progress    func(string)
 
-	// v2 wire-format knobs; all-zero reproduces the v1 writer exactly.
+	// v2 wire-format knobs; all-zero produces a v1-compatible artifact.
 	ZstdLevel       int // >0: zstd-compress layers ≥ 1 MiB at this level
 	ChunkSizeMiB    int // >0: split files into chunks of this many uncompressed MiB, one blob each
 	Concurrency     int // parallel chunk uploads / encoder threads (default 8)
 	MemoryBudgetMiB int // pipeline buffer cap (default 9216); workers clamp to budget/(2×chunk)−1
-}
-
-// PushResult contains the outcome of a successful push.
-type PushResult struct {
-	Name           string
-	Tag            string
-	ManifestDigest string // sha256:<hex>
-	ManifestBytes  []byte
-	TotalSize      int64
-	LayerCount     int
 }
 
 // Pusher exports and uploads cocoon snapshots as OCI artifacts.
@@ -54,124 +44,46 @@ type Pusher struct {
 }
 
 // Push exports a snapshot via cocoon and uploads it as an OCI artifact.
-func (p *Pusher) Push(ctx context.Context, opts PushOptions) (*PushResult, error) {
+func (p *Pusher) Push(ctx context.Context, opts PushOptions) error {
 	if opts.Name == "" {
-		return nil, errors.New("snapshot push: name is required")
+		return errors.New("snapshot push: name is required")
 	}
 	opts.Tag = cmp.Or(opts.Tag, "latest")
 
 	stream, wait, err := p.Cocoon.Export(ctx, opts.Name)
 	if err != nil {
-		return nil, fmt.Errorf("cocoon export %s: %w", opts.Name, err)
+		return fmt.Errorf("cocoon export %s: %w", opts.Name, err)
 	}
 
-	var (
-		cfg     *snapshotExportConfig
-		files   map[string]manifest.SnapshotFile
-		layers  []manifest.Descriptor
-		encoded bool
-		readErr error
-	)
-	if opts.ZstdLevel > 0 || opts.ChunkSizeMiB > 0 {
-		cfg, files, layers, encoded, readErr = p.readAndUploadEntriesPipelined(ctx, opts, stream)
-	} else {
-		cfg, files, layers, readErr = p.readAndUploadEntries(ctx, opts.Name, stream, opts.Progress)
-	}
+	entries, readErr := p.readAndUploadEntries(ctx, opts, stream)
 	// Close before wait so mid-tar failures unblock the subprocess.
 	_ = stream.Close()
 	waitErr := wait()
 	if readErr != nil {
-		return nil, readErr
+		return readErr
 	}
 	if waitErr != nil {
-		return nil, waitErr
+		return waitErr
 	}
-	if cfg == nil {
-		return nil, errMissingSnapshotJSON
-	}
-
-	schemaVersion, artifactType := snapshotVersionMarkers(encoded)
-	configDescriptor, err := p.uploadSnapshotConfig(ctx, opts.Name, cfg, files, schemaVersion)
-	if err != nil {
-		return nil, fmt.Errorf("upload snapshot config: %w", err)
+	if entries.cfg == nil {
+		return errMissingSnapshotJSON
 	}
 
-	manifestBytes, err := buildSnapshotManifest(configDescriptor, layers, opts, artifactType)
+	schemaVersion, artifactType := snapshotVersionMarkers(entries.encoded)
+	configDescriptor, err := p.uploadSnapshotConfig(ctx, opts.Name, entries.cfg, entries.files, schemaVersion)
 	if err != nil {
-		return nil, fmt.Errorf("build manifest: %w", err)
+		return fmt.Errorf("upload snapshot config: %w", err)
+	}
+
+	manifestBytes, err := buildSnapshotManifest(configDescriptor, entries.layers, opts, artifactType)
+	if err != nil {
+		return fmt.Errorf("build manifest: %w", err)
 	}
 
 	if err := p.Uploader.PutManifest(ctx, opts.Name, opts.Tag, manifestBytes, manifest.MediaTypeOCIManifest); err != nil {
-		return nil, fmt.Errorf("put manifest %s:%s: %w", opts.Name, opts.Tag, err)
+		return fmt.Errorf("put manifest %s:%s: %w", opts.Name, opts.Tag, err)
 	}
-
-	manifestDigest := "sha256:" + ociutil.SHA256Hex(manifestBytes)
-
-	var totalSize int64
-	for _, l := range layers {
-		totalSize += l.Size
-	}
-	totalSize += configDescriptor.Size
-
-	return &PushResult{
-		Name:           opts.Name,
-		Tag:            opts.Tag,
-		ManifestDigest: manifestDigest,
-		ManifestBytes:  manifestBytes,
-		TotalSize:      totalSize,
-		LayerCount:     len(layers),
-	}, nil
-}
-
-func (p *Pusher) readAndUploadEntries(ctx context.Context, name string, r io.Reader, progress func(string)) (*snapshotExportConfig, map[string]manifest.SnapshotFile, []manifest.Descriptor, error) {
-	tr := tar.NewReader(r)
-	var (
-		cfg    *snapshotExportConfig
-		files  = map[string]manifest.SnapshotFile{}
-		layers []manifest.Descriptor
-	)
-
-	for {
-		hdr, err := tr.Next()
-		if errors.Is(err, io.EOF) {
-			break
-		}
-		if err != nil {
-			return nil, nil, nil, fmt.Errorf("read tar entry: %w", err)
-		}
-
-		if hdr.Name == snapshotJSONName {
-			var envelope snapshotExportEnvelope
-			if decErr := json.NewDecoder(tr).Decode(&envelope); decErr != nil {
-				return nil, nil, nil, fmt.Errorf("parse snapshot.json: %w", decErr)
-			}
-			cfg = &envelope.Config
-			continue
-		}
-
-		if hdr.Typeflag != tar.TypeReg {
-			continue
-		}
-		if hdr.Size < 0 {
-			return nil, nil, nil, fmt.Errorf("tar entry %s has negative size %d", hdr.Name, hdr.Size)
-		}
-
-		fileMeta, metaErr := sparseFileMeta(hdr)
-		if metaErr != nil {
-			return nil, nil, nil, metaErr
-		}
-		desc, uploadErr := p.uploadTarEntry(ctx, name, hdr, tr)
-		if uploadErr != nil {
-			return nil, nil, nil, fmt.Errorf("upload %s: %w", hdr.Name, uploadErr)
-		}
-		files[hdr.Name] = fileMeta
-		layers = append(layers, desc)
-		if progress != nil {
-			progress(fmt.Sprintf("  %s -> %s (%d bytes)", hdr.Name, desc.Digest, desc.Size))
-		}
-	}
-
-	return cfg, files, layers, nil
+	return nil
 }
 
 func (p *Pusher) uploadTarEntry(ctx context.Context, name string, hdr *tar.Header, body io.Reader) (manifest.Descriptor, error) {

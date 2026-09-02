@@ -73,7 +73,6 @@ func StreamParsed(ctx context.Context, m *manifest.OCIManifest, dl Downloader, o
 	if opts.Writer == nil {
 		return errors.New("snapshot stream: writer is required")
 	}
-	localName := cmp.Or(opts.LocalName, opts.Name)
 
 	cfg, err := FetchSnapshotConfig(ctx, dl, opts.Name, m.Config)
 	if err != nil {
@@ -82,16 +81,7 @@ func StreamParsed(ctx context.Context, m *manifest.OCIManifest, dl Downloader, o
 	if err := validateSnapshotLayers(m, cfg); err != nil {
 		return err
 	}
-
-	prefetch := opts.Concurrency
-	if prefetch <= 0 {
-		prefetch = defaultTransferConcurrency
-	}
-	budget := int64(opts.MemoryBudgetMiB) << 20
-	if budget <= 0 {
-		budget = defaultPullPrefetchBudget
-	}
-	return writeImportTar(ctx, dl, opts.Name, localName, cfg, m.Layers, opts.Writer, opts.Progress, prefetch, budget)
+	return writeImportTar(ctx, dl, opts, cfg, m.Layers)
 }
 
 // FetchSnapshotConfig downloads and parses the snapshot config blob.
@@ -196,7 +186,16 @@ func pickIndexChild(ctx context.Context, m *manifest.OCIManifest) (manifest.Inde
 	return manifest.IndexManifest{}, errors.New("image-index has no usable platform child")
 }
 
-func writeImportTar(ctx context.Context, dl Downloader, name, localName string, cfg *manifest.SnapshotConfig, layers []manifest.Descriptor, w io.Writer, progress func(string), prefetch int, budget int64) error {
+func writeImportTar(ctx context.Context, dl Downloader, opts StreamOptions, cfg *manifest.SnapshotConfig, layers []manifest.Descriptor) error {
+	name, localName, progress := opts.Name, cmp.Or(opts.LocalName, opts.Name), opts.Progress
+	prefetch := opts.Concurrency
+	if prefetch <= 0 {
+		prefetch = defaultTransferConcurrency
+	}
+	budget := int64(opts.MemoryBudgetMiB) << 20
+	if budget <= 0 {
+		budget = defaultPullPrefetchBudget
+	}
 	entries, err := planLayers(cfg, layers)
 	if err != nil {
 		return err
@@ -207,7 +206,7 @@ func writeImportTar(ctx context.Context, dl Downloader, name, localName string, 
 	}
 	defer pipe.Close()
 
-	bw := bufio.NewWriterSize(w, 256<<10)
+	bw := bufio.NewWriterSize(opts.Writer, 256<<10)
 	tw := tar.NewWriter(bw)
 
 	now := nowFunc()

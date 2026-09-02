@@ -22,7 +22,7 @@ func RunTicker(ctx context.Context, interval time.Duration, fn func(context.Cont
 // SleepCtx blocks for d or until ctx is canceled. Returns false if ctx fired first.
 func SleepCtx(ctx context.Context, d time.Duration) bool {
 	if d <= 0 {
-		return true
+		return ctx.Err() == nil
 	}
 	timer := time.NewTimer(d)
 	defer timer.Stop()

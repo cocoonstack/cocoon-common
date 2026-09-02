@@ -113,10 +113,17 @@ func (pl *pushPipeline) uploadChunk(ctx context.Context, mediaType, title string
 	return desc, nil
 }
 
-func (p *Pusher) readAndUploadEntriesPipelined(ctx context.Context, opts PushOptions, r io.Reader) (*snapshotExportConfig, map[string]manifest.SnapshotFile, []manifest.Descriptor, bool, error) {
+type uploadedEntries struct {
+	cfg     *snapshotExportConfig
+	files   map[string]manifest.SnapshotFile
+	layers  []manifest.Descriptor
+	encoded bool
+}
+
+func (p *Pusher) readAndUploadEntries(ctx context.Context, opts PushOptions, r io.Reader) (uploadedEntries, error) {
 	workers, chunkSize, err := pipelineParams(opts)
 	if err != nil {
-		return nil, nil, nil, false, err
+		return uploadedEntries{}, err
 	}
 
 	compressOn := opts.ZstdLevel > 0
@@ -127,7 +134,7 @@ func (p *Pusher) readAndUploadEntriesPipelined(ctx context.Context, opts PushOpt
 			zstd.WithEncoderLevel(zstd.EncoderLevelFromZstd(opts.ZstdLevel)),
 			zstd.WithEncoderConcurrency(workers))
 		if encErr != nil {
-			return nil, nil, nil, false, fmt.Errorf("init zstd encoder: %w", encErr)
+			return uploadedEntries{}, fmt.Errorf("init zstd encoder: %w", encErr)
 		}
 		defer func() { _ = enc.Close() }()
 	}
@@ -245,7 +252,7 @@ readLoop:
 		readErr = ctx.Err()
 	}
 	if readErr != nil {
-		return nil, nil, nil, false, readErr
+		return uploadedEntries{}, readErr
 	}
 
 	var layers []manifest.Descriptor
@@ -261,7 +268,7 @@ readLoop:
 		}
 		files[group.name] = fm
 	}
-	return cfg, files, layers, encoded, nil
+	return uploadedEntries{cfg: cfg, files: files, layers: layers, encoded: encoded}, nil
 }
 
 func (p *Pusher) uploadCompressedSpool(ctx context.Context, level int, name string, hdr *tar.Header, body io.Reader) (manifest.Descriptor, error) {
