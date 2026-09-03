@@ -43,9 +43,6 @@ For reconcilers that prefer the raw JSON merge-patch encoding,
 [`meta.LifecycleStatus.Annotations()`](meta.md#lifecycle-status),
 where a nil value means "delete this key".
 
-`k8s.DecodeUnstructured[T]` converts an `*unstructured.Unstructured` into a
-typed struct.
-
 ## Conditions
 
 `k8s.NewReadyCondition(generation, status, reason, message)` builds the
