@@ -27,6 +27,9 @@ var (
 	nowFunc = time.Now // tests override
 )
 
+// ProgressFunc receives one progress line per transferred entry.
+type ProgressFunc func(string)
+
 // Uploader abstracts OCI blob and manifest uploads.
 type Uploader interface {
 	HasBlob(ctx context.Context, name, digest string) (bool, error)

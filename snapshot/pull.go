@@ -26,7 +26,7 @@ type StreamOptions struct {
 	Name            string
 	LocalName       string // empty = use Name
 	Writer          io.Writer
-	Progress        func(string)
+	Progress        ProgressFunc
 	Concurrency     int // parallel chunk prefetch for encoded layers (default 8)
 	MemoryBudgetMiB int // prefetch-buffer cap for this Stream call (default 4096)
 }
@@ -111,6 +111,7 @@ func FetchSnapshotConfig(ctx context.Context, dl Downloader, name string, desc m
 	return &cfg, nil
 }
 
+// MarshalEnvelope renders the snapshot.json envelope that cocoon snapshot import reads.
 func MarshalEnvelope(cfg *manifest.SnapshotConfig, localName string) ([]byte, error) {
 	envelope := snapshotExportEnvelope{
 		Version: 1,
