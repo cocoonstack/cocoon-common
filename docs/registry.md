@@ -9,7 +9,7 @@ oci       Registry interface + standard-OCI implementation
 snapshot  Pusher / Stream — the snapshot wire format
 cloudimg  Stream — cloud-image disk artifacts
 manifest  OCI manifest types, media types, classification
-ociutil   reference parsing, digest/size-verified blob copies
+ociutil   reference parsing and size checks for digest-verified blob streams
 ```
 
 ## The Registry interface
@@ -152,8 +152,8 @@ artifact's own disk media types.
 
 ## Blob verification
 
-`ociutil` is where digest and size enforcement lives, so no consumer
-hand-rolls a hash check:
+`Downloader.GetBlob` returns a digest-verified stream; `ociutil` enforces the
+descriptor size without hashing the body a second time:
 
 - `CopyBlobSized` — exact-size and no-trailing-data enforcement for a body the
   transport already digest-verified
