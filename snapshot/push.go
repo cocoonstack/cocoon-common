@@ -28,7 +28,7 @@ type PushOptions struct {
 	Source      string
 	Revision    string
 	Annotations map[string]string
-	Progress    func(string)
+	Progress    ProgressFunc
 
 	// v2 wire-format knobs; all-zero produces a v1-compatible artifact.
 	ZstdLevel       int // >0: zstd-compress layers ≥ 1 MiB at this level
