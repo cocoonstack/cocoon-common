@@ -1,7 +1,6 @@
 package meta
 
 import (
-	"slices"
 	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
@@ -15,13 +14,8 @@ const (
 	LifecycleStateFailed      LifecycleState = "failed"
 )
 
-var terminalStates = []LifecycleState{LifecycleStateReady, LifecycleStateHibernated, LifecycleStateFailed}
-
 // LifecycleState is the typed contract for the lifecycle-state annotation vk-cocoon publishes on a Pod.
 type LifecycleState string
-
-// IsTerminal reports whether s is a state a client would wait for.
-func (s LifecycleState) IsTerminal() bool { return slices.Contains(terminalStates, s) }
 
 // LifecycleStatus is the full triple (state, observed-generation, message).
 type LifecycleStatus struct {

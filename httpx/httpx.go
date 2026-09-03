@@ -13,13 +13,10 @@ import (
 // DefaultReadHeaderTimeout caps client header send time to mitigate Slowloris attacks (gosec G112).
 const DefaultReadHeaderTimeout = 10 * time.Second
 
-// StartFunc is a server's listen-and-serve entry point, invoked in its own goroutine by Run.
-type StartFunc func() error
-
-// ServerSpec pairs an http.Server with the StartFunc that boots it; Run calls Shutdown on Server when ctx is canceled.
+// ServerSpec pairs an http.Server with the Start func that boots it in its own goroutine; Run calls Shutdown on Server when ctx is canceled.
 type ServerSpec struct {
 	Server *http.Server
-	Start  StartFunc
+	Start  func() error
 }
 
 // NewServer returns an *http.Server with Addr, Handler, and DefaultReadHeaderTimeout set.
@@ -31,7 +28,7 @@ func NewServer(addr string, handler http.Handler) *http.Server {
 	}
 }
 
-// HTTPServerSpec wraps srv with srv.ListenAndServe as its StartFunc.
+// HTTPServerSpec wraps srv with srv.ListenAndServe as its Start.
 func HTTPServerSpec(srv *http.Server) ServerSpec {
 	return ServerSpec{
 		Server: srv,

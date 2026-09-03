@@ -249,10 +249,7 @@ func planLayers(cfg *manifest.SnapshotConfig, layers []manifest.Descriptor) ([]l
 	emitted := map[string]bool{}
 	for _, layer := range layers {
 		title := layer.Title()
-		var fileMeta manifest.SnapshotFile
-		if cfg.Files != nil {
-			fileMeta = cfg.Files[title]
-		}
+		fileMeta := cfg.Files[title]
 
 		if len(fileMeta.Chunks) == 0 && !manifest.IsZstdMediaType(layer.MediaType) {
 			entries = append(entries, layerPlan{title: title, meta: fileMeta, layer: layer})

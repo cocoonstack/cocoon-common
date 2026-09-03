@@ -47,12 +47,9 @@ func StreamParsed(ctx context.Context, m *manifest.OCIManifest, blobs BlobReader
 }
 
 func diskLayers(layers []manifest.Descriptor) []manifest.Descriptor {
-	out := make([]manifest.Descriptor, 0, len(layers))
-	for _, l := range layers {
-		if manifest.IsDiskMediaType(l.MediaType) {
-			out = append(out, l)
-		}
-	}
+	out := slices.DeleteFunc(slices.Clone(layers), func(l manifest.Descriptor) bool {
+		return !manifest.IsDiskMediaType(l.MediaType)
+	})
 	slices.SortStableFunc(out, func(a, b manifest.Descriptor) int {
 		return cmp.Compare(a.Title(), b.Title())
 	})

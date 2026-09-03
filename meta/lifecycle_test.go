@@ -7,31 +7,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestLifecycleStateIsTerminal(t *testing.T) {
-	t.Parallel()
-
-	cases := []struct {
-		name  string
-		state LifecycleState
-		want  bool
-	}{
-		{"creating", LifecycleStateCreating, false},
-		{"hibernating", LifecycleStateHibernating, false},
-		{"ready", LifecycleStateReady, true},
-		{"hibernated", LifecycleStateHibernated, true},
-		{"failed", LifecycleStateFailed, true},
-		{"empty", LifecycleState(""), false},
-		{"unknown", LifecycleState("unknown"), false},
-	}
-	for _, tt := range cases {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.state.IsTerminal(); got != tt.want {
-				t.Errorf("IsTerminal(%q) = %v, want %v", tt.state, got, tt.want)
-			}
-		})
-	}
-}
-
 func TestLifecycleStatusApply(t *testing.T) {
 	t.Parallel()
 
