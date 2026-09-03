@@ -27,8 +27,8 @@ var (
 	nowFunc = time.Now // tests override
 )
 
-// ProgressFunc receives one progress line per transferred entry.
-type ProgressFunc func(string)
+// ProgressFunc receives human-readable transfer progress lines.
+type ProgressFunc = func(string)
 
 // Uploader abstracts OCI blob and manifest uploads.
 type Uploader interface {

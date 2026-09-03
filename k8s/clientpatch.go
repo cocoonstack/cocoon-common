@@ -13,7 +13,7 @@ type DeepCopyObject[T any] interface {
 }
 
 // Mutator changes an object in place after the MergeFrom base is copied.
-type Mutator[T any] func(T)
+type Mutator[T any] = func(T)
 
 // PatchStatus applies mutate under a MergeFrom patch on the /status subresource.
 func PatchStatus[T DeepCopyObject[T]](ctx context.Context, cli client.Client, obj T, mutate Mutator[T]) error {
