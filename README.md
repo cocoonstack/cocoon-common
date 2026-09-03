@@ -27,7 +27,7 @@ here and nowhere else, so producer and consumer cannot drift.
 | `snapshot` | Push cocoon VM snapshots to an OCI registry and stream them back, including the chunked/zstd v2 wire format |
 | `oci` | The `Registry` interface every consumer codes against, plus the standard-OCI implementation |
 | `manifest` | OCI manifest / descriptor types, the cocoon snapshot config, and media-type classification |
-| `ociutil` | Reference parsing and digest/size-verified blob copies |
+| `ociutil` | Reference parsing and size checks for digest-verified blob streams |
 | `cloudimg` | Stream a cocoonstack cloud-image (qcow2 or raw) artifact out of a registry |
 | `httpx` | HTTP server bootstrap and coordinated graceful shutdown |
 | `log` | Shared logger setup over `projecteru2/core/log` |
