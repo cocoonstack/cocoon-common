@@ -3,6 +3,7 @@ package snapshot
 import (
 	"archive/tar"
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -535,9 +536,7 @@ func buildExportTarEntries(t *testing.T, cfg snapshotExportConfig, files map[str
 		if !ok {
 			continue
 		}
-		if entry.mode == 0 {
-			entry.mode = 0o640
-		}
+		entry.mode = cmp.Or(entry.mode, 0o640)
 		ordered = append(ordered, namedTarEntry{name: name, entry: entry})
 	}
 	return buildOrderedExportTar(t, cfg, ordered)

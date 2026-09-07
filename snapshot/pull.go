@@ -286,9 +286,7 @@ func writeSnapshotEnvelope(tw *tar.Writer, cfg *manifest.SnapshotConfig, localNa
 
 func layerHeader(title string, size int64, fileMeta manifest.SnapshotFile, modTime time.Time) (*tar.Header, error) {
 	mode := fileMeta.Mode
-	if mode == 0 {
-		mode = 0o640
-	}
+	mode = cmp.Or(mode, 0o640)
 	hdr := &tar.Header{
 		Name:    title,
 		Size:    size,
