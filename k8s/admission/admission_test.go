@@ -74,6 +74,9 @@ func TestServeCopiesUIDAndAllowsNilResponse(t *testing.T) {
 	if out.Response.UID != "xyz" {
 		t.Errorf("response UID not copied: %q", out.Response.UID)
 	}
+	if bytes.Contains(body, []byte(`"request"`)) {
+		t.Errorf("response echoes the request object: %s", body)
+	}
 }
 
 func TestServeRejectsMissingRequest(t *testing.T) {
