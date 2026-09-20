@@ -127,9 +127,9 @@ status.Apply(pod)
 patch, _ := k8s.AnnotationsMergePatch(status.Annotations())
 ```
 
-States are `creating`, `ready`, `hibernating`, `hibernated`, `failed`;
-`LifecycleState.IsTerminal` reports the three a client would wait for
-(`ready`, `hibernated`, `failed`). An empty message clears the annotation, so
+States are `creating`, `ready`, `hibernating`, `hibernated`, `failed`; a
+client waits for one of `ready`, `hibernated` or `failed`. An empty message
+clears the annotation, so
 a stale failure reason cannot tail into the next lifecycle.
 `LifecycleStatus.Snapshot()` returns a NUL-separated comparison key for
 change detection.
