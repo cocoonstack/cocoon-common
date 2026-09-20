@@ -195,9 +195,11 @@ func (p *chunkPipeline) read(ctx context.Context, desc manifest.Descriptor, buf 
 type chunkSource struct {
 	futures chan chan chunkFetch
 	pipe    *chunkPipeline
+	cancel  context.CancelFunc
 }
 
 func newChunkSource(ctx context.Context, p *chunkPipeline, e layerPlan, window int) *chunkSource {
+	ctx, cancel := context.WithCancel(ctx)
 	futures := make(chan chan chunkFetch, window-1)
 	go func() {
 		defer close(futures)
@@ -213,14 +215,16 @@ func newChunkSource(ctx context.Context, p *chunkPipeline, e layerPlan, window i
 			}()
 		}
 	}()
-	return &chunkSource{futures: futures, pipe: p}
+	return &chunkSource{futures: futures, pipe: p, cancel: cancel}
 }
 
 func (s *chunkSource) WriteTo(w io.Writer) (int64, error) {
+	defer s.cancel()
 	var written int64
 	for fut := range s.futures {
 		res := <-fut
 		if res.err != nil {
+			s.drain()
 			return written, res.err
 		}
 		n, err := w.Write(res.data)
@@ -230,10 +234,20 @@ func (s *chunkSource) WriteTo(w io.Writer) (int64, error) {
 			err = io.ErrShortWrite
 		}
 		if err != nil {
+			s.drain()
 			return written, err
 		}
 	}
 	return written, nil
+}
+
+func (s *chunkSource) drain() {
+	s.cancel()
+	for fut := range s.futures {
+		if res := <-fut; res.buf != nil {
+			s.pipe.out.put(res.buf)
+		}
+	}
 }
 
 type chunkStream struct {

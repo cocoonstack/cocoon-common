@@ -555,7 +555,7 @@ func TestChunkSourceRejectsShortWrite(t *testing.T) {
 	futures <- fut
 	close(futures)
 
-	src := &chunkSource{futures: futures, pipe: &chunkPipeline{out: pool}}
+	src := &chunkSource{futures: futures, pipe: &chunkPipeline{out: pool}, cancel: func() {}}
 	written, err := src.WriteTo(shortWriter{})
 	if written != 3 || !errors.Is(err, io.ErrShortWrite) {
 		t.Fatalf("WriteTo = (%d, %v), want (3, %v)", written, err, io.ErrShortWrite)

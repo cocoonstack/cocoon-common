@@ -37,7 +37,7 @@ type Uploader interface {
 	PutManifest(ctx context.Context, name, tag string, data []byte, contentType string) error
 }
 
-// Downloader abstracts OCI manifests and digest-verified blob streams.
+// Downloader abstracts OCI manifests and digest-verified blob streams; GetBlob bodies must observe ctx cancellation.
 type Downloader interface {
 	GetManifest(ctx context.Context, name, tag string) ([]byte, string, error)
 	GetBlob(ctx context.Context, name, digest string) (io.ReadCloser, error)
