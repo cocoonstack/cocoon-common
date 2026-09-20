@@ -3,6 +3,7 @@ package snapshot
 import (
 	"archive/tar"
 	"bufio"
+	"bytes"
 	"cmp"
 	"context"
 	"encoding/json"
@@ -113,30 +114,47 @@ func FetchSnapshotConfig(ctx context.Context, dl Downloader, name string, desc m
 
 // MarshalEnvelope renders the snapshot.json envelope that cocoon snapshot import reads.
 func MarshalEnvelope(cfg *manifest.SnapshotConfig, localName string) ([]byte, error) {
-	envelope := snapshotExportEnvelope{
-		Version: 1,
-		Config: snapshotExportConfig{
-			ID:           cfg.SnapshotID,
-			Name:         localName,
-			Description:  cfg.Description,
-			Image:        cfg.Image,
-			ImageDigest:  cfg.ImageDigest,
-			ImageType:    cfg.ImageType,
-			ImageBlobIDs: cfg.ImageBlobIDs,
-			Hypervisor:   cfg.Hypervisor,
-			CPU:          cfg.CPU,
-			Memory:       cfg.Memory,
-			Storage:      cfg.Storage,
-			NICs:         cfg.NICs,
-			Network:      cfg.Network,
-			Windows:      cfg.Windows,
-		},
+	envelope, err := exportEnvelope(cfg, localName)
+	if err != nil {
+		return nil, err
 	}
 	data, err := json.MarshalIndent(envelope, "", "  ")
 	if err != nil {
 		return nil, fmt.Errorf("marshal snapshot envelope: %w", err)
 	}
 	return append(data, '\n'), nil
+}
+
+func exportEnvelope(cfg *manifest.SnapshotConfig, localName string) (any, error) {
+	if len(cfg.Engine) == 0 {
+		return snapshotExportEnvelope{
+			Version: 1,
+			Config: snapshotExportConfig{
+				ID:           cfg.SnapshotID,
+				Name:         localName,
+				Description:  cfg.Description,
+				Image:        cfg.Image,
+				ImageDigest:  cfg.ImageDigest,
+				ImageType:    cfg.ImageType,
+				ImageBlobIDs: cfg.ImageBlobIDs,
+				Hypervisor:   cfg.Hypervisor,
+				CPU:          cfg.CPU,
+				Memory:       cfg.Memory,
+				Storage:      cfg.Storage,
+				NICs:         cfg.NICs,
+				Network:      cfg.Network,
+				Windows:      cfg.Windows,
+			},
+		}, nil
+	}
+	dec := json.NewDecoder(bytes.NewReader(cfg.Engine))
+	dec.UseNumber()
+	var engine map[string]any
+	if err := dec.Decode(&engine); err != nil {
+		return nil, fmt.Errorf("decode engine snapshot config: %w", err)
+	}
+	engine["name"] = localName
+	return engineExportEnvelope{Version: 1, Config: engine}, nil
 }
 
 // validateSnapshotLayers fails closed before the first byte: every layer must be decodable, and encoding needs a v2 manifest.

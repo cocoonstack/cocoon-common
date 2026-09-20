@@ -153,5 +153,6 @@ type SnapshotConfig struct {
 	Network       string                  `json:"network,omitempty"`
 	Windows       bool                    `json:"windows,omitempty"`
 	Files         map[string]SnapshotFile `json:"files,omitempty"`
+	Engine        json.RawMessage         `json:"engine,omitempty"`
 	CreatedAt     time.Time               `json:"createdAt,omitzero"`
 }

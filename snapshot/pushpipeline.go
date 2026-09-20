@@ -187,12 +187,10 @@ readLoop:
 		}
 
 		if hdr.Name == snapshotJSONName {
-			var envelope snapshotExportEnvelope
-			if decErr := json.NewDecoder(tr).Decode(&envelope); decErr != nil {
-				readErr = fmt.Errorf("parse snapshot.json: %w", decErr)
+			cfg, readErr = decodeExportEnvelope(tr)
+			if readErr != nil {
 				break
 			}
-			cfg = &envelope.Config
 			continue
 		}
 		if hdr.Typeflag != tar.TypeReg {
@@ -317,7 +315,25 @@ func pipelineParams(opts PushOptions) (int, int64, error) {
 	return min(workers, int(budget/(2*chunkSize))-1), chunkSize, nil
 }
 
+func decodeExportEnvelope(r io.Reader) (*snapshotExportConfig, error) {
+	var envelope struct {
+		Config json.RawMessage `json:"config"`
+	}
+	if err := json.NewDecoder(r).Decode(&envelope); err != nil {
+		return nil, fmt.Errorf("parse snapshot.json: %w", err)
+	}
+	if raw := bytes.TrimSpace(envelope.Config); len(raw) == 0 || raw[0] != '{' {
+		return nil, errors.New("parse snapshot.json: config must be a JSON object")
+	}
+	cfg := &snapshotExportConfig{Engine: envelope.Config}
+	if err := json.Unmarshal(envelope.Config, cfg); err != nil {
+		return nil, fmt.Errorf("parse snapshot.json: %w", err)
+	}
+	return cfg, nil
+}
+
 // bufPool is a fixed-capacity free-list; a blocked take is the pipeline's memory bound.
+
 type bufPool struct {
 	ch chan []byte
 }

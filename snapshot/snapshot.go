@@ -4,6 +4,7 @@ package snapshot
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"time"
@@ -53,7 +54,13 @@ type snapshotExportEnvelope struct {
 	Config  snapshotExportConfig `json:"config"`
 }
 
+type engineExportEnvelope struct {
+	Version int            `json:"version"`
+	Config  map[string]any `json:"config"`
+}
+
 type snapshotExportConfig struct {
+	Engine       json.RawMessage     `json:"-"`
 	ID           string              `json:"id,omitempty"`
 	Name         string              `json:"name"`
 	Description  string              `json:"description,omitempty"`
