@@ -179,8 +179,8 @@ func ignoreNotFound(err error, action string) error {
 }
 
 func isNotFound(err error) bool {
-	var terr *transport.Error
-	return errors.As(err, &terr) && terr.StatusCode == http.StatusNotFound
+	terr, ok := errors.AsType[*transport.Error](err)
+	return ok && terr.StatusCode == http.StatusNotFound
 }
 
 // streamLayer is a single-use v1.Layer over a body of known digest and size, so PutBlob streams without buffering.
