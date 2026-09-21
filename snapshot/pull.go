@@ -229,8 +229,12 @@ func writeImportTar(ctx context.Context, dl Downloader, opts StreamOptions, cfg 
 	tw := tar.NewWriter(bw)
 
 	now := nowFunc()
-	if err := writeSnapshotEnvelope(tw, cfg, localName, now); err != nil {
+	envelopeJSON, err := MarshalEnvelope(cfg, localName)
+	if err != nil {
 		return err
+	}
+	if err := writeTarFile(tw, snapshotJSONName, envelopeJSON, 0o644, now); err != nil {
+		return fmt.Errorf("write snapshot envelope: %w", err)
 	}
 
 	for _, e := range entries {
@@ -289,17 +293,6 @@ func planLayers(cfg *manifest.SnapshotConfig, layers []manifest.Descriptor) ([]l
 		})
 	}
 	return entries, nil
-}
-
-func writeSnapshotEnvelope(tw *tar.Writer, cfg *manifest.SnapshotConfig, localName string, now time.Time) error {
-	envelopeJSON, err := MarshalEnvelope(cfg, localName)
-	if err != nil {
-		return err
-	}
-	if err := writeTarFile(tw, snapshotJSONName, envelopeJSON, 0o644, now); err != nil {
-		return fmt.Errorf("write snapshot envelope: %w", err)
-	}
-	return nil
 }
 
 func layerHeader(title string, size int64, fileMeta manifest.SnapshotFile, modTime time.Time) (*tar.Header, error) {
