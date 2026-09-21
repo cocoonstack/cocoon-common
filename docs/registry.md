@@ -121,7 +121,11 @@ older reader.
 Chunked files are prefetched in parallel under an explicit memory budget
 (`Concurrency`, `MemoryBudgetMiB`, default 4 GiB). When the budget cannot hold
 two chunk buffers, or a chunk is larger than 1 GiB, the same file streams
-sequentially instead — the output is byte-identical either way.
+sequentially instead — the output is byte-identical either way. Chunks are
+uniform: every chunk but the last holds `ChunkSizeMiB` raw bytes, and the pull
+side sizes its decode buffers from that invariant (`rawChunkStride`), so a
+producer that chunked unevenly would have to record the largest raw chunk in
+the config first.
 
 `snapshot.FetchSnapshotConfig` fetches just the config blob, which is enough to
 decide whether a local copy still matches the tag before committing to a
