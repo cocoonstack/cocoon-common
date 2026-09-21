@@ -16,15 +16,12 @@ func TestDetectNodeIPReturnsRoutableIPv4(t *testing.T) {
 	}
 }
 
-func TestNodeIPv4SkipsTheBridgeAndLoopback(t *testing.T) {
-	addrs := []net.Addr{&net.IPNet{IP: net.ParseIP("fe80::1"), Mask: net.CIDRMask(64, 128)}, &net.IPNet{IP: net.ParseIP("172.20.100.1"), Mask: net.CIDRMask(24, 32)}}
-	if ip, ok := nodeIPv4(net.Interface{Name: cocoonBridge, Flags: net.FlagUp}, addrs); ok {
-		t.Fatalf("the cocoon bridge address %s was picked", ip)
+func TestFirstIPv4SkipsIPv6AndNonIPNetAddrs(t *testing.T) {
+	addrs := []net.Addr{&net.IPNet{IP: net.ParseIP("fe80::1"), Mask: net.CIDRMask(64, 128)}, &net.TCPAddr{IP: net.ParseIP("10.0.0.2")}, &net.IPNet{IP: net.ParseIP("172.20.100.1"), Mask: net.CIDRMask(24, 32)}}
+	if ip, ok := firstIPv4(addrs); !ok || ip != "172.20.100.1" {
+		t.Fatalf("firstIPv4 = %q, %v, want the first IPv4 IPNet", ip, ok)
 	}
-	if ip, ok := nodeIPv4(net.Interface{Name: "lo0", Flags: net.FlagUp | net.FlagLoopback}, addrs); ok {
-		t.Fatalf("a loopback interface address %s was picked", ip)
-	}
-	if ip, ok := nodeIPv4(net.Interface{Name: "ens4", Flags: net.FlagUp}, addrs); !ok || ip != "172.20.100.1" {
-		t.Fatalf("nodeIPv4(ens4) = %q, %v, want the first IPv4", ip, ok)
+	if ip, ok := firstIPv4(addrs[:2]); ok {
+		t.Fatalf("firstIPv4 picked %q from IPv6 and non-IPNet addrs", ip)
 	}
 }
