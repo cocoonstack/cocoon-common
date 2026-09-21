@@ -107,9 +107,7 @@ func (p HibernatePolicy) Default() HibernatePolicy { return cmp.Or(p, HibernateP
 // +kubebuilder:validation:Enum=Pending;Running;Scaling;Suspending;Suspended;Waking;Migrating;Failed
 type CocoonSetPhase string
 
-// ConnType is the connection protocol advertised for a VM. Empty
-// falls back to OS-based inference (Linux→ssh, Windows→rdp, Android→adb);
-// set explicitly to override (e.g. Linux+xrdp→rdp).
+// ConnType is the connection protocol advertised for a VM; empty means meta.ConnectionType infers it from the VNC port and the guest OS.
 // +kubebuilder:validation:Enum=ssh;rdp;vnc;adb
 type ConnType string
 

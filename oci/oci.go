@@ -170,7 +170,6 @@ func bulkTransport() *http.Transport {
 	return t
 }
 
-// ignoreNotFound maps a registry 404 to nil and wraps anything else.
 func ignoreNotFound(err error, action string) error {
 	if isNotFound(err) {
 		return nil

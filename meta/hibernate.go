@@ -27,8 +27,7 @@ func ReadRestoreFromHibernate(pod *corev1.Pod) bool {
 	return pod.Annotations[AnnotationRestoreFromHibernate] == annotationTrue
 }
 
-// MarkRestoreFromHibernate flags a pod to restore its VM from the :hibernate
-// snapshot instead of cloning from the base image.
+// MarkRestoreFromHibernate sets the restore-from-hibernate flag.
 func MarkRestoreFromHibernate(pod *corev1.Pod) {
 	ensurePodAnnotations(pod)[AnnotationRestoreFromHibernate] = annotationTrue
 }
