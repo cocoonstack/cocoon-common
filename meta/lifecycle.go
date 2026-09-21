@@ -81,8 +81,7 @@ func ReadCocoonSetGeneration(pod *corev1.Pod) int64 {
 
 // StampCocoonSetGeneration writes the CocoonSet generation onto the pod.
 func StampCocoonSetGeneration(pod *corev1.Pod, generation int64) {
-	a := ensurePodAnnotations(pod)
-	a[AnnotationCocoonSetGeneration] = strconv.FormatInt(generation, 10)
+	ensurePodAnnotations(pod)[AnnotationCocoonSetGeneration] = strconv.FormatInt(generation, 10)
 }
 
 func readInt64Annotation(pod *corev1.Pod, key string) int64 {
