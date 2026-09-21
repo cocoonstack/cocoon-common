@@ -13,8 +13,7 @@ func (s HibernateState) Apply(pod *corev1.Pod) {
 		delete(pod.Annotations, AnnotationHibernate)
 		return
 	}
-	a := ensurePodAnnotations(pod)
-	a[AnnotationHibernate] = annotationTrue
+	ensurePodAnnotations(pod)[AnnotationHibernate] = annotationTrue
 }
 
 // ReadHibernateState reads the hibernate annotation from a pod.
@@ -28,11 +27,9 @@ func ReadRestoreFromHibernate(pod *corev1.Pod) bool {
 	return pod.Annotations[AnnotationRestoreFromHibernate] == annotationTrue
 }
 
-// MarkRestoreFromHibernate flags a pod to restore its VM from the :hibernate
-// snapshot instead of cloning from the base image.
+// MarkRestoreFromHibernate sets the restore-from-hibernate flag.
 func MarkRestoreFromHibernate(pod *corev1.Pod) {
-	a := ensurePodAnnotations(pod)
-	a[AnnotationRestoreFromHibernate] = annotationTrue
+	ensurePodAnnotations(pod)[AnnotationRestoreFromHibernate] = annotationTrue
 }
 
 // ReadKeepSnapshotOnDelete reports whether the pod's deletion is flagged as a seat release.
@@ -42,6 +39,5 @@ func ReadKeepSnapshotOnDelete(pod *corev1.Pod) bool {
 
 // MarkKeepSnapshotOnDelete flags a pod's deletion as a seat release.
 func MarkKeepSnapshotOnDelete(pod *corev1.Pod) {
-	a := ensurePodAnnotations(pod)
-	a[AnnotationKeepSnapshotOnDelete] = annotationTrue
+	ensurePodAnnotations(pod)[AnnotationKeepSnapshotOnDelete] = annotationTrue
 }

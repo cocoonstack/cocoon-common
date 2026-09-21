@@ -333,7 +333,6 @@ func decodeExportEnvelope(r io.Reader) (*snapshotExportConfig, error) {
 }
 
 // bufPool is a fixed-capacity free-list; a blocked take is the pipeline's memory bound.
-
 type bufPool struct {
 	ch chan []byte
 }

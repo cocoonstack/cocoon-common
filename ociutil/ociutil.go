@@ -35,11 +35,8 @@ func (v *BlobSizeChecker) Read(p []byte) (int, error) {
 		return 0, io.EOF
 	}
 	n, err := v.lim.Read(p)
-	if err != nil && !errors.Is(err, io.EOF) {
-		return n, err
-	}
 	if !errors.Is(err, io.EOF) {
-		return n, nil
+		return n, err
 	}
 	if finErr := v.finish(); finErr != nil {
 		return n, finErr
