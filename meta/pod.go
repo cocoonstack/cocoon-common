@@ -26,7 +26,7 @@ func IsContainerRunning(pod *corev1.Pod) bool {
 	})
 }
 
-// VMLive reports whether pod runs a container and vk-cocoon has published its VM ID.
+// VMLive reports whether pod runs a container and vk-cocoon has published its VM ID; containerStatuses can show Running before the clone succeeds, so both are needed.
 func VMLive(pod *corev1.Pod) bool {
 	return IsContainerRunning(pod) && ParseVMRuntime(pod).VMID != ""
 }
