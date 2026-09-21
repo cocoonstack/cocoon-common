@@ -4,6 +4,7 @@ package snapshot
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"time"
@@ -37,7 +38,7 @@ type Uploader interface {
 	PutManifest(ctx context.Context, name, tag string, data []byte, contentType string) error
 }
 
-// Downloader abstracts OCI manifests and digest-verified blob streams.
+// Downloader abstracts OCI manifests and digest-verified blob streams; GetBlob bodies must observe ctx cancellation.
 type Downloader interface {
 	GetManifest(ctx context.Context, name, tag string) ([]byte, string, error)
 	GetBlob(ctx context.Context, name, digest string) (io.ReadCloser, error)
@@ -53,7 +54,13 @@ type snapshotExportEnvelope struct {
 	Config  snapshotExportConfig `json:"config"`
 }
 
+type engineExportEnvelope struct {
+	Version int            `json:"version"`
+	Config  map[string]any `json:"config"`
+}
+
 type snapshotExportConfig struct {
+	Engine       json.RawMessage     `json:"-"`
 	ID           string              `json:"id,omitempty"`
 	Name         string              `json:"name"`
 	Description  string              `json:"description,omitempty"`

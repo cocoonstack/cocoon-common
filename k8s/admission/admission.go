@@ -67,6 +67,7 @@ func Serve(w http.ResponseWriter, r *http.Request, maxBytes int64, handler Handl
 	}
 	resp.UID = review.Request.UID
 	review.Response = resp
+	review.Request = nil
 
 	out, err := json.Marshal(review)
 	if err != nil {

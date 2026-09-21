@@ -1,10 +1,10 @@
 # cocoon-common
 
 The contract repository for the [cocoonstack](https://github.com/cocoonstack)
-MicroVM platform. Every Kubernetes-side component — cocoon-operator,
-cocoon-webhook, vk-cocoon, cocoon-net — imports these packages instead of
-re-declaring the CRD types, the pod annotation keys, or the OCI snapshot wire
-format, so producer and consumer cannot drift.
+MicroVM platform. It supplies CRD types, pod metadata, OCI snapshot formats,
+and runtime helpers used by cocoon-operator, cocoon-webhook, vk-cocoon, and
+cocoon-net. Each consumer imports the packages it needs and pins the module
+version independently.
 
 ```
 apis/v1     CocoonSet + CocoonHibernation types, generated CRD YAML
@@ -39,6 +39,12 @@ nothing else in the module).
 - [Runtime helpers](runtime.md) — HTTP server lifecycle and logger setup
 
 ## Repository
+
+The Makefile's `deps` target detects Go workspace mode and skips `go mod tidy`
+when a workspace is active. Sibling checkouts then resolve through `go.work`;
+use `GOWORK=off` to check a consumer against its committed module versions.
+See [downstream consumption](apis.md#downstream-consumption) for dependency
+and CRD updates.
 
 Source and issue tracker:
 [github.com/cocoonstack/cocoon-common](https://github.com/cocoonstack/cocoon-common).

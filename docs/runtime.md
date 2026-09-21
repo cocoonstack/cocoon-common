@@ -1,6 +1,6 @@
 # Runtime helpers
 
-Two small packages every cocoonstack binary wires into `main`.
+Two small packages for HTTP server lifecycle and logger initialization.
 
 ## httpx
 
@@ -38,5 +38,5 @@ if err := log.Setup(ctx, "COCOON_OPERATOR_LOG_LEVEL"); err != nil {
 
 `log.Setup` initializes `github.com/projecteru2/core/log` from an environment
 variable, defaulting to `info`, and is the only symbol this package exports.
-Every cocoonstack binary calls it once from `main`; everything below imports
-the eru package directly and uses its `log.WithFunc("pkg.Func")`.
+Call it once at startup; application code can then import the eru package
+directly and use its `log.WithFunc("pkg.Func")`.

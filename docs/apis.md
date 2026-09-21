@@ -32,12 +32,17 @@ Both carry a `status` subresource and a `Ready` condition built by
 `backend`, `connType`, `network`, `forcePull`, `noDirectIO`, `probePort`,
 `storage`, `resources`.
 
+Toolbox names contain 1–63 characters and match
+`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`. The webhook additionally rejects duplicate
+or purely numeric names. Static toolboxes require `staticIP` and `staticVMID`
+at admission and are unmanaged; `image` is required for run/clone toolboxes.
+
 ## Enum defaults
 
-Every enum type is a `string` with a `+kubebuilder:validation:Enum` marker, an
-`IsValid()` predicate, and — where a zero value is meaningful — a `Default()`
-that resolves the empty string. Both sides of a contract call `Default()`, so
-an unset field means the same thing to the operator and to vk-cocoon.
+Spec enum types are strings with a `+kubebuilder:validation:Enum` marker and
+an `IsValid()` predicate. Types with defaults also provide `Default()` to
+resolve the empty string; a non-empty value is returned unchanged, so this
+method does not replace validation.
 
 | Type | Values | `Default()` |
 |---|---|---|
@@ -53,9 +58,10 @@ an unset field means the same thing to the operator and to vk-cocoon.
 `CocoonSetPhase` and `CocoonHibernationPhase` are status-only enums with no
 `IsValid()` — the controller is their only writer.
 
-`Backend: firecracker` boots a kernel directly and accepts only OCI VM images;
-cloudimg URLs and Windows guests are rejected at admission and again at run
-time.
+For managed VMs, `Backend: firecracker` requires `mode: run`, boots a kernel
+directly, and accepts only OCI VM images. The webhook rejects clone mode,
+cloudimg URLs, and Windows guests. Static toolboxes skip backend/image checks
+because vk-cocoon does not create their VMs.
 
 ## CEL rules inside the CRDs
 
@@ -101,6 +107,13 @@ the generated YAML.
 
 ## Downstream consumption
 
-Operators depend on the module and copy the CRD YAML into their own kustomize
-tree (`make import-crds` in cocoon-operator) rather than vendoring the
-manifests by hand.
+Consumers pin a release or commit in `go.mod`; changing cocoon-common alone
+does not update their binaries. A consumer must update its dependency to
+include a fix before rebuilding with it. A workspace can resolve a newer
+sibling checkout without changing that pin.
+
+cocoon-operator also copies the CRD YAML into its kustomize tree with
+`make import-crds`. This reads the resolved module directory, so use
+`GOWORK=off make import-crds` to copy from the committed dependency version.
+Commit the copied `config/crd/bases/*.yaml` along with the dependency update;
+a Go module update alone does not update the manifests deployed to a cluster.

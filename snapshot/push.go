@@ -161,6 +161,7 @@ func (p *Pusher) uploadSnapshotConfig(ctx context.Context, name string, cfg *sna
 		Network:       cfg.Network,
 		Windows:       cfg.Windows,
 		Files:         files,
+		Engine:        cfg.Engine,
 		CreatedAt:     nowFunc().UTC(),
 	}
 	data, err := json.Marshal(cfgBlob)

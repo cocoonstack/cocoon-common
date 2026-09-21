@@ -21,7 +21,7 @@ const (
 	// LabelSnapshotCompatibilityClass selects nodes whose guest-visible CPU ABI can resume a CocoonSet's memory snapshots.
 	LabelSnapshotCompatibilityClass = "cocoonstack.io/snapshot-cpu-class"
 
-	// AnnotationMode declares the VM provisioning mode (clone / run / static).
+	// AnnotationMode declares the VM provisioning mode.
 	AnnotationMode = "cocoonset.cocoonstack.io/mode"
 	// AnnotationImage carries the VM image reference.
 	AnnotationImage = "cocoonset.cocoonstack.io/image"
@@ -29,7 +29,7 @@ const (
 	AnnotationStorage = "cocoonset.cocoonstack.io/storage"
 	// AnnotationManaged marks a VM as cocoon-managed ("true") versus user-managed/static.
 	AnnotationManaged = "cocoonset.cocoonstack.io/managed"
-	// AnnotationOS carries the guest OS family (linux / windows / android).
+	// AnnotationOS carries the guest OS family.
 	AnnotationOS = "cocoonset.cocoonstack.io/os"
 	// AnnotationSnapshotPolicy carries the per-pod snapshot policy.
 	AnnotationSnapshotPolicy = "cocoonset.cocoonstack.io/snapshot-policy"
@@ -62,7 +62,7 @@ const (
 	AnnotationCloneFromDir = "vm.cocoonstack.io/clone-from-dir"
 	// AnnotationConnType overrides the connection protocol inferred from OS/runtime.
 	AnnotationConnType = "vm.cocoonstack.io/conn-type"
-	// AnnotationBackend selects the hypervisor backend (cloud-hypervisor / firecracker).
+	// AnnotationBackend selects the hypervisor backend.
 	AnnotationBackend = "vm.cocoonstack.io/backend"
 	// AnnotationNoDirectIO disables O_DIRECT on writable disks when set to "true" (cloud-hypervisor only).
 	AnnotationNoDirectIO = "vm.cocoonstack.io/no-direct-io"

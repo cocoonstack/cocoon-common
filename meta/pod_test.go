@@ -7,6 +7,24 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+func TestVMLiveNeedsARunningContainerAndAVMID(t *testing.T) {
+	running := corev1.PodStatus{ContainerStatuses: []corev1.ContainerStatus{{State: corev1.ContainerState{Running: &corev1.ContainerStateRunning{}}}}}
+	live := &corev1.Pod{Status: running}
+	VMRuntime{VMID: "vm-1"}.Apply(live)
+	if !VMLive(live) {
+		t.Fatal("a running container with a VM ID must count as live")
+	}
+	noVM := &corev1.Pod{Status: running}
+	if VMLive(noVM) {
+		t.Fatal("a running container without a VM ID must not count as live")
+	}
+	notRunning := &corev1.Pod{}
+	VMRuntime{VMID: "vm-1"}.Apply(notRunning)
+	if VMLive(notRunning) {
+		t.Fatal("a VM ID without a running container must not count as live")
+	}
+}
+
 func TestIsPodReady(t *testing.T) {
 	cases := []struct {
 		name string

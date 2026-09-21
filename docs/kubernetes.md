@@ -7,15 +7,15 @@ Import path: `github.com/cocoonstack/cocoon-common/k8s`.
 
 ## Client configuration
 
-`k8s.LoadConfig()` resolves a `*rest.Config` through the standard deferred
-loading rules, first match wins:
+`k8s.LoadConfig()` resolves a `*rest.Config` through client-go's standard
+deferred loading rules:
 
-1. `$KUBECONFIG` — an `os.PathListSeparator` list is merged, as `kubectl` does
-2. `~/.kube/config`
-3. in-cluster config
+1. When `$KUBECONFIG` is set, merge its `os.PathListSeparator`-separated files.
+2. Otherwise, load `~/.kube/config`.
+3. If the loaded config is empty or the default, try in-cluster config when
+   available. Other configuration errors are returned.
 
-It then replaces client-go's `5 QPS / 10 burst` defaults, which throttle a
-reconciler long before the apiserver does:
+It applies these client-side request rate limits:
 
 | Variable | Default | Sets |
 |---|---|---|
@@ -76,13 +76,15 @@ cert, source, err := k8s.LoadOrGenerateCert(ctx, certPath, keyPath, hostname, ip
 ```
 
 Loads a keypair from disk and falls back to an in-memory self-signed ECDSA
-P-256 certificate when the paths are empty, the certificate file is missing,
-or the certificate has expired. The returned `source` label (`disk <path>` or
+P-256 certificate when either path is empty, the certificate file is missing,
+or the certificate has expired. A missing key file, malformed keypair, or
+other disk read error is returned. The `source` label (`disk <path>` or
 `self-signed`) is meant for a startup log line.
 
 `k8s.GenerateSelfSignedCert(hostname, ip)` exposes the fallback directly, and
-`k8s.DetectNodeIP()` returns the first non-loopback IPv4 address or
-`k8s.ErrNoNodeIP`. Detection never substitutes localhost on failure —
+`k8s.DetectNodeIP()` returns the first non-loopback IPv4 address outside the
+cocoon VM bridge (`cni0`), or an error when the host has none.
+Detection never substitutes localhost on failure —
 auto-substituting would mask a misconfigured network namespace, so the caller
 picks the fallback.
 
@@ -104,9 +106,10 @@ mux.HandleFunc("/mutate", func(w http.ResponseWriter, r *http.Request) {
 })
 ```
 
-`Serve` decodes the review, rejects a missing `request` with 400, dispatches,
-copies the request UID onto the response, and writes the encoded review. A nil
-handler return is normalised to `Allow()`. The body is capped at
-`DefaultMaxBody` (10 MiB) when the `maxBytes` argument is not positive;
+`Serve` decodes the review, rejects malformed JSON or a missing `request` with
+400, dispatches, copies the request UID onto the response, and removes the
+request before encoding the response review. A nil handler return is
+normalised to `Allow()`. The decoder reads at most `DefaultMaxBody` (10 MiB)
+when the `maxBytes` argument is not positive;
 `Decode` is exported for handlers that need the review without the response
 half.
