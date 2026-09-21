@@ -1,8 +1,8 @@
 # Metadata contract
 
-`meta` owns every identifier cocoon components stamp on a Kubernetes object,
-plus the typed wrappers that read and write them. Nothing else in the platform
-declares these strings.
+`meta` owns the shared identifiers cocoon components stamp on Kubernetes
+objects, plus the typed wrappers that read and write them. Components may
+also define private keys for their own reconciliation state.
 
 Import path: `github.com/cocoonstack/cocoon-common/meta`.
 
@@ -47,9 +47,12 @@ meta.VMRuntime{VMID: vmID, IP: ip}.Apply(pod)
 meta.HibernateState(true).Apply(pod)
 ```
 
-`Apply` skips empty fields, so it can never clear a value another writer set.
-The exceptions are deletes by design: `HibernateState(false).Apply` drops its
-key, and `LifecycleStatus.Apply` drops the message key when `Message` is empty.
+`VMSpec.Apply` and `VMRuntime.Apply` skip empty string fields, and runtime ports
+are emitted only when positive. Spec booleans are written only when true;
+false does not clear an existing annotation. Clearing runtime values requires
+an explicit annotation patch. `HibernateState(false).Apply` removes its key.
+`LifecycleStatus.Apply` always writes state and observed generation, and
+removes the message key when `Message` is empty.
 `ParseVMSpec` / `ParseVMRuntime` / `ReadHibernateState` read them back.
 
 `meta.FromAgentSpec` and `meta.FromToolboxSpec` build a `VMSpec` straight from
@@ -70,8 +73,9 @@ meta.RoleForPod(pod, vmName)                   // owner ref + name → role
 `ExtractAgentSlot` rejects any suffix containing a dash, so a toolbox named
 `app-0` (VM name `vk-ns-set-app-0`) can never be misread as agent slot 0.
 
-Role always comes from the pod's CocoonSet ownership via `RoleForPod`, never
-from parsing a VM-name suffix at a call site.
+When a Pod is available, use `RoleForPod` to combine its CocoonSet ownership
+with the VM name. Cleanup paths that no longer have a Pod can use
+`ExtractAgentSlot` with the owning CocoonSet's namespace and name.
 
 ## Snapshot contract
 
@@ -81,14 +85,17 @@ Two tag constants anchor the cross-component contract:
   hibernation snapshot under, and the tag the operator probes to detect that a
   hibernation completed.
 - `meta.DefaultSnapshotTag` (`latest`) — the tag vk-cocoon publishes routine
-  VM snapshots under at pod-delete time, and the tag cocoon-operator garbage
-  collects when a CocoonSet is deleted.
+  VM snapshots under at pod-delete time when the snapshot policy permits it.
 
-`meta.ShouldSnapshotVM(spec, role)` is the single shared decoder for the
-`SnapshotPolicy` × role decision. vk-cocoon asks it on the producer side
-("should I push this VM?") and cocoon-operator on the GC side ("should I
-delete this tag?"), so the two cannot drift — under `main-only` both agree
-that only the main agent is touched.
+`meta.ShouldSnapshotVM(spec, role)` returns true for `always`, true only for
+the main role under `main-only`, and false for `never`. It checks the policy
+and role, not `Managed`; vk-cocoon checks lifecycle ownership separately.
+
+After all owned Pods are gone, cocoon-operator deletes their `hibernate` tags.
+It keeps `latest` tags selected by the snapshot policy for later reuse:
+`always` keeps every role, `main-only` keeps only the main agent, and `never`
+keeps none. Its cleanup derives the role from the stored VM name because the
+Pods have already been deleted.
 
 `meta.LabelSnapshotCompatibilityClass`
 (`cocoonstack.io/snapshot-cpu-class`) closes the same loop for placement:
@@ -142,14 +149,20 @@ reported", with no dependence on wall-clock skew.
 
 ## Pod helpers
 
-`IsPodReady`, `IsPodTerminal`, `IsContainerRunning`, `PodKey(ns, name)`, and
-`PodNodePool(pod)` — the last resolving the pool from `nodeSelector`, then
-labels, then annotations, then `DefaultNodePool`.
+| Helper | Meaning |
+|---|---|
+| `IsPodReady(pod)` | A `PodReady=True` condition exists |
+| `IsPodTerminal(pod)` | Phase is `PodFailed`; `PodSucceeded` is not included |
+| `IsContainerRunning(pod)` | Any container status reports `Running` |
+| `VMLive(pod)` | A container reports `Running` and the VMID annotation is non-empty; this does not test readiness or contact the VM |
+| `PodKey(ns, name)` | `namespace/name` |
+| `PodNodePool(pod)` | First non-empty pool in nodeSelector, labels, annotations, then `DefaultNodePool` |
 
 `HasCocoonTolerationKey` and `IsOwnedByCocoonSet` / `CocoonSetOwnerName` cover
 the admission-side ownership checks. The toleration check matches on key
-alone; operator, value, and effect are deliberately ignored so the
-cocoon-webhook gate stays permissive.
+alone; operator, value, and effect are ignored so every toleration bearing the
+key is included in the gate. The owner helpers match the owner reference's
+Kind and return its name; they do not authenticate who created the Pod.
 
 `ConnectionType(osType, hasVNCPort, override)` resolves the connection
 protocol: an explicit override wins, then a VNC port, then the OS family
