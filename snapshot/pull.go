@@ -13,8 +13,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/projecteru2/core/log"
-
 	"github.com/cocoonstack/cocoon-common/manifest"
 	"github.com/cocoonstack/cocoon-common/ociutil"
 )
@@ -45,7 +43,7 @@ func Stream(ctx context.Context, raw []byte, dl Downloader, opts StreamOptions) 
 	}
 
 	if manifest.ClassifyParsed(m) == manifest.KindImageIndex {
-		child, err := pickIndexChild(ctx, m)
+		child, err := pickIndexChild(m)
 		if err != nil {
 			return err
 		}
@@ -184,25 +182,14 @@ func validateSnapshotLayers(m *manifest.OCIManifest, cfg *manifest.SnapshotConfi
 	return nil
 }
 
-// pickIndexChild selects the linux/amd64 child of an image-index, falling back to the first non-attestation entry.
-func pickIndexChild(ctx context.Context, m *manifest.OCIManifest) (manifest.IndexManifest, error) {
-	var fallback *manifest.IndexManifest
-	for i := range m.Manifests {
-		c := m.Manifests[i]
+// pickIndexChild selects the linux/amd64 child of an image-index.
+func pickIndexChild(m *manifest.OCIManifest) (manifest.IndexManifest, error) {
+	for _, c := range m.Manifests {
 		if c.Platform != nil && c.Platform.OS == "linux" && c.Platform.Architecture == "amd64" {
 			return c, nil
 		}
-		if fallback == nil && c.Platform != nil && c.Platform.Architecture != "unknown" {
-			fallback = &m.Manifests[i]
-		}
 	}
-	if fallback != nil {
-		logger := log.WithFunc("snapshot.pickIndexChild")
-		logger.Warnf(ctx, "image-index has no linux/amd64 child, falling back to %s/%s (%s)",
-			fallback.Platform.OS, fallback.Platform.Architecture, fallback.Digest)
-		return *fallback, nil
-	}
-	return manifest.IndexManifest{}, errors.New("image-index has no usable platform child")
+	return manifest.IndexManifest{}, errors.New("image-index has no linux/amd64 child")
 }
 
 func writeImportTar(ctx context.Context, dl Downloader, opts StreamOptions, cfg *manifest.SnapshotConfig, layers []manifest.Descriptor) error {
