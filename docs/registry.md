@@ -115,9 +115,9 @@ err := snapshot.Stream(ctx, rawManifest, reg, snapshot.StreamOptions{
 })
 ```
 
-`Stream` accepts raw manifest bytes and resolves an OCI image-index to a child
-manifest (preferring `linux/amd64`, then the first entry with a non-nil platform
-whose architecture is not `unknown`) before assembling; `StreamParsed` takes
+`Stream` accepts raw manifest bytes and resolves an OCI image-index to its
+`linux/amd64` child before assembling; an index without one is an error, since
+a snapshot of another platform cannot be restored here. `StreamParsed` takes
 an already-parsed manifest. The output is a `cocoon snapshot import` tar
 written to any `io.Writer`.
 
