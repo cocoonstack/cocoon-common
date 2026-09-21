@@ -81,7 +81,8 @@ or the certificate has expired. The returned `source` label (`disk <path>` or
 `self-signed`) is meant for a startup log line.
 
 `k8s.GenerateSelfSignedCert(hostname, ip)` exposes the fallback directly, and
-`k8s.DetectNodeIP()` returns the first non-loopback IPv4 address, or an
+`k8s.DetectNodeIP()` returns the first non-loopback IPv4 address outside the
+cocoon bridge (`cni0`, whose gateway address is the same on every node), or an
 error when the host has none. Detection never substitutes localhost on failure —
 auto-substituting would mask a misconfigured network namespace, so the caller
 picks the fallback.
