@@ -31,7 +31,7 @@ or TLS error at startup surfaces immediately instead of hanging until SIGTERM.
 ## log
 
 ```go
-if err := log.Setup(ctx, "COCOON_OPERATOR_LOG_LEVEL"); err != nil {
+if err := log.Setup(ctx, "OPERATOR_LOG_LEVEL"); err != nil {
     // level string was invalid
 }
 ```
