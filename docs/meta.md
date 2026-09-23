@@ -62,16 +62,19 @@ the CRD types, resolving each enum that declares a `Default()` through it;
 ## VM naming and roles
 
 ```go
-meta.VMNameForDeployment(ns, cocoonSet, slot)  // "vk-<ns>-<set>-<slot>"
-meta.VMNameForPod(ns, podName)                 // "vk-<ns>-<pod>"
-meta.AgentVMNamePrefix(ns, cocoonSet)          // "vk-<ns>-<set>-"
+meta.VMNameForDeployment(ns, cocoonSet, slot)  // "vk-<ns>.<set>-<slot>"
+meta.VMNameForPod(ns, podName)                 // "vk-<ns>.<pod>"
+meta.AgentVMNamePrefix(ns, cocoonSet)          // "vk-<ns>.<set>-"
 meta.ExtractAgentSlot(ns, cocoonSet, vmName)   // slot, or -1 for a toolbox
 meta.InferRoleFromAgentSlot(slot)              // main / sub-agent / toolbox
 meta.RoleForPod(pod, vmName)                   // owner ref + name → role
 ```
 
-`ExtractAgentSlot` rejects any suffix containing a dash, so a toolbox named
-`app-0` (VM name `vk-ns-set-app-0`) can never be misread as agent slot 0.
+The namespace never contains a dot, so `vk-<ns>.<pod>` decodes uniquely and
+two pods never share a VM name (`team-a/dev-0` is `vk-team-a.dev-0`, `team/a-dev-0`
+is `vk-team.a-dev-0`). `ExtractAgentSlot` rejects any suffix containing a dash, so
+a toolbox named `app-0` (VM name `vk-ns.set-app-0`) can never be misread as agent
+slot 0.
 
 When a Pod is available, use `RoleForPod` to combine its CocoonSet ownership
 with the VM name. Cleanup paths that no longer have a Pod can use

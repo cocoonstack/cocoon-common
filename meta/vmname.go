@@ -7,22 +7,22 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-// VMNameForDeployment builds a deterministic VM name from a deployment and slot index.
+// VMNameForDeployment names the agent VM of a CocoonSet slot after its pod, DEPLOYMENT-SLOT.
 func VMNameForDeployment(namespace, deployment string, slot int) string {
-	return "vk-" + namespace + "-" + deployment + "-" + strconv.Itoa(slot)
+	return VMNameForPod(namespace, deployment+"-"+strconv.Itoa(slot))
 }
 
-// VMNameForPod builds a deterministic VM name from a pod name.
+// VMNameForPod builds "vk-NAMESPACE.POD"; a namespace never contains a dot, so the name decodes uniquely and pod uniqueness carries over.
 func VMNameForPod(namespace, podName string) string {
-	return "vk-" + namespace + "-" + podName
+	return "vk-" + namespace + "." + podName
 }
 
-// AgentVMNamePrefix returns "vk-NAMESPACE-COCOONSET-", the prefix every agent VM name shares.
+// AgentVMNamePrefix returns "vk-NAMESPACE.COCOONSET-", the prefix every agent VM name shares.
 func AgentVMNamePrefix(namespace, cocoonSet string) string {
-	return "vk-" + namespace + "-" + cocoonSet + "-"
+	return VMNameForPod(namespace, cocoonSet) + "-"
 }
 
-// ExtractAgentSlot parses the trailing agent slot from vmName, or -1 for a toolbox name such as "vk-NS-CS-db-2".
+// ExtractAgentSlot parses the trailing agent slot from vmName, or -1 for a toolbox name such as "vk-NS.CS-db-2".
 func ExtractAgentSlot(namespace, cocoonSet, vmName string) int {
 	prefix := AgentVMNamePrefix(namespace, cocoonSet)
 	suffix, ok := strings.CutPrefix(vmName, prefix)
