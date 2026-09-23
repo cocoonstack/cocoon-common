@@ -16,6 +16,23 @@ func TestVMNamingHelpers(t *testing.T) {
 	}
 }
 
+func TestToolboxAndHibernateImportNames(t *testing.T) {
+	cases := []struct {
+		name string
+		got  string
+		want string
+	}{
+		{"toolbox pod", ToolboxPodName("demo", "shell"), "demo-shell"},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.got != tt.want {
+				t.Errorf("got %q, want %q", tt.got, tt.want)
+			}
+		})
+	}
+}
+
 func TestExtractAgentSlot(t *testing.T) {
 	cases := []struct {
 		name      string

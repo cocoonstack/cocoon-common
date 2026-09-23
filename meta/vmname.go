@@ -7,9 +7,17 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
+// HibernateImportSuffix is appended to a VM name to import a pulled hibernate snapshot beside the live VM.
+const HibernateImportSuffix = "-hibernate-import"
+
 // VMNameForDeployment names the agent VM of a CocoonSet slot after its pod, DEPLOYMENT-SLOT.
 func VMNameForDeployment(namespace, deployment string, slot int) string {
 	return VMNameForPod(namespace, deployment+"-"+strconv.Itoa(slot))
+}
+
+// ToolboxPodName names the pod of a CocoonSet toolbox, COCOONSET-TOOLBOX.
+func ToolboxPodName(cocoonSet, toolbox string) string {
+	return cocoonSet + "-" + toolbox
 }
 
 // VMNameForPod builds "vk-NAMESPACE.POD"; a namespace never contains a dot, so the name decodes uniquely and pod uniqueness carries over.
