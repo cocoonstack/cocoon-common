@@ -55,9 +55,6 @@ func Run(ctx context.Context, shutdownTimeout time.Duration, specs ...ServerSpec
 	serveErrs := make([]error, len(specs))
 	var wg sync.WaitGroup
 
-	// shutdownParent must outlive ctx cancellation so shutdown can still run.
-	shutdownParent := context.WithoutCancel(ctx)
-
 	// runCtx trips shutdown on a Start failure, so a bind/TLS error at startup doesn't hang until SIGTERM.
 	runCtx, cancelRun := context.WithCancel(ctx)
 	defer cancelRun()
@@ -73,16 +70,14 @@ func Run(ctx context.Context, shutdownTimeout time.Duration, specs ...ServerSpec
 
 	<-runCtx.Done()
 
-	shutdownCtx, cancel := context.WithTimeout(shutdownParent, shutdownTimeout)
+	shutdownCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), shutdownTimeout)
 	defer cancel()
 
 	shutdownErrs := make([]error, len(specs))
 	var shutdownWG sync.WaitGroup
 	for i, spec := range specs {
 		shutdownWG.Go(func() {
-			if err := spec.Server.Shutdown(shutdownCtx); err != nil {
-				shutdownErrs[i] = err
-			}
+			shutdownErrs[i] = spec.Server.Shutdown(shutdownCtx)
 		})
 	}
 	shutdownWG.Wait()
