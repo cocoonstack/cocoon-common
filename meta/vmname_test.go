@@ -8,11 +8,39 @@ import (
 )
 
 func TestVMNamingHelpers(t *testing.T) {
-	if got := VMNameForDeployment("prod", "demo", 2); got != "vk-prod.demo-2" {
+	if got := VMNameForDeployment("prod", "demo", 2); got != "vk-prod-demo-2-496021" {
 		t.Fatalf("deployment vm name mismatch: got %q", got)
 	}
-	if got := VMNameForPod("prod", "toolbox"); got != "vk-prod.toolbox" {
+	if got := VMNameForPod("prod", "toolbox"); got != "vk-prod-toolbox-869218" {
 		t.Fatalf("pod vm name mismatch: got %q", got)
+	}
+	if a, b := VMNameForDeployment("team-a", "dev", 0), VMNameForDeployment("team", "a-dev", 0); a == b {
+		t.Fatalf("team-a/dev and team/a-dev share VM name %q", a)
+	}
+	if got := VMNameForDeployment("prod", "demo.v1", 0); got != "vk-prod-demo-v1-0-ac2538" {
+		t.Fatalf("dotted cocoonset vm name mismatch: got %q", got)
+	}
+	if got := VMNameForDeployment("prod", "demo-v1", 0); got != "vk-prod-demo-v1-0-17548c" {
+		t.Fatalf("dashed twin of a dotted cocoonset must keep its own hash: got %q", got)
+	}
+}
+
+func TestToolboxAndHibernateImportNames(t *testing.T) {
+	cases := []struct {
+		name string
+		got  string
+		want string
+	}{
+		{"toolbox pod", ToolboxPodName("demo", "shell"), "demo-shell"},
+		{"toolbox vm", VMNameForPod("prod", ToolboxPodName("demo", "shell")), "vk-prod-demo-shell-c79ab8"},
+		{"hibernate import", VMNameForDeployment("prod", "demo", 0) + HibernateImportSuffix, "vk-prod-demo-0-71ea62-hibernate-import"},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.got != tt.want {
+				t.Errorf("got %q, want %q", tt.got, tt.want)
+			}
+		})
 	}
 }
 
@@ -28,42 +56,70 @@ func TestExtractAgentSlot(t *testing.T) {
 			name:      "main agent",
 			ns:        "prod",
 			cocoonSet: "demo",
-			vmName:    "vk-prod.demo-0",
+			vmName:    VMNameForDeployment("prod", "demo", 0),
 			want:      0,
 		},
 		{
 			name:      "sub-agent",
 			ns:        "prod",
 			cocoonSet: "demo",
-			vmName:    "vk-prod.demo-3",
+			vmName:    VMNameForDeployment("prod", "demo", 3),
 			want:      3,
 		},
 		{
 			name:      "toolbox with trailing digit is not an agent slot",
 			ns:        "prod",
 			cocoonSet: "demo",
-			vmName:    "vk-prod.demo-db-2",
+			vmName:    VMNameForPod("prod", ToolboxPodName("demo", "db-2")),
 			want:      -1,
 		},
 		{
 			name:      "toolbox without trailing digit",
 			ns:        "prod",
 			cocoonSet: "demo",
-			vmName:    "vk-prod.demo-toolbox",
+			vmName:    VMNameForPod("prod", ToolboxPodName("demo", "toolbox")),
 			want:      -1,
 		},
 		{
 			name:      "different cocoonset",
 			ns:        "prod",
 			cocoonSet: "demo",
-			vmName:    "vk-prod.other-0",
+			vmName:    VMNameForDeployment("prod", "other", 0),
 			want:      -1,
 		},
 		{
 			name:      "different namespace",
 			ns:        "prod",
 			cocoonSet: "demo",
-			vmName:    "vk-staging.demo-0",
+			vmName:    VMNameForDeployment("staging", "demo", 0),
+			want:      -1,
+		},
+		{
+			name:      "toolbox of a dashed cocoonset",
+			ns:        "prod",
+			cocoonSet: "demo",
+			vmName:    VMNameForPod("prod", ToolboxPodName("demo-1", "t")),
+			want:      -1,
+		},
+		{
+			name:      "dotted cocoonset",
+			ns:        "prod",
+			cocoonSet: "demo.v1",
+			vmName:    VMNameForDeployment("prod", "demo.v1", 1),
+			want:      1,
+		},
+		{
+			name:      "dashed twin of a dotted cocoonset",
+			ns:        "prod",
+			cocoonSet: "demo.v1",
+			vmName:    VMNameForDeployment("prod", "demo-v1", 1),
+			want:      -1,
+		},
+		{
+			name:      "slot with a foreign hash",
+			ns:        "prod",
+			cocoonSet: "demo",
+			vmName:    "vk-prod-demo-0-000000",
 			want:      -1,
 		},
 		{
@@ -106,25 +162,25 @@ func TestRoleForPod(t *testing.T) {
 		{
 			name:   "agent slot 0 is main",
 			pod:    &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Namespace: "ns", OwnerReferences: cocoonSetOwner}},
-			vmName: "vk-ns.cs-0",
+			vmName: VMNameForDeployment("ns", "cs", 0),
 			want:   RoleMain,
 		},
 		{
 			name:   "agent slot 2 is sub-agent",
 			pod:    &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Namespace: "ns", OwnerReferences: cocoonSetOwner}},
-			vmName: "vk-ns.cs-2",
+			vmName: VMNameForDeployment("ns", "cs", 2),
 			want:   RoleSubAgent,
 		},
 		{
 			name:   "toolbox named app-0 is not main",
 			pod:    &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Namespace: "ns", OwnerReferences: cocoonSetOwner}},
-			vmName: "vk-ns.cs-app-0",
+			vmName: VMNameForPod("ns", ToolboxPodName("cs", "app-0")),
 			want:   RoleToolbox,
 		},
 		{
 			name:   "no CocoonSet owner is toolbox",
 			pod:    &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Namespace: "ns"}},
-			vmName: "vk-ns.cs-0",
+			vmName: VMNameForDeployment("ns", "cs", 0),
 			want:   RoleToolbox,
 		},
 	}

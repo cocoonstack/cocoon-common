@@ -52,7 +52,7 @@ method does not replace validation.
 | `SnapshotPolicy` | `always`, `main-only`, `never` | `always` |
 | `HibernatePolicy` | `retain`, `release` | `retain` |
 | `Backend` | `cloud-hypervisor`, `firecracker` | `cloud-hypervisor` |
-| `ConnType` | `ssh`, `rdp`, `vnc`, `adb` | none — empty means "infer from OS" |
+| `ConnType` | `ssh`, `rdp`, `vnc`, `adb` | none — empty infers it from the VNC port, then the OS |
 | `HibernationDesire` | `Hibernate`, `Wake` | none |
 
 `CocoonSetPhase` and `CocoonHibernationPhase` are status-only enums with no

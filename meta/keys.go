@@ -44,7 +44,7 @@ const (
 
 	// AnnotationVMID carries the runtime VM identifier vk-cocoon assigns after creation.
 	AnnotationVMID = "vm.cocoonstack.io/id"
-	// AnnotationVMName carries the deterministic VM name the operator builds from namespace/deployment/slot.
+	// AnnotationVMName carries the deterministic VM name the operator builds from the pod's namespace and name.
 	AnnotationVMName = "vm.cocoonstack.io/name"
 	// AnnotationIP carries the VM's primary IPv4 address.
 	AnnotationIP = "vm.cocoonstack.io/ip"
