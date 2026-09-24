@@ -36,6 +36,28 @@ func TestBulkTransportUsesHTTP1(t *testing.T) {
 	}
 }
 
+func TestStreamLayerCompressedReplaysBody(t *testing.T) {
+	want := []byte("complete replayable blob")
+	layer := &streamLayer{body: bytes.NewReader(want)}
+
+	for call := 1; call <= 2; call++ {
+		rc, err := layer.Compressed()
+		if err != nil {
+			t.Fatalf("Compressed call %d: %v", call, err)
+		}
+		got, err := io.ReadAll(rc)
+		if err != nil {
+			t.Fatalf("read Compressed call %d: %v", call, err)
+		}
+		if err := rc.Close(); err != nil {
+			t.Fatalf("close Compressed call %d: %v", call, err)
+		}
+		if !bytes.Equal(got, want) {
+			t.Fatalf("Compressed call %d = %q, want %q", call, got, want)
+		}
+	}
+}
+
 func TestOCIRegistryRoundTrip(t *testing.T) {
 	srv := httptest.NewServer(registry.New())
 	t.Cleanup(srv.Close)

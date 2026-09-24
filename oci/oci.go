@@ -103,7 +103,7 @@ func (r *OCIRegistry) HasManifest(ctx context.Context, repo, tag string) (bool, 
 	return true, nil
 }
 
-func (r *OCIRegistry) PutBlob(ctx context.Context, repo, digest string, body io.Reader, size int64) error {
+func (r *OCIRegistry) PutBlob(ctx context.Context, repo, digest string, body io.ReadSeeker, size int64) error {
 	repoRef, err := name.NewRepository(r.base + "/" + repo)
 	if err != nil {
 		return fmt.Errorf("parse repo %s: %w", repo, err)
@@ -182,16 +182,21 @@ func isNotFound(err error) bool {
 	return ok && terr.StatusCode == http.StatusNotFound
 }
 
-// streamLayer is a single-use v1.Layer over a body of known digest and size, so PutBlob streams without buffering.
+// streamLayer is a replayable v1.Layer over a body of known digest and size, so PutBlob streams without buffering.
 type streamLayer struct {
 	hash v1.Hash
 	size int64
-	body io.Reader
+	body io.ReadSeeker
 }
 
-func (l *streamLayer) Digest() (v1.Hash, error)             { return l.hash, nil }
-func (l *streamLayer) Size() (int64, error)                 { return l.size, nil }
-func (l *streamLayer) Compressed() (io.ReadCloser, error)   { return io.NopCloser(l.body), nil }
+func (l *streamLayer) Digest() (v1.Hash, error) { return l.hash, nil }
+func (l *streamLayer) Size() (int64, error)     { return l.size, nil }
+func (l *streamLayer) Compressed() (io.ReadCloser, error) {
+	if _, err := l.body.Seek(0, io.SeekStart); err != nil {
+		return nil, fmt.Errorf("rewind blob: %w", err)
+	}
+	return io.NopCloser(l.body), nil
+}
 func (l *streamLayer) MediaType() (types.MediaType, error)  { return types.OCILayer, nil }
 func (l *streamLayer) DiffID() (v1.Hash, error)             { return v1.Hash{}, errBlobUncompressed }
 func (l *streamLayer) Uncompressed() (io.ReadCloser, error) { return nil, errBlobUncompressed }

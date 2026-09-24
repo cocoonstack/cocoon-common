@@ -34,7 +34,7 @@ type ProgressFunc = func(string)
 // Uploader abstracts OCI blob and manifest uploads.
 type Uploader interface {
 	HasBlob(ctx context.Context, name, digest string) (bool, error)
-	PutBlob(ctx context.Context, name, digest string, body io.Reader, size int64) error
+	PutBlob(ctx context.Context, name, digest string, body io.ReadSeeker, size int64) error
 	PutManifest(ctx context.Context, name, tag string, data []byte, contentType string) error
 }
 

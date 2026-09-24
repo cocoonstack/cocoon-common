@@ -467,7 +467,7 @@ func (f *fakeUploader) HasBlob(_ context.Context, _, digest string) (bool, error
 	return ok, nil
 }
 
-func (f *fakeUploader) PutBlob(_ context.Context, _, digest string, body io.Reader, _ int64) error {
+func (f *fakeUploader) PutBlob(_ context.Context, _, digest string, body io.ReadSeeker, _ int64) error {
 	data, err := io.ReadAll(body)
 	if err != nil {
 		return err
