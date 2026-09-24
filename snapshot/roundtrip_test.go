@@ -872,7 +872,7 @@ type countingUploader struct {
 	putBlobCalls atomic.Int64
 }
 
-func (c *countingUploader) PutBlob(ctx context.Context, name, digest string, body io.Reader, size int64) error {
+func (c *countingUploader) PutBlob(ctx context.Context, name, digest string, body io.ReadSeeker, size int64) error {
 	c.putBlobCalls.Add(1)
 	return c.fakeUploader.PutBlob(ctx, name, digest, body, size)
 }
