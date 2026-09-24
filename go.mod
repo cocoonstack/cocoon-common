@@ -1,6 +1,6 @@
 module github.com/cocoonstack/cocoon-common
 
-go 1.27.0
+go 1.27.1
 
 require (
 	github.com/google/go-containerregistry v0.22.1
