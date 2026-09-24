@@ -76,5 +76,5 @@ func Serve(w http.ResponseWriter, r *http.Request, maxBytes int64, handler Handl
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	_, _ = w.Write(out) //nolint:gosec // marshaled JSON API response, not rendered as HTML
+	_, _ = w.Write(out)
 }
