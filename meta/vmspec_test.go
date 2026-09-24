@@ -13,14 +13,14 @@ import (
 func TestVMSpecApplyAndParse(t *testing.T) {
 	pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{}}
 	spec := VMSpec{
-		VMName:         "vk-prod.demo-0",
+		VMName:         "vk-prod-demo-0-71ea62",
 		Image:          "ghcr.io/cocoonstack/cocoon/ubuntu:24.04",
 		Mode:           "clone",
 		OS:             "linux",
 		Storage:        "100G",
 		Network:        "default",
 		SnapshotPolicy: "always",
-		ForkFrom:       "vk-prod.demo-main-0",
+		ForkFrom:       "vk-prod-demo-main-0-64eabb",
 		Managed:        true,
 		ForcePull:      true,
 		NoDirectIO:     true,
@@ -71,16 +71,16 @@ func TestFromAgentSpec(t *testing.T) {
 			Storage:    &storage,
 		},
 	}
-	got := FromAgentSpec(in, "vk-prod.demo-0", cocoonv1.SnapshotPolicyAlways, "vk-prod.demo-main-0")
+	got := FromAgentSpec(in, "vk-prod-demo-0-71ea62", cocoonv1.SnapshotPolicyAlways, "vk-prod-demo-main-0-64eabb")
 	want := VMSpec{
-		VMName:         "vk-prod.demo-0",
+		VMName:         "vk-prod-demo-0-71ea62",
 		Image:          in.Image,
 		Mode:           "run",
 		OS:             "windows",
 		Storage:        "100G",
 		Network:        "default",
 		SnapshotPolicy: "always",
-		ForkFrom:       "vk-prod.demo-main-0",
+		ForkFrom:       "vk-prod-demo-main-0-64eabb",
 		Managed:        true,
 		ForcePull:      true,
 		NoDirectIO:     true,
@@ -123,9 +123,9 @@ func TestFromToolboxSpec(t *testing.T) {
 			NoDirectIO: true,
 		},
 	}
-	got := FromToolboxSpec(in, "vk-prod.demo-shell", cocoonv1.SnapshotPolicyMainOnly)
+	got := FromToolboxSpec(in, "vk-prod-demo-shell-c79ab8", cocoonv1.SnapshotPolicyMainOnly)
 	want := VMSpec{
-		VMName:         "vk-prod.demo-shell",
+		VMName:         "vk-prod-demo-shell-c79ab8",
 		Image:          in.Image,
 		Mode:           "clone",
 		OS:             "linux",

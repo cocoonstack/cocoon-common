@@ -28,7 +28,7 @@ encoding lives.
 ```go
 // Managed=true: vk-cocoon owns lifecycle; false: adopt a pre-assigned VM.
 spec := meta.VMSpec{
-    VMName:         "vk-prod-demo-0",
+    VMName:         "vk-prod-demo-0-71ea62",
     Image:          "ghcr.io/cocoonstack/cocoon/ubuntu:24.04",
     Mode:           string(v1.AgentModeRun),
     OS:             string(v1.OSLinux),
@@ -62,20 +62,28 @@ the CRD types, resolving each enum that declares a `Default()` through it;
 ## VM naming and roles
 
 ```go
-meta.VMNameForDeployment(ns, cocoonSet, slot)  // "vk-<ns>.<set>-<slot>"
+meta.VMNameForDeployment(ns, cocoonSet, slot)  // "vk-<ns>-<set>-<slot>-<hash>"
 meta.ToolboxPodName(cocoonSet, toolbox)        // "<set>-<toolbox>"
-meta.VMNameForPod(ns, podName)                 // "vk-<ns>.<pod>"
-meta.AgentVMNamePrefix(ns, cocoonSet)          // "vk-<ns>.<set>-"
+meta.VMNameForPod(ns, podName)                 // "vk-<ns>-<pod>-<hash>"
+meta.AgentVMNamePrefix(ns, cocoonSet)          // "vk-<ns>-<set>-"
 meta.ExtractAgentSlot(ns, cocoonSet, vmName)   // slot, or -1 for a toolbox
 meta.InferRoleFromAgentSlot(slot)              // main / sub-agent / toolbox
 meta.RoleForPod(pod, vmName)                   // owner ref + name → role
 ```
 
-The namespace never contains a dot, so `vk-<ns>.<pod>` decodes uniquely and
-two pods never share a VM name (`team-a/dev-0` is `vk-team-a.dev-0`, `team/a-dev-0`
-is `vk-team.a-dev-0`). `ExtractAgentSlot` rejects any suffix containing a dash, so
-a toolbox named `app-0` (VM name `vk-ns.set-app-0`) can never be misread as agent
-slot 0. A toolbox VM is `VMNameForPod(ns, ToolboxPodName(set, toolbox))`.
+`<hash>` is the first 6 hex digits of sha256(`<ns>/<pod>`). A namespace never
+contains a slash, so two pods never share a VM name even when their dash-joined
+forms match (`team-a/dev-0` is `vk-team-a-dev-0-cc642f`, `team/a-dev-0` is
+`vk-team-a-dev-0-7ab660`), and the name stays recomputable from the namespace and
+pod name alone: the operator re-derives the main agent's name to find its
+snapshots after the pod is gone. The name carries no dot because cocoon uses it
+as the guest hostname, and cloud-init keeps only the part before the first dot:
+dots in the pod name become dashes, while the hash still covers the original
+name, so `demo.v1-0` and `demo-v1-0` stay distinct.
+`ExtractAgentSlot` accepts a name only when `VMNameForDeployment` reproduces it,
+so no toolbox (`app-0`, or a toolbox of a set whose name extends this one) is
+ever misread as an agent slot. A toolbox VM is
+`VMNameForPod(ns, ToolboxPodName(set, toolbox))`.
 
 A pulled hibernate snapshot is imported as `<vm>` + `meta.HibernateImportSuffix`
 (`-hibernate-import`) so it never collides with the live VM; the webhook caps

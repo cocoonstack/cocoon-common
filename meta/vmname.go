@@ -1,6 +1,8 @@
 package meta
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"strconv"
 	"strings"
 
@@ -20,25 +22,26 @@ func ToolboxPodName(cocoonSet, toolbox string) string {
 	return cocoonSet + "-" + toolbox
 }
 
-// VMNameForPod builds "vk-NAMESPACE.POD"; a namespace never contains a dot, so the name decodes uniquely and pod uniqueness carries over.
+// VMNameForPod builds "vk-NAMESPACE-POD-HASH" with POD's dots as dashes; HASH is 6 hex digits of sha256(NAMESPACE/POD) on the original POD, so the name is unique, dot-free and recomputable.
 func VMNameForPod(namespace, podName string) string {
-	return "vk-" + namespace + "." + podName
+	sum := sha256.Sum256([]byte(namespace + "/" + podName))
+	return "vk-" + namespace + "-" + strings.ReplaceAll(podName, ".", "-") + "-" + hex.EncodeToString(sum[:3])
 }
 
-// AgentVMNamePrefix returns "vk-NAMESPACE.COCOONSET-", the prefix every agent VM name shares.
+// AgentVMNamePrefix returns "vk-NAMESPACE-COCOONSET-" with COCOONSET's dots as dashes, the prefix every agent VM name shares.
 func AgentVMNamePrefix(namespace, cocoonSet string) string {
-	return VMNameForPod(namespace, cocoonSet) + "-"
+	return "vk-" + namespace + "-" + strings.ReplaceAll(cocoonSet, ".", "-") + "-"
 }
 
-// ExtractAgentSlot parses the trailing agent slot from vmName, or -1 for a toolbox name such as "vk-NS.CS-db-2".
+// ExtractAgentSlot returns the slot whose VMNameForDeployment is vmName, or -1 for any other name, toolboxes included.
 func ExtractAgentSlot(namespace, cocoonSet, vmName string) int {
-	prefix := AgentVMNamePrefix(namespace, cocoonSet)
-	suffix, ok := strings.CutPrefix(vmName, prefix)
-	if !ok || strings.Contains(suffix, "-") {
+	rest, ok := strings.CutPrefix(vmName, AgentVMNamePrefix(namespace, cocoonSet))
+	if !ok {
 		return -1
 	}
-	n, err := strconv.Atoi(suffix)
-	if err != nil || n < 0 {
+	slot, _, _ := strings.Cut(rest, "-")
+	n, err := strconv.Atoi(slot)
+	if err != nil || VMNameForDeployment(namespace, cocoonSet, n) != vmName {
 		return -1
 	}
 	return n
