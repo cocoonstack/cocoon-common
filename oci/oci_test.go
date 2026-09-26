@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"io"
+	"net/http"
 	"net/http/httptest"
 	"strconv"
 	"strings"
@@ -224,6 +225,38 @@ func TestGetManifestNotFoundIsTyped(t *testing.T) {
 	_, _, err := r.GetManifest(t.Context(), "ghost/repo", "missing")
 	if !errors.Is(err, snapshot.ErrManifestNotFound) {
 		t.Fatalf("err = %v, want errors.Is ErrManifestNotFound", err)
+	}
+}
+
+func TestUploadSessionReuploadsABlobTheRegistryDropped(t *testing.T) {
+	srv := httptest.NewServer(registry.New())
+	t.Cleanup(srv.Close)
+	r := NewOCIRegistry(strings.TrimPrefix(srv.URL, "http://")+"/cocoon", authn.DefaultKeychain)
+	ctx := t.Context()
+	blob := []byte("hibernate memory chunk")
+	digest := digestOf(blob)
+
+	if err := r.UploadSession().PutBlob(ctx, "myvm", digest, bytes.NewReader(blob), int64(len(blob))); err != nil {
+		t.Fatalf("first push PutBlob: %v", err)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, srv.URL+"/v2/cocoon/myvm/blobs/"+digest, nil)
+	if err != nil {
+		t.Fatalf("build delete: %v", err)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("delete blob: %v", err)
+	}
+	_ = resp.Body.Close()
+	if ok, err := r.HasBlob(ctx, "myvm", digest); err != nil || ok {
+		t.Fatalf("HasBlob after the registry dropped it = (%v, %v), want (false, nil)", ok, err)
+	}
+
+	if err := r.UploadSession().PutBlob(ctx, "myvm", digest, bytes.NewReader(blob), int64(len(blob))); err != nil {
+		t.Fatalf("second push PutBlob: %v", err)
+	}
+	if ok, err := r.HasBlob(ctx, "myvm", digest); err != nil || !ok {
+		t.Fatalf("HasBlob after the second push = (%v, %v), want (true, nil)", ok, err)
 	}
 }
 

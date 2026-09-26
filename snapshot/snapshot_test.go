@@ -442,6 +442,28 @@ func TestFetchSnapshotConfigRejectsOversizeDescriptor(t *testing.T) {
 	}
 }
 
+func TestPushUploadsThroughAFreshUploadSession(t *testing.T) {
+	cocoon := &fakeCocoon{exportTar: buildExportTar(t, snapshotExportConfig{Name: "myvm"}, map[string][]byte{
+		"config.json": []byte(`{}`),
+	})}
+	session := newFakeUploader()
+	base := &sessionUploader{fakeUploader: newFakeUploader(), session: session}
+	pusher := &Pusher{Uploader: base, Cocoon: cocoon}
+
+	if err := pusher.Push(t.Context(), PushOptions{Name: "myvm"}); err != nil {
+		t.Fatalf("Push: %v", err)
+	}
+	if base.sessions != 1 {
+		t.Fatalf("upload sessions opened = %d, want 1", base.sessions)
+	}
+	if len(base.blobs) != 0 || len(base.manifests) != 0 {
+		t.Fatalf("the long-lived uploader took %d blobs and %d manifests, want none", len(base.blobs), len(base.manifests))
+	}
+	if _, ok := session.manifests["myvm:latest"]; !ok || len(session.blobs) == 0 {
+		t.Fatalf("the session took %d blobs and manifests %v, want the push", len(session.blobs), session.manifests)
+	}
+}
+
 type fakeManifestUpload struct {
 	bytes       []byte
 	contentType string
@@ -540,4 +562,15 @@ func buildExportTarEntries(t *testing.T, cfg snapshotExportConfig, files map[str
 		ordered = append(ordered, namedTarEntry{name: name, entry: entry})
 	}
 	return buildOrderedExportTar(t, cfg, ordered)
+}
+
+type sessionUploader struct {
+	*fakeUploader
+	session  *fakeUploader
+	sessions int
+}
+
+func (s *sessionUploader) UploadSession() Uploader {
+	s.sessions++
+	return s.session
 }

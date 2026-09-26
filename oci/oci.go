@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/authn"
@@ -29,23 +30,25 @@ var _ Registry = (*OCIRegistry)(nil)
 // OCIRegistry is a Registry backed by a standard OCI Distribution registry, using upload sessions and keychain auth.
 type OCIRegistry struct {
 	base string // registry host + repo prefix, e.g. "asia-docker.pkg.dev/proj/repo"
+	pull []remote.Option
 	opts []remote.Option
 }
 
 // NewOCIRegistry roots a client at base, authenticating through keychain.
 func NewOCIRegistry(base string, keychain authn.Keychain) *OCIRegistry {
-	opts := []remote.Option{
+	pull := []remote.Option{
 		remote.WithAuthFromKeychain(keychain),
 		remote.WithTransport(bulkTransport()),
 	}
-	// Reuse pins one puller and pusher so the /v2/ ping and token exchange happen once per repo.
-	if puller, err := remote.NewPuller(opts...); err == nil {
-		opts = append(opts, remote.Reuse(puller))
+	// Reuse pins one puller per client and one pusher per upload session, so the /v2/ ping and token exchange happen once per repo.
+	if puller, err := remote.NewPuller(pull...); err == nil {
+		pull = append(pull, remote.Reuse(puller))
 	}
-	if pusher, err := remote.NewPusher(opts...); err == nil {
-		opts = append(opts, remote.Reuse(pusher))
-	}
-	return &OCIRegistry{base: base, opts: opts}
+	return &OCIRegistry{base: base, pull: pull, opts: pull}
+}
+
+func (r *OCIRegistry) UploadSession() snapshot.Uploader {
+	return &OCIRegistry{base: r.base, pull: r.pull, opts: withPusher(r.pull)}
 }
 
 // GetManifest fetches raw manifest bytes at repo:tag, or repo@digest when tag is a sha256 digest.
@@ -156,6 +159,14 @@ func (r *OCIRegistry) parseRef(repo, reference string) (name.Reference, error) {
 
 func (r *OCIRegistry) callOpts(ctx context.Context) []remote.Option {
 	return append(r.opts, remote.WithContext(ctx))
+}
+
+func withPusher(pull []remote.Option) []remote.Option {
+	pusher, err := remote.NewPusher(pull...)
+	if err != nil {
+		return pull
+	}
+	return append(slices.Clip(pull), remote.Reuse(pusher))
 }
 
 func bulkTransport() *http.Transport {
