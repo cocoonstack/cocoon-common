@@ -33,8 +33,9 @@ substitutes the interface.
 
 The standard transport uses two optimizations:
 
-- The client reuses a puller and a pusher via `remote.Reuse` so repository
-  authentication setup can be shared across blob calls.
+- The client reuses one puller via `remote.Reuse`, and each push reuses one
+  pusher for its whole upload session, so the repository ping and token
+  exchange happen once per client and once per push.
 - HTTP/2 is disabled and up to 32 idle connections are retained per host,
   allowing parallel transfers over separate HTTP/1.1 connections.
 
@@ -70,9 +71,11 @@ typed legacy fields. This preservation applies to both v1 and v2 layers.
 
 Layer blobs are content-addressed and preflighted with `HasBlob`, so a second
 push of unchanged file data with the same encoding settings re-uploads no
-layers. The config blob also uses `HasBlob`, but a fresh `CreatedAt` normally
-gives each push a new config digest. The manifest is published after all
-layer and config uploads succeed.
+layers. Each push runs in a fresh upload session, so a blob the registry
+dropped after an earlier push is uploaded again instead of being skipped as
+already sent. The config blob also uses `HasBlob`, but a fresh `CreatedAt`
+normally gives each push a new config digest. The manifest is published after
+all layer and config uploads succeed.
 
 ## Wire formats: v1 and v2
 

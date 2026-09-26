@@ -49,6 +49,9 @@ func (p *Pusher) Push(ctx context.Context, opts PushOptions) error {
 		return errors.New("snapshot push: name is required")
 	}
 	opts.Tag = cmp.Or(opts.Tag, "latest")
+	if s, ok := p.Uploader.(uploadSessioner); ok {
+		p = &Pusher{Uploader: s.UploadSession(), Cocoon: p.Cocoon}
+	}
 
 	stream, wait, err := p.Cocoon.Export(ctx, opts.Name)
 	if err != nil {

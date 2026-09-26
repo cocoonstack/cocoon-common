@@ -49,6 +49,10 @@ type CocoonRunner interface {
 	Export(ctx context.Context, name string) (io.ReadCloser, func() error, error)
 }
 
+type uploadSessioner interface {
+	UploadSession() Uploader
+}
+
 type snapshotExportEnvelope struct {
 	Version int                  `json:"version"`
 	Config  snapshotExportConfig `json:"config"`
