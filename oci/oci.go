@@ -158,7 +158,7 @@ func (r *OCIRegistry) parseRef(repo, reference string) (name.Reference, error) {
 }
 
 func (r *OCIRegistry) callOpts(ctx context.Context) []remote.Option {
-	return append(r.opts, remote.WithContext(ctx))
+	return append(slices.Clip(r.opts), remote.WithContext(ctx))
 }
 
 func withPusher(pull []remote.Option) []remote.Option {

@@ -260,6 +260,20 @@ func TestUploadSessionReuploadsABlobTheRegistryDropped(t *testing.T) {
 	}
 }
 
+func TestCallOptsNeverShareTheContextSlot(t *testing.T) {
+	r := NewOCIRegistry("registry.invalid/cocoon", authn.DefaultKeychain)
+	session, ok := r.UploadSession().(*OCIRegistry)
+	if !ok {
+		t.Fatal("UploadSession is not an *OCIRegistry")
+	}
+	for _, reg := range []*OCIRegistry{r, session} {
+		a, b := reg.callOpts(t.Context()), reg.callOpts(t.Context())
+		if &a[len(a)-1] == &b[len(b)-1] {
+			t.Errorf("two calls on %p share the slot of their context option", reg)
+		}
+	}
+}
+
 func digestOf(b []byte) string {
 	sum := sha256.Sum256(b)
 	return "sha256:" + hex.EncodeToString(sum[:])
