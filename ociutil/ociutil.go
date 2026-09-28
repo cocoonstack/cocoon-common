@@ -12,8 +12,9 @@ import (
 )
 
 var (
-	relRepo = regexp.MustCompile(`^[a-z0-9]+(?:(?:[._]|__|-+)[a-z0-9]+)*(?:/[a-z0-9]+(?:(?:[._]|__|-+)[a-z0-9]+)*)*$`)
-	relTag  = regexp.MustCompile(`^[A-Za-z0-9_][A-Za-z0-9._-]{0,127}$`)
+	relRepo   = regexp.MustCompile(`^[a-z0-9]+(?:(?:[._]|__|-+)[a-z0-9]+)*(?:/[a-z0-9]+(?:(?:[._]|__|-+)[a-z0-9]+)*)*$`)
+	relTag    = regexp.MustCompile(`^[A-Za-z0-9_][A-Za-z0-9._-]{0,127}$`)
+	relDigest = regexp.MustCompile(`^(?:sha256:[a-f0-9]{64}|sha512:[a-f0-9]{128})$`)
 )
 
 // BlobSizeChecker enforces exact size and no trailing data on a digest-verified body.
@@ -75,16 +76,22 @@ func CopyBlobSized(dst io.Writer, body io.Reader, digest string, size int64) err
 	return err
 }
 
-// ParseRef splits a registry-relative "repo[:tag]" at its first colon, defaulting the tag to "latest".
+// ParseRef splits a registry-relative "repo@digest" at the @ and "repo[:tag]" at its first colon, defaulting the tag to "latest".
 func ParseRef(ref string) (string, string) {
+	if name, digest, ok := strings.Cut(ref, "@"); ok && name != "" {
+		return name, digest
+	}
 	if name, tag, ok := strings.Cut(ref, ":"); ok && name != "" {
 		return name, tag
 	}
 	return ref, "latest"
 }
 
-// IsRelativeRef reports whether ref is a registry-relative repo[:tag], the only form ParseRef splits correctly.
+// IsRelativeRef reports whether ref is a registry-relative repo[:tag] or repo@digest, the only forms ParseRef splits correctly.
 func IsRelativeRef(ref string) bool {
-	repo, tag := ParseRef(ref)
-	return relRepo.MatchString(repo) && relTag.MatchString(tag)
+	repo, reference := ParseRef(ref)
+	if strings.Contains(ref, "@") {
+		return relRepo.MatchString(repo) && relDigest.MatchString(reference)
+	}
+	return relRepo.MatchString(repo) && relTag.MatchString(reference)
 }
