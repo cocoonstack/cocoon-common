@@ -74,6 +74,8 @@ const (
 	AnnotationLifecycleObservedGeneration = "vm.cocoonstack.io/lifecycle-observed-generation"
 	// AnnotationLifecycleStateMessage carries an optional message accompanying the lifecycle state.
 	AnnotationLifecycleStateMessage = "vm.cocoonstack.io/lifecycle-state-message"
+	// AnnotationSnapshotAnnotations carries a JSON object of OCI annotations stamped on every snapshot pushed for the pod.
+	AnnotationSnapshotAnnotations = "vm.cocoonstack.io/snapshot-annotations"
 
 	// RoleMain identifies the main agent VM (slot 0).
 	RoleMain = "main"
