@@ -14,7 +14,7 @@ you who owns the value.
 | Prefix | Owner and use | Keys |
 |---|---|---|
 | `cocoonset.cocoonstack.io/` | CocoonSet CRD group, pod selector labels, and CocoonSet-level fields the operator mirrors onto a managed pod | `name`, `role`, `slot`, `mode`, `image`, `os`, `storage`, `snapshot-policy`, `network`, `managed`, `force-pull`, `generation`, `hibernated-on-node` |
-| `vm.cocoonstack.io/` | VM-instance metadata — observed runtime state plus the per-VM spec the operator hands to vk-cocoon | `id`, `name`, `ip`, `vnc-port`, `hibernate`, `restore-from-hibernate`, `keep-snapshot-on-delete`, `fork-from`, `clone-from-dir`, `conn-type`, `backend`, `no-direct-io`, `probe-port`, `lifecycle-state`, `lifecycle-observed-generation`, `lifecycle-state-message` |
+| `vm.cocoonstack.io/` | VM-instance metadata — observed runtime state plus the per-VM spec the operator hands to vk-cocoon | `id`, `name`, `ip`, `vnc-port`, `hibernate`, `restore-from-hibernate`, `keep-snapshot-on-delete`, `fork-from`, `clone-from-dir`, `conn-type`, `backend`, `no-direct-io`, `probe-port`, `lifecycle-state`, `lifecycle-observed-generation`, `lifecycle-state-message`, `snapshot-annotations` |
 | `cocoonstack.io/` | Node labels vk-cocoon stamps on its virtual node and the operator selects on | `pool`, `snapshot-cpu-class` |
 
 `meta.KindCocoonSet` and `meta.TolerationKey`
@@ -130,6 +130,13 @@ contract — a lost flag costs the wake a registry pull, never correctness.
 `meta.AnnotationHibernatedOnNode` records the main agent's node at
 release-policy suspend; wake uses it as a preferred-affinity hint for a warm
 restore.
+
+`meta.AnnotationSnapshotAnnotations` carries a JSON object of OCI annotations
+that vk-cocoon stamps on every snapshot it pushes for the pod, hibernate and
+`latest` alike. The caller owns the keys and values and reads them back from the
+registry; the engine never interprets them. `meta.ReadSnapshotAnnotations`
+rejects a malformed value and any key under the `cocoonstack.` prefix, which the
+snapshot wire format reserves for its own annotations.
 
 ## Lifecycle status
 
