@@ -9,6 +9,8 @@ import (
 	"testing/iotest"
 )
 
+const hex64 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+
 func TestParseRef(t *testing.T) {
 	tests := []struct {
 		ref      string
@@ -21,6 +23,7 @@ func TestParseRef(t *testing.T) {
 		{"ghcr.io/cocoonstack/cocoon/ubuntu:24.04", "ghcr.io/cocoonstack/cocoon/ubuntu", "24.04"},
 		{":tag", ":tag", "latest"},
 		{"", "", "latest"},
+		{"ns/repo@sha256:" + hex64, "ns/repo", "sha256:" + hex64},
 	}
 	for _, tt := range tests {
 		t.Run(tt.ref, func(t *testing.T) {
@@ -42,10 +45,17 @@ func TestIsRelativeRef(t *testing.T) {
 		{"ns/repo:v1.2-rc", true},
 		{"ghcr.io/cocoonstack/cocoon/ubuntu:24.04", true},
 		{"snap_shot-x:latest", true},
+		{"ns/repo@sha256:" + hex64, true},
+		{"ns/repo@sha512:" + hex64 + hex64, true},
 
 		{"registry:5000/repo:tag", false},
 		{"registry:5000/repo", false},
 		{"repo@sha256:deadbeef", false},
+		{"repo@sha256:" + strings.ToUpper(hex64), false},
+		{"repo@md5:" + hex64, false},
+		{"registry:5000/repo@sha256:" + hex64, false},
+		{"repo:v1@sha256:" + hex64, false},
+		{"Repo@sha256:" + hex64, false},
 		{"https://cloud-images.ubuntu.com/noble.img", false},
 		{"Repo:tag", false},
 		{"repo:", false},

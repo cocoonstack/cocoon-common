@@ -180,7 +180,12 @@ descriptor size without hashing the body a second time:
 
 - `CopyBlobSized` — exact-size and no-trailing-data enforcement for a body the
   transport already digest-verified
-- `ParseRef` splits registry-relative `repo[:tag]` strings at the first colon,
-  defaulting a missing tag to `latest`; it does not validate the input
+- `ParseRef` splits a registry-relative `repo@digest` at the `@` and a
+  `repo[:tag]` at the first colon, defaulting a missing tag to `latest`; the
+  digest comes back in the tag position, and every `Registry` method that takes
+  a reference fetches by digest when the reference contains a colon; it does
+  not validate the input
 - `IsRelativeRef` validates that grammar before `ParseRef` is used on external
-  input, rejecting URLs, registry ports, digests, and empty tags
+  input: a lowercase repo path with a tag, or with a `sha256` / `sha512` digest
+  of the right length; it rejects URLs, registry ports, a tag and a digest
+  together, and empty tags
