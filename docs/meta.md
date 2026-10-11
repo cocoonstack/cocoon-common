@@ -14,7 +14,7 @@ you who owns the value.
 | Prefix | Owner and use | Keys |
 |---|---|---|
 | `cocoonset.cocoonstack.io/` | CocoonSet CRD group, pod selector labels, and CocoonSet-level fields the operator mirrors onto a managed pod | `name`, `role`, `slot`, `mode`, `image`, `os`, `storage`, `snapshot-policy`, `network`, `managed`, `force-pull`, `generation`, `hibernated-on-node` |
-| `vm.cocoonstack.io/` | VM-instance metadata — observed runtime state plus the per-VM spec the operator hands to vk-cocoon | `id`, `name`, `ip`, `vnc-port`, `hibernate`, `restore-from-hibernate`, `keep-snapshot-on-delete`, `fork-from`, `clone-from-dir`, `conn-type`, `backend`, `no-direct-io`, `probe-port`, `lifecycle-state`, `lifecycle-observed-generation`, `lifecycle-state-message`, `snapshot-annotations` |
+| `vm.cocoonstack.io/` | VM-instance metadata — observed runtime state plus the per-VM spec the operator hands to vk-cocoon | `id`, `name`, `ip`, `vnc-port`, `hibernate`, `restore-from-hibernate`, `keep-snapshot-on-delete`, `fork-from`, `clone-from-dir`, `conn-type`, `backend`, `no-direct-io`, `probe-port`, `lifecycle-state`, `lifecycle-observed-generation`, `lifecycle-state-message`, `snapshot-annotations`, `snapshot`, `snapshot-status` |
 | `cocoonstack.io/` | Node labels vk-cocoon stamps on its virtual node and the operator selects on | `pool`, `snapshot-cpu-class` |
 
 `meta.KindCocoonSet` and `meta.TolerationKey`
@@ -137,6 +137,17 @@ that vk-cocoon stamps on every snapshot it pushes for the pod, hibernate and
 registry; the engine never interprets them. `meta.ReadSnapshotAnnotations`
 rejects a malformed value and any key under the `cocoonstack.` prefix, which the
 snapshot wire format reserves for its own annotations.
+
+`meta.AnnotationSnapshotRequest` (`vm.cocoonstack.io/snapshot`) asks vk-cocoon
+to push a live snapshot of the pod's running VM to a registry-relative
+`repo[:tag]` (the tag defaults to `latest`). The VM pauses only for the save
+and keeps running; the snapshot keeps its NICs, so it can serve as a clone
+source. vk-cocoon serves a request while the VM runs and no hibernate is
+asked for, and answers in `meta.AnnotationSnapshotStatus`
+(`vm.cocoonstack.io/snapshot-status`), a JSON `meta.SnapshotStatus` whose `ref`
+echoes the request and whose `state` is `pushed` or `failed` with a `message`.
+A client patches a new ref and waits for a status carrying that ref;
+re-patching an answered ref does nothing.
 
 ## Lifecycle status
 

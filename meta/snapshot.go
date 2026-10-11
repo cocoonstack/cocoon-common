@@ -8,7 +8,25 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-const reservedSnapshotAnnotationPrefix = "cocoonstack."
+const (
+	reservedSnapshotAnnotationPrefix = "cocoonstack."
+
+	SnapshotStatePushed SnapshotState = "pushed"
+	SnapshotStateFailed SnapshotState = "failed"
+)
+
+type SnapshotState string
+
+type SnapshotStatus struct {
+	Ref     string        `json:"ref"`
+	State   SnapshotState `json:"state"`
+	Message string        `json:"message,omitempty"`
+}
+
+func (s SnapshotStatus) Annotations() map[string]any {
+	raw, _ := json.Marshal(s)
+	return map[string]any{AnnotationSnapshotStatus: string(raw)}
+}
 
 // ReadSnapshotAnnotations reads the caller's OCI annotations for the pod's pushed snapshots; keys under the cocoonstack. prefix are reserved.
 func ReadSnapshotAnnotations(pod *corev1.Pod) (map[string]string, error) {
@@ -26,4 +44,16 @@ func ReadSnapshotAnnotations(pod *corev1.Pod) (map[string]string, error) {
 		}
 	}
 	return annotations, nil
+}
+
+func ReadSnapshotStatus(pod *corev1.Pod) (SnapshotStatus, bool) {
+	raw := pod.Annotations[AnnotationSnapshotStatus]
+	if raw == "" {
+		return SnapshotStatus{}, false
+	}
+	var s SnapshotStatus
+	if err := json.Unmarshal([]byte(raw), &s); err != nil || s.Ref == "" {
+		return SnapshotStatus{}, false
+	}
+	return s, true
 }

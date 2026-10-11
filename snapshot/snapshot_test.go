@@ -147,6 +147,35 @@ func TestPushOmitsBaseImageAnnotationWhenEmpty(t *testing.T) {
 	}
 }
 
+func TestPushExportsLocalNameAndUploadsUnderName(t *testing.T) {
+	for _, tt := range []struct {
+		name       string
+		localName  string
+		wantExport string
+	}{
+		{name: "defaults to name", wantExport: "user/s1"},
+		{name: "local name", localName: "snap-myvm", wantExport: "snap-myvm"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			cocoon := &fakeCocoon{exportTar: buildExportTar(t, snapshotExportConfig{Name: "myvm"}, map[string][]byte{
+				"config.json": []byte(`{}`),
+			})}
+			uploader := newFakeUploader()
+			pusher := &Pusher{Uploader: uploader, Cocoon: cocoon}
+
+			if err := pusher.Push(t.Context(), PushOptions{Name: "user/s1", LocalName: tt.localName, Tag: "v2"}); err != nil {
+				t.Fatalf("Push: %v", err)
+			}
+			if len(cocoon.exported) != 1 || cocoon.exported[0] != tt.wantExport {
+				t.Errorf("exported %v, want [%s]", cocoon.exported, tt.wantExport)
+			}
+			if _, ok := uploader.manifests["user/s1:v2"]; !ok {
+				t.Error("no manifest at user/s1:v2")
+			}
+		})
+	}
+}
+
 func TestPushStampsCallerAnnotations(t *testing.T) {
 	cocoon := &fakeCocoon{exportTar: buildExportTar(t, snapshotExportConfig{Name: "myvm"}, map[string][]byte{
 		"config.json": []byte(`{}`),
@@ -529,9 +558,11 @@ func (f *fakeUploader) GetBlob(_ context.Context, _, digest string) (io.ReadClos
 
 type fakeCocoon struct {
 	exportTar []byte
+	exported  []string
 }
 
-func (f *fakeCocoon) Export(_ context.Context, _ string) (io.ReadCloser, func() error, error) {
+func (f *fakeCocoon) Export(_ context.Context, name string) (io.ReadCloser, func() error, error) {
+	f.exported = append(f.exported, name)
 	return io.NopCloser(bytes.NewReader(f.exportTar)), func() error { return nil }, nil
 }
 
