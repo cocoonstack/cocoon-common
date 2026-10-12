@@ -142,12 +142,13 @@ snapshot wire format reserves for its own annotations.
 to push a live snapshot of the pod's running VM to a registry-relative
 `repo[:tag]` (the tag defaults to `latest`). The VM pauses only for the save
 and keeps running; the snapshot keeps its NICs, so it can serve as a clone
-source. vk-cocoon serves a request while the VM runs and no hibernate is
+source. vk-cocoon serves a request once the VM is Ready and no hibernate is
 asked for, and answers in `meta.AnnotationSnapshotStatus`
 (`vm.cocoonstack.io/snapshot-status`), a JSON `meta.SnapshotStatus` whose `ref`
-echoes the request and whose `state` is `pushed` or `failed` with a `message`.
-A client patches a new ref and waits for a status carrying that ref;
-re-patching an answered ref does nothing.
+echoes the request and whose `state` is `pushed` or `failed`; a `failed` answer
+carries a `message`. A ref is answered once, pushed or failed, and re-patching
+an answered ref does nothing: every push, a retry included, uses a new tag, and
+the client waits for a status carrying that ref.
 
 ## Lifecycle status
 

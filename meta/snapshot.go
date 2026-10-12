@@ -9,10 +9,10 @@ import (
 )
 
 const (
-	reservedSnapshotAnnotationPrefix = "cocoonstack."
-
 	SnapshotStatePushed SnapshotState = "pushed"
 	SnapshotStateFailed SnapshotState = "failed"
+
+	reservedSnapshotAnnotationPrefix = "cocoonstack."
 )
 
 type SnapshotState string
@@ -46,14 +46,10 @@ func ReadSnapshotAnnotations(pod *corev1.Pod) (map[string]string, error) {
 	return annotations, nil
 }
 
-func ReadSnapshotStatus(pod *corev1.Pod) (SnapshotStatus, bool) {
-	raw := pod.Annotations[AnnotationSnapshotStatus]
-	if raw == "" {
-		return SnapshotStatus{}, false
-	}
+func ReadSnapshotStatus(pod *corev1.Pod) SnapshotStatus {
 	var s SnapshotStatus
-	if err := json.Unmarshal([]byte(raw), &s); err != nil || s.Ref == "" {
-		return SnapshotStatus{}, false
+	if raw := pod.Annotations[AnnotationSnapshotStatus]; raw != "" && json.Unmarshal([]byte(raw), &s) != nil {
+		return SnapshotStatus{}
 	}
-	return s, true
+	return s
 }
