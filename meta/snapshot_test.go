@@ -39,3 +39,25 @@ func TestReadSnapshotAnnotations(t *testing.T) {
 		})
 	}
 }
+
+func TestSnapshotStatusRoundTrip(t *testing.T) {
+	want := SnapshotStatus{Ref: "user-snapshots/u1/s1", State: SnapshotStateFailed, Message: "vm is not running"}
+	pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{}}}
+	for k, v := range want.Annotations() {
+		pod.Annotations[k] = v.(string)
+	}
+	if got := ReadSnapshotStatus(pod); got != want {
+		t.Fatalf("got %+v, want %+v", got, want)
+	}
+}
+
+func TestReadSnapshotStatusUnanswered(t *testing.T) {
+	for name, raw := range map[string]string{"absent": "", "malformed": `{"ref":`} {
+		t.Run(name, func(t *testing.T) {
+			pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{AnnotationSnapshotStatus: raw}}}
+			if got := ReadSnapshotStatus(pod); got.Ref != "" {
+				t.Errorf("ref = %q, want unanswered", got.Ref)
+			}
+		})
+	}
+}

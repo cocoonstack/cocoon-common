@@ -23,6 +23,7 @@ import (
 // PushOptions configures a snapshot push operation.
 type PushOptions struct {
 	Name        string
+	LocalName   string
 	Tag         string
 	BaseImage   string // optional cocoonstack.snapshot.baseimage annotation
 	Source      string
@@ -53,9 +54,10 @@ func (p *Pusher) Push(ctx context.Context, opts PushOptions) error {
 		p = &Pusher{Uploader: s.UploadSession(), Cocoon: p.Cocoon}
 	}
 
-	stream, wait, err := p.Cocoon.Export(ctx, opts.Name)
+	localName := cmp.Or(opts.LocalName, opts.Name)
+	stream, wait, err := p.Cocoon.Export(ctx, localName)
 	if err != nil {
-		return fmt.Errorf("cocoon export %s: %w", opts.Name, err)
+		return fmt.Errorf("cocoon export %s: %w", localName, err)
 	}
 
 	entries, readErr := p.readAndUploadEntries(ctx, opts, stream)
